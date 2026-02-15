@@ -1,1 +1,1 @@
-web: gunicorn myproject.wsgi:application
+web: gunicorn survey_app.wsgi:application
