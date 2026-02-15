@@ -84,6 +84,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware'
 ]
 
 ROOT_URLCONF = 'survey_app.urls'
@@ -185,6 +186,9 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'survey_app/survey_app/static'),
     os.path.join(BASE_DIR, 'surveys/static'),
 ]
+
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 
 # Ensure the staticfiles directory exists
 os.makedirs(STATIC_ROOT, exist_ok=True)
