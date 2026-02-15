@@ -114,10 +114,10 @@ WSGI_APPLICATION = 'survey_app.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'survey_app2',
-        'USER': 'postgres',
-        'PASSWORD': 'Somnath@16',  # Change this to your PostgreSQL password
-        'HOST': 'localhost',
+        'NAME': 'sudraw_database',
+        'USER': 'sudraw_database_user',
+        'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # Change this to your PostgreSQL password
+        'HOST': 'dpg-d68kcmh4tr6s73c8aetg-a',
         'PORT': '5432',
     }
 }
