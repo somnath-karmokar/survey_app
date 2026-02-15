@@ -1,0 +1,394 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}SUDRAW2 - Home{% endblock %}
+
+{% block extra_css %}
+    <style>
+        /* Page-specific styles */
+        .banner-area {
+            padding: 150px 0;
+            background: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%);
+            color: #fff;
+            text-align: center;
+        }
+        .banner-title {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+        .survey-card {
+            margin-bottom: 30px;
+            border: none;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        .survey-card:hover {
+            transform: translateY(-5px);
+        }
+        .serv_box {
+            background: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        .serv_box:hover {
+            transform: translateY(-10px);
+        }
+        .serv_img img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        .serv_cont {
+            padding: 20px;
+        }
+        .serv_icon {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            color: #0d6efd;
+        }
+        
+        /* Additional page-specific styles */
+        .banner-four-bg {
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            z-index: 1;
+        }
+        .banner-four-bg::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: -1;
+        }
+        .banner-content {
+            position: relative;
+            z-index: 2;
+        }
+        .text-box h4 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+        .banner-btns .btn {
+            margin: 0 10px;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+        .banner-btns .btn-primary {
+            background: #0d6efd;
+            border-color: #0d6efd;
+        }
+        .banner-btns .btn-outline-light {
+            border: 2px solid #fff;
+            color: #fff;
+        }
+        .banner-btns .btn-outline-light:hover {
+            background: #fff;
+            color: #0d6efd;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 991px) {
+            .banner-area {
+                padding: 100px 0;
+            }
+            .banner-title {
+                font-size: 2.5rem;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .banner-title {
+                font-size: 2rem;
+            }
+            .banner-btns .btn {
+                padding: 10px 20px;
+                font-size: 0.9rem;
+                margin: 5px;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<!-- Main Banner Section -->
+<section class="banner-area section">
+    <div class="banner-wrapper banner-four banner-four-bg p-relative">
+        <div class="banner-content center-container p-relative wow bdFadeInLeft" data-wow-delay=".2s">
+            <span class="text-box"><h4>Welcome to Sudraw</h4></span>
+            <h1 class="banner-title">Good questions, great insights.</h1>
+            <p class="mb-4">Start with a question. Get answers in real time. Use what you learn to shape what comes next.</p>
+            <div class="banner-btns">
+                <a href="#" class="btn btn-primary">Get Started</a>
+                <a href="#" class="btn btn-outline-light">Learn More</a>
+            </div>
+        </div>
+        <div class="banner-slider">
+            <div class="swiper banner-four-slider overflow-hidden">
+                <div class="swiper-wrapper slider">
+                    <div class="swiper-slide">
+                        <img src="{% static 'images/banner_img.jpg' %}" alt="Survey Banner 1">
+                    </div>
+                    <div class="swiper-slide">
+                        <img src="{% static 'images/banner_img2.jpg' %}" alt="Survey Banner 2">
+                    </div>
+                </div>
+                <div class="banner-four-pagination">
+                    <div class="swiper-pagination"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Survey Categories Section -->
+<section class="survey_area section-padding">
+    <div class="container">
+        <div class="section-title text-center mb-5">
+            <h2>Explore Our Survey Categories</h2>
+            <p>Choose from a variety of survey categories to get started</p>
+        </div>
+        <div class="row">
+            <div class="col-lg-4 col-sm-6">
+                <div class="serv_box">
+                    <div class="serv_img">
+                        <img src="{% static 'images/survey_img1.jpeg' %}" alt="Offshore Projects">
+                    </div>
+                    <div class="serv_cont">
+                        <div class="serv_icon"><i class="fa-solid fa-user"></i></div>
+                        <h3>Offshore Projects</h3>
+                        <p>Share your insights on offshore project management and execution strategies.</p>
+                        <a href="#" class="btn btn-primary mt-3">Start Survey</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+                <div class="serv_box">
+                    <div class="serv_img">
+                        <img src="{% static 'images/survey_img2.jpeg' %}" alt="IT Consultancy">
+                    </div>
+                    <div class="serv_cont">
+                        <div class="serv_icon"><i class="fa-solid fa-laptop-code"></i></div>
+                        <h3>IT Consultancy</h3>
+                        <p>Evaluate IT services and provide feedback on technology solutions.</p>
+                        <a href="#" class="btn btn-primary mt-3">Start Survey</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+                <div class="serv_box">
+                    <div class="serv_img">
+                        <img src="{% static 'images/survey_img3.jpeg' %}" alt="Venture Capitalism">
+                    </div>
+                    <div class="serv_cont">
+                        <div class="serv_icon"><i class="fa-solid fa-chart-line"></i></div>
+                        <h3>Venture Capitalism</h3>
+                        <p>Share your experience with venture capital funding and investments.</p>
+                        <a href="#" class="btn btn-primary mt-3">Start Survey</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+                <div class="serv_box">
+                    <div class="serv_img">
+                        <img src="{% static 'images/survey_img4.jpeg' %}" alt="Marketing Services">
+                    </div>
+                    <div class="serv_cont">
+                        <div class="serv_icon"><i class="fa-solid fa-bullhorn"></i></div>
+                        <h3>Marketing Services</h3>
+                        <p>Evaluate marketing strategies and provide your valuable feedback.</p>
+                        <a href="#" class="btn btn-primary mt-3">Start Survey</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+                <div class="serv_box">
+                    <div class="serv_img">
+                        <img src="{% static 'images/survey_img5.jpeg' %}" alt="Legal Services">
+                    </div>
+                    <div class="serv_cont">
+                        <div class="serv_icon"><i class="fa-solid fa-scale-balanced"></i></div>
+                        <h3>Legal Services</h3>
+                        <p>Share your experience with legal consultation and services.</p>
+                        <a href="#" class="btn btn-primary mt-3">Start Survey</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+                <div class="serv_box">
+                    <div class="serv_img">
+                        <img src="{% static 'images/survey_img6.jpeg' %}" alt="Financial Services">
+                    </div>
+                    <div class="serv_cont">
+                        <div class="serv_icon"><i class="fa-solid fa-coins"></i></div>
+                        <h3>Financial Services</h3>
+                        <p>Evaluate financial services and share your investment experiences.</p>
+                        <a href="#" class="btn btn-primary mt-3">Start Survey</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="recruitment_technology section-padding bg-light">
+    <div class="container">
+        <div class="section-title text-center mb-5">
+            <h2>Create Amazing Surveys</h2>
+            <p>Powerful features to help you get the insights you need</p>
+        </div>
+        <div class="row align-items-center">
+            <div class="col-lg-6 col-md-12 col-sm-12 d-flex">
+                <figure class="image_box js-tilt clearfix">
+                    <img src="{% static 'images/poll.webp' %}" alt="Survey Features" class="img-fluid">
+                </figure>
+            </div>
+            <div class="col-lg-6 col-md-12 col-sm-12">
+                <div id="content_block_4">
+                    <div class="content_box">
+                        <h2 class="head mb-4">Create a survey in no time</h2>
+                        <div class="inner_box">
+                            <div class="single-item mb-4">
+                                <div class="inner d-flex align-items-start">
+                                    <div class="me-4">
+                                        <div class="feature-icon rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                                            <i class="fas fa-list-ul fa-2x"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 class="h5 mb-2">Multiple Question Types</h3>
+                                        <p class="mb-0">Choose from various question types including multiple choice, text, rating scales, and more to get the insights you need.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="single-item mb-4">
+                                <div class="inner d-flex align-items-start">
+                                    <div class="me-4">
+                                        <div class="feature-icon rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                                            <i class="fas fa-chart-pie fa-2x"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 class="h5 mb-2">Real-time Analytics</h3>
+                                        <p class="mb-0">Get instant results and analytics to understand your audience better and make data-driven decisions.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="single-item mb-4">
+                                <div class="inner d-flex align-items-start">
+                                    <div class="me-4">
+                                        <div class="feature-icon rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                                            <i class="fas fa-image fa-2x"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 class="h5 mb-2">Rich Media Support</h3>
+                                        <p class="mb-0">Enhance your surveys with images, videos, and other media to make them more engaging.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="single-item">
+                                <div class="inner d-flex align-items-start">
+                                    <div class="me-4">
+                                        <div class="feature-icon rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                                            <i class="fas fa-share-alt fa-2x"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 class="h5 mb-2">Easy Sharing</h3>
+                                        <p class="mb-0">Share your surveys via email, social media, or embed them directly on your website.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Call to Action -->
+<section class="cta-section text-center py-5 bg-primary text-white">
+    <div class="container">
+        <h2 class="mb-4">Ready to Create Your First Survey?</h2>
+        <p class="lead mb-4">Join thousands of users who trust our platform for their survey needs.</p>
+        <a href="{% url 'surveys:signup' %}" class="btn btn-light btn-lg px-5">Get Started for Free</a>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        $(document).ready(function(){
+            // Initialize Slick Slider for banner
+            if ($('.banner-four-slider').length) {
+                new Swiper('.banner-four-slider', {
+                    loop: true,
+                    autoplay: {
+                        delay: 5000,
+                        disableOnInteraction: false,
+                    },
+                    pagination: {
+                        el: '.banner-four-pagination',
+                        clickable: true,
+                    },
+                    effect: 'fade',
+                    fadeEffect: {
+                        crossFade: true
+                    },
+                });
+            }
+            
+            // Initialize Tilt.js for elements with .js-tilt class
+            if ($.fn.tilt) {
+                $('.js-tilt').tilt({
+                    maxTilt: 15,
+                    perspective: 1000,
+                    easing: 'cubic-bezier(.03,.98,.52,.99)',
+                    speed: 300,
+                    scale: 1.02
+                });
+            }
+            
+            // Add smooth scrolling for anchor links
+            $('a[href^="#"]').on('click', function(e) {
+                e.preventDefault();
+                
+                var target = this.hash;
+                var $target = $(target);
+                
+                $('html, body').stop().animate({
+                    'scrollTop': $target.offset().top - 70
+                }, 900, 'swing', function() {
+                    window.location.hash = target;
+                });
+            });
+            
+            // Add animation on scroll
+            if (typeof AOS !== 'undefined') {
+                AOS.init({
+                    duration: 800,
+                    easing: 'ease-in-out',
+                    once: true
+                });
+            }
+        });
+    </script>
+{% endblock %}

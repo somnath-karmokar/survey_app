@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}FAQ - Survey App{% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/swiper.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/slick.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<section class="inner_banner">
+    <img src="{% static 'images/survey_img6.jpeg' %}" alt="FAQ Banner" class="img-fluid" />
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="inner_banner_content">
+                    <h1>FAQ</h1>
+                    <div class="breadcrumb_box">
+                        <ul>
+                            <li><a href="{% url 'surveys:home' %}">Home</a></li>
+                            <li><i class="fa fa-angle-right" aria-hidden="true"></i></li>
+                            <li>FAQ</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="faq_area">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-8 offset-md-2">
+                <div class="accordion" id="faq_accordionExample">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faq_headingOne">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq_collapseOne" aria-expanded="true" aria-controls="faq_collapseOne">
+                                Incentives
+                            </button>
+                        </h2>
+                        <div id="faq_collapseOne" class="accordion-collapse collapse show" aria-labelledby="faq_headingOne" data-bs-parent="#faq_accordionExample">
+                            <div class="accordion-body">
+                                <p>Participants understand that completing the survey does not guarantee any rewards or incentives.</p>
+                                <p>Participation in the cash draw is open to individuals who meet the eligibility criteria outlined in the draw rules.</p>
+                                <p>By entering the cash draw, participants agree to abide by the rules and decisions of the draw administrators.</p>
+                                <p>Participants acknowledge that cash draw prizes may be subject to applicable taxes and agree to comply with tax reporting requirements.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faq_headingTwo">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq_collapseTwo" aria-expanded="false" aria-controls="faq_collapseTwo">
+                                What happens when you participate in SuDraw Survey
+                            </button>
+                        </h2>
+                        <div id="faq_collapseTwo" class="accordion-collapse collapse" aria-labelledby="faq_headingTwo" data-bs-parent="#faq_accordionExample">
+                            <div class="accordion-body">
+                                <p>By participating in the SuDraw survey, you agree to provide accurate and truthful responses to all survey questions. Participants must be of legal age or have parental/guardian consent to participate in the survey.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faq_headingThree">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq_collapseThree" aria-expanded="false" aria-controls="faq_collapseThree">
+                                How many account can a user have?
+                            </button>
+                        </h2>
+                        <div id="faq_collapseThree" class="accordion-collapse collapse" aria-labelledby="faq_headingThree" data-bs-parent="#faq_accordionExample">
+                            <div class="accordion-body">
+                                <p>Only one account is to be created by a user, a mechanism is in place to detect a user creating a second or multiple account. Such participants will be suspended.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faq_headingFour">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq_collapseFour" aria-expanded="false" aria-controls="faq_collapseFour">
+                                Winner selection
+                            </button>
+                        </h2>
+                        <div id="faq_collapseFour" class="accordion-collapse collapse" aria-labelledby="faq_headingFour" data-bs-parent="#faq_accordionExample">
+                            <div class="accordion-body">
+                                <p>Cash draw participants understand that winners will be selected randomly from eligible entries and agree to accept the outcome of the draw.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faq_headingFive">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq_collapseFive" aria-expanded="false" aria-controls="faq_collapseFive">
+                                How do I participate in surveys?
+                            </button>
+                        </h2>
+                        <div id="faq_collapseFive" class="accordion-collapse collapse" aria-labelledby="faq_headingFive" data-bs-parent="#faq_accordionExample">
+                            <div class="accordion-body">
+                                <p>To participate in surveys, you need to create an account, log in, and browse available surveys. Select a survey that interests you and complete all questions to submit your response.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faq_headingSix">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq_collapseSix" aria-expanded="false" aria-controls="faq_collapseSix">
+                                How are winners selected for the lucky draw?
+                            </button>
+                        </h2>
+                        <div id="faq_collapseSix" class="accordion-collapse collapse" aria-labelledby="faq_headingSix" data-bs-parent="#faq_accordionExample">
+                            <div class="accordion-body">
+                                <p>Winners are selected randomly from participants who have completed the required number of surveys. The selection process is transparent and fair, using a random number generator to ensure equal chances for all eligible participants.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faq_headingSeven">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq_collapseSeven" aria-expanded="false" aria-controls="faq_collapseSeven">
+                                What prizes can I win?
+                            </button>
+                        </h2>
+                        <div id="faq_collapseSeven" class="accordion-collapse collapse" aria-labelledby="faq_headingSeven" data-bs-parent="#faq_accordionExample">
+                            <div class="accordion-body">
+                                <p>Prizes include various gift vouchers such as Amazon Vouchers, Flipkart Vouchers, and BookMyShow Vouchers. The specific prize amounts may vary depending on the current promotion.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends 'surveys/base/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Advertisement Debug Information</h2>
+        <div>
+            <a href="{% url 'surveys:survey_list' %}" class="btn btn-primary">
+                <i class="fas fa-arrow-left"></i> Back to Surveys
+            </a>
+            <a href="{% url 'surveys:debug_ad' %}" class="btn btn-secondary">
+                <i class="fas fa-sync"></i> Refresh
+            </a>
+        </div>
+    </div>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Session Information</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Session Keys:</h5>
+                    <ul>
+                        {% for key in session_keys %}
+                            <li>{{ key }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h5>Session Data:</h5>
+                    <pre>{{ session_data|pprint }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Advertisement Status</h4>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tr>
+                    <th>Completed Surveys</th>
+                    <td>{{ completed_surveys }}</td>
+                </tr>
+                <tr>
+                    <th>Ad Counter</th>
+                    <td>{{ ad_counter }}</td>
+                </tr>
+                <tr>
+                    <th>Should Show Ad</th>
+                    <td class="{% if should_show_ad %}text-success fw-bold{% else %}text-danger{% endif %}">
+                        {{ should_show_ad|yesno:"Yes,No" }}
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h4>Debug Log</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Event</th>
+                            <th>User</th>
+                            <th>Completed</th>
+                            <th>Ad Counter</th>
+                            <th>Expected Ads</th>
+                            <th>Show Ad</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in debug_info %}
+                        <tr>
+                            <td>{{ entry.timestamp|default:"N/A" }}</td>
+                            <td>{{ entry.event|default:"check" }}</td>
+                            <td>{{ entry.user|default:user.username }}</td>
+                            <td>{{ entry.total_completed|default:"N/A" }}</td>
+                            <td>{{ entry.ad_counter|default:"N/A" }}</td>
+                            <td>{{ entry.expected_ads|default:"N/A" }}</td>
+                            <td class="{% if entry.should_show %}text-success fw-bold{% else %}text-danger{% endif %}">
+                                {{ entry.should_show|default:"N/A"|yesno:"Yes,No,N/A" }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">No debug information available</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends 'frontend/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Dashboard - Survey App{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid">
+    <!-- Welcome Card -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5 class="card-title">Welcome, {{ request.user.get_full_name|default:request.user.username }}!</h5>
+                    <p class="card-text">Here's what's happening with your surveys today.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card text-white bg-primary h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title mb-1">Surveys Taken</h5>
+                            <h2 class="mb-0">{{ completed_surveys }}</h2>
+                            <p class="mb-0">Surveys completed</p>
+                        </div>
+                        <i class="fas fa-clipboard-check fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card text-white bg-success h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title mb-1">Points Earned</h5>
+                            <h2 class="mb-0">{{ points_earned }}</h2>
+                            <p class="mb-0">Total points</p>
+                        </div>
+                        <i class="fas fa-star fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card text-white bg-info h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title mb-1">Available Surveys</h5>
+                            <h2 class="mb-0">{{ available_surveys }}</h2>
+                            <p class="mb-0">Ready to take</p>
+                        </div>
+                        <i class="fas fa-clipboard-list fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity & Available Surveys -->
+    <div class="row">
+        <!-- Recent Activity -->
+        <div class="col-md-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_activity %}
+                        <div class="list-group list-group-flush">
+                            {% for activity in recent_activity %}
+                                <div class="list-group-item border-0 px-0">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">Completed: {{ activity.survey.title }}</h6>
+                                        <small class="text-muted">{{ activity.completed_at|timesince }} ago</small>
+                                    </div>
+                                    <p class="mb-1">Earned: 10 points</p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No recent activity to show.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Available Surveys -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Available Surveys</h5>
+                </div>
+                <div class="card-body">
+                    {% if available_surveys_list %}
+                        <div class="list-group list-group-flush">
+                            {% for survey in available_surveys_list %}
+                                <a href="{% url 'surveys:take_survey' survey.id %}" 
+                                   class="list-group-item list-group-item-action border-0 px-0">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ survey.title }}</h6>
+                                        <small class="text-primary">Take Survey</small>
+                                    </div>
+                                    <p class="mb-1 small text-muted">{{ survey.description|truncatewords:10 }}</p>
+                                    <small class="text-muted">{{ survey.questions.count }} questions</small>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No available surveys at the moment.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Any additional JavaScript for the dashboard can go here
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize any dashboard specific JavaScript
+        console.log('Dashboard loaded');
+    });
+</script>
+{% endblock %}            

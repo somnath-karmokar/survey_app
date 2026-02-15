@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block title %}Lucky Draw Status - Survey App{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h2 class="h4 mb-0">
+                    <i class="fas fa-trophy me-2"></i>
+                    Lucky Draw Status - {{ current_month }}/{{ current_year }}
+                </h2>
+            </div>
+            <div class="card-body text-center">
+                {% if winning_entry %}
+                    <div class="mb-5">
+                        <div class="display-1 text-warning mb-3">
+                            <i class="fas fa-trophy"></i>
+                        </div>
+                        <h3 class="mb-3">Congratulations to the Winner!</h3>
+                        <div class="winner-number display-2 fw-bold text-primary mb-4">
+                            {{ winning_entry.selected_number }}
+                        </div>
+                        <p class="lead">
+                            <strong>{{ winning_entry.user.username }}</strong> has won the lucky draw for {{ current_month }}/{{ current_year }}!
+                        </p>
+                        <p class="text-muted">
+                            <i class="fas fa-calendar-alt me-2"></i>
+                            Winner announced on {{ winning_entry.created_at|date:"F j, Y" }}
+                        </p>
+                        
+                        {% if user_entry and user_entry.is_winner %}
+                            <div class="alert alert-success mt-4">
+                                <h4><i class="fas fa-award me-2"></i>You are the winner!</h4>
+                                <p class="mb-0">
+                                    Congratulations! You've won the lucky draw with number {{ user_entry.selected_number }}.
+                                    Our team will contact you shortly with details about your prize.
+                                </p>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="mb-5">
+                        <div class="display-1 text-muted mb-4">
+                            <i class="fas fa-hourglass-half"></i>
+                        </div>
+                        <h3 class="mb-3">Lucky Draw in Progress</h3>
+                        <p class="lead">
+                            The lucky draw for {{ current_month }}/{{ current_year }} has not been conducted yet.
+                        </p>
+                        <p class="text-muted">
+                            The winner will be announced at the end of the month. Good luck!
+                        </p>
+                    </div>
+                {% endif %}
+                
+                {% if user_entry %}
+                    <div class="card border-info mt-4">
+                        <div class="card-header bg-info text-white">
+                            <h4 class="h5 mb-0">Your Entry</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="display-4 text-primary mb-3">
+                                {{ user_entry.selected_number }}
+                            </div>
+                            <p class="mb-0">
+                                This is your lucky number for the {{ current_month }}/{{ current_year }} draw.
+                            </p>
+                            <p class="text-muted small mt-2 mb-0">
+                                <i class="fas fa-clock me-1"></i>
+                                Entered on {{ user_entry.created_at|date:"F j, Y \a\t g:i A" }}
+                            </p>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <div class="mt-5">
+                    <a href="{% url 'surveys:survey_list' %}" class="btn btn-primary">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Surveys
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h3 class="h5 mb-0">
+                    <i class="fas fa-question-circle me-2"></i>
+                    How It Works
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="text-center p-3">
+                            <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                                <i class="fas fa-clipboard-check fa-2x"></i>
+                            </div>
+                            <h5>1. Complete Surveys</h5>
+                            <p class="text-muted small">Complete all active surveys in the current month.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="text-center p-3">
+                            <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                                <i class="fas fa-ticket-alt fa-2x"></i>
+                            </div>
+                            <h5>2. Pick a Number</h5>
+                            <p class="text-muted small">Choose a lucky number between 1 and 100.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="text-center p-3">
+                            <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                                <i class="fas fa-trophy fa-2x"></i>
+                            </div>
+                            <h5>3. Win Prizes</h5>
+                            <p class="text-muted small">Check back at the end of the month to see if you've won!</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Note:</strong> Only one entry per user per month is allowed. The winner is selected randomly from all valid entries at the end of each month.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

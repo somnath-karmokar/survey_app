@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}SUDRAW2 - Home{% endblock %}
+
+{% block extra_css %}
+    
+{% endblock %}
+
+{% block content %}
+<!-- Main Banner Section -->
+<section class="banner-area section">
+    <div class="banner-wrapper banner-four banner-four-bg p-relative">
+        <div class="banner-content center-container p-relative wow bdFadeInLeft" data-wow-delay=".2s">
+            <span class="text-box"><h4>Welcome to Sudraw</h4></span>
+            <h1 class="banner-title">Good questions, great insights.</h1>
+            <p class="">Start with a question. Get answers in real time. Use what you learn to shape what comes next.</p>
+            <div class="btn_area">
+                <a href="#">Learn More</a>
+            </div>
+        </div>
+        <div class="banner-slider">
+            <!-- Swiper -->
+            <div class="swiper banner-four-slider overflow-hidden">
+                <div class="swiper-wrapper slider">
+                    <div class="swiper-slide">
+                        <img src="{% static 'images/banner_img.jpg' %}" alt="home">
+                    </div>
+                    <div class="swiper-slide">
+                        <img src="{% static 'images/banner_img2.jpg' %}" alt="home">
+                    </div>
+                </div>
+                <div class="banner-four-pagination">
+                    <div class="swiper-pagination"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="winner_area">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <h2 class="head">Last {{ winners_display_days }} Days' Prize Winners</h2>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                <div class="winner_slide">
+                    {% if recent_winners %}
+                        {% for winner in recent_winners %}
+                        <div class="item">
+                            <div class="winner_img">
+                                {% if winner.profile_picture %}
+                                    <img src="{{ winner.profile_picture }}" alt="{{ winner.name }}" />
+                                {% else %}
+                                    <img src="{% static 'images/survey_img3.jpeg' %}" alt="{{ winner.name }}" />
+                                {% endif %}
+                            </div>
+                            <p>{{ winner.details }}</p>
+                        </div>
+
+                        
+                        {% endfor %}
+                    {% else %}
+                        <!-- Fallback static content when no winners exist -->
+                        <div class="item">
+                            <div class="winner_img">
+                                <img src="{% static 'images/survey_img3.jpeg' %}" />
+                            </div>
+                            <p>Be the first winner!</p>
+                            <small>Complete surveys to win</small>
+                        </div>
+                        <div class="item">
+                            <div class="winner_img">
+                                <img src="{% static 'images/survey_img3.jpeg' %}" />
+                            </div>
+                            <p>Be the first winner!</p>
+                            <small>Complete surveys to win</small>
+                        </div>
+                        <div class="item">
+                            <div class="winner_img">
+                                <img src="{% static 'images/survey_img3.jpeg' %}" />
+                            </div>
+                            <p>Be the first winner!</p>
+                            <small>Complete surveys to win</small>
+                        </div>
+                        <div class="item">
+                            <div class="winner_img">
+                                <img src="{% static 'images/survey_img3.jpeg' %}" />
+                            </div>
+                            <p>Be the first winner!</p>
+                            <small>Complete surveys to win</small>
+                        </div>
+                        <div class="item">
+                            <div class="winner_img">
+                                <img src="{% static 'images/survey_img3.jpeg' %}" />
+                            </div>
+                            <p>Be the first winner!</p>
+                            <small>Complete surveys to win</small>
+                        </div>
+                        <div class="item">
+                            <div class="winner_img">
+                                <img src="{% static 'images/survey_img3.jpeg' %}" />
+                            </div>
+                            <p>Be the first winner!</p>
+                            <small>Complete surveys to win</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="survey_area">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <h2 class="head">Easy to start. Simple to connect</h2>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-4 col-sm-6">
+                <div class="serv_box">
+                    <div class="serv_img">
+                        <img src="{% static 'images/survey_img1.jpeg' %}" alt="">
+                    </div>
+                    <div class="serv_cont">
+                        <div class="serv_icon"><i class="fa-solid fa-user"></i></div>
+                        <h3>Offshore Projects</h3>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.</p>
+                        <a href="products.html" tabindex="0">Start the Survey</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+                <div class="serv_box">
+                    <div class="serv_img">
+                        <img src="{% static 'images/survey_img2.jpeg' %}" alt="">
+                    </div>
+                    <div class="serv_cont">
+                        <div class="serv_icon"><i class="fa-solid fa-dollar-sign"></i></div>
+                        <h3>IT Consultancy</h3>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.</p>
+                        <a href="products.html" tabindex="0">Start the Survey</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+                <div class="serv_box">
+                    <div class="serv_img">
+                        <img src="{% static 'images/survey_img3.jpeg' %}" alt="">
+                    </div>
+                    <div class="serv_cont">
+                        <div class="serv_icon"><i class="fa-solid fa-file"></i></div>
+                        <h3>Venture Capitalism</h3>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.</p>
+                        <a href="products.html" tabindex="0">Start the Survey</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+                <div class="serv_box">
+                    <div class="serv_img">
+                        <img src="{% static 'images/survey_img4.jpeg' %}" alt="">
+                    </div>
+                    <div class="serv_cont">
+                        <div class="serv_icon"><i class="fa-solid fa-briefcase"></i></div>
+                        <h3>Marketing Services</h3>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.</p>
+                        <a href="products.html" tabindex="0">Start the Survey</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+                <div class="serv_box">
+                    <div class="serv_img">
+                        <img src="{% static 'images/survey_img5.jpeg' %}" alt="">
+                    </div>
+                    <div class="serv_cont">
+                        <div class="serv_icon"><i class="fa-solid fa-shield"></i></div>
+                        <h3>Lawyer Consultancy</h3>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.</p>
+                        <a href="products.html" tabindex="0">Start the Survey</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+                <div class="serv_box">
+                    <div class="serv_img">
+                        <img src="{% static 'images/survey_img6.jpeg' %}" alt="">
+                    </div>
+                    <div class="serv_cont">
+                        <div class="serv_icon"><i class="fa-solid fa-thumbs-up"></i></div>
+                        <h3>Investment Consultancy</h3>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.</p>
+                        <a href="products.html" tabindex="0">Start the Survey</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="recruitment_technology">
+    <div class="container">
+        <div class="row clearfix">
+            <div class="col-lg-6 col-md-12 col-sm-12 d-flex">
+                <figure class="image_box js-tilt clearfix"><img src="{% static 'images/poll.webp' %}" alt=""></figure>
+            </div>
+            <div class="col-lg-6 col-md-12 col-sm-12">
+                <div id="content_block_4">
+                    <div class="content_box">
+                        <h2 class="head">Create a poll in no time</h2>
+                        <div class="inner_box">
+                            <div class="single-item">
+                                <div class="inner">
+                                    <figure class="icon_box"><img src="{% static 'images/poll_img1.webp' %}" alt=""></figure>
+                                    <h3><span>01</span><a>Ask Multiple Choice questions<i class="fa-solid fa-arrow-right"></i></a></h3>
+                                    <p>For any excess distance travelled.</p>
+                                </div>
+                            </div>
+                            <div class="single-item">
+                                <div class="inner">
+                                    <figure class="icon_box"><img src="{% static 'images/poll_img2.webp' %}" alt=""></figure>
+                                    <h3><span>02</span><a>Try innovative visualizations<i class="fa-solid fa-arrow-right"></i></a></h3>
+                                    <p>Actual costs are subject to the final ride routing.</p>
+                                </div>
+                            </div>
+                            <div class="single-item">
+                                <div class="inner">
+                                    <figure class="icon_box"><img src="{% static 'images/poll_img3.webp' %}" alt=""></figure>
+                                    <h3><span>03</span><a>Add images as options<i class="fa-solid fa-arrow-right"></i></a></h3>
+                                    <p>Payments for the invoice or any advances shall be made online directly.</p>
+                                </div>
+                            </div>
+							<div class="single-item">
+                                <div class="inner">
+                                    <figure class="icon_box"><img src="{% static 'images/poll_img4.webp' %}" alt=""></figure>
+                                    <h3><span>04</span><a>See trends with segmentation<i class="fa-solid fa-arrow-right"></i></a></h3>
+                                    <p>We recommend not to give any cash or cash tips to our drivers.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+

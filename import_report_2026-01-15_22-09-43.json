@@ -1,0 +1,882 @@
+{
+  "country": "NG",
+  "started_at": "2026-01-15T16:39:43.632074",
+  "documents": [
+    {
+      "file": "NGR.1 - Streaming & Media Services.docx",
+      "category": "Streaming & Media Services",
+      "sections": {
+        "Section 1: Usage Behaviour & Frequency (14 Questions)": 14,
+        "Section 2: Content Discovery & Curation (14 Questions)": 14,
+        "Section 3: User Interface & Experience (14 Questions)": 14,
+        "Section 4: Pricing & Value Perception (14 Questions)": 14,
+        "Section 5: Content Preference & Quality (14 Questions)": 14,
+        "Section 6: Technical Reliability & Support (14 Questions)": 14,
+        "Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "Section 8: Brand Perception & General Feedback (14 Questions)": 14
+      },
+      "total_questions": 112,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.10 - Coffee & Caf\u00e9 Chains.docx",
+      "category": "Coffee & Caf\u00e9 Chains",
+      "sections": {
+        "Section 1: Visiting Behaviour & Frequency (14 Questions)": 14,
+        "Section 2: Product & Menu Discovery (14 Questions)": 14,
+        "Section 3: In-Store Experience & Usability (14 Questions)": 14,
+        "Section 4: Mobile & Digital Experience (14 Questions)": 14,
+        "Section 5: Product Quality & Taste Perception (14 Questions)": 14,
+        "Section 6: Customer Service & Issue Resolution (14 Questions)": 14,
+        "Section 7: Future Intentions & Loyalty (14 Questions)": 10,
+        "Section 8: Brand Perception & General Feedback (14 Questions)": 14
+      },
+      "total_questions": 108,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.11 - Energy Suppliers (Gas & Electricity).docx",
+      "category": "Energy Suppliers (Gas & Electricity)",
+      "sections": {
+        "Section 1: Usage Behaviour & Frequency (14 Questions).": 14,
+        "Section 2: Tariff & Plan Discovery (14 Questions)": 14,
+        "Section 3: Website & App User Experience (14 Questions)": 14,
+        "Section 4: Pricing, Billing & Value Perception (14 Questions)": 12,
+        "Section 5: Service & Reliability Perception (14 Questions)": 12,
+        "Section 6: Technical Support & Issue Resolution (14 Questions)": 14,
+        "Section 7: Future Intentions & Loyalty (14 Questions)": 12,
+        "Section 8: Brand Perception & General Feedback (14 Questions)": 14
+      },
+      "total_questions": 106,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.12 - Banking (Retail Banks)_.docx",
+      "category": "Banking (Retail Banks)_",
+      "sections": {
+        "Section 1: Account Behaviour & Frequency (14 Questions)": 14,
+        "Section 2: Product & Feature Discovery (14 Questions)": 14,
+        "Section 3: Mobile & Online Banking User Experience (14 Questions)": 14,
+        "Section 4: Fees, Charges & Value Perception (14 Questions)": 12,
+        "Section 5: Customer Service & Support (14 Questions)": 12,
+        "Section 6: Security & Fraud Prevention (14 Questions)": 14,
+        "Section 7: Future Intentions & Loyalty (14 Questions)": 12,
+        "Section 8: Brand Perception & General Feedback (14 Questions)": 14
+      },
+      "total_questions": 106,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.13 - Travel & Holiday Booking.docx",
+      "category": "Travel & Holiday Booking",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: In-Store Experience (14 Questions)": 14,
+        "4. Section 4: Online Experience & E-commerce (14 Questions)": 14,
+        "5. Section 5: Product & Quality Perception (14 Questions)": 14,
+        "6. Section 6: Delivery & Aftercare Logistics (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.14 - Broadband and cables_.docx",
+      "category": "Broadband and cables_",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: In-Store Experience (14 Questions)": 14,
+        "4. Section 4: Online Experience & E-commerce (14 Questions)": 14,
+        "5. Section 5: Product & Quality Perception (14 Questions)": 14,
+        "6. Section 6: Delivery & Aftercare Logistics (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.15  -  Beauty & Cosmetics retailers_.docx",
+      "category": "Beauty & Cosmetics retailers_",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: In-Store Experience (14 Questions)": 14,
+        "4. Section 4: Online Experience & E-commerce (14 Questions)": 14,
+        "5. Section 5: Product & Quality Perception (14 Questions)": 14,
+        "6. Section 6: Delivery & Aftercare Logistics (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.16 - Streaming Sports Services.docx",
+      "category": "Streaming Sports Services",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 0
+      },
+      "total_questions": 0,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.17 - Clothing Retail (High Street).docx",
+      "category": "Clothing Retail (High Street)",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: In-Store Experience (14 Questions)": 14,
+        "4. Section 4: Online Experience & E-commerce (14 Questions)": 14,
+        "5. Section 5: Product & Quality Perception (14 Questions)": 14,
+        "6. Section 6: Delivery & Aftercare Logistics (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.18 - Hotels & Accommodation Chains.docx",
+      "category": "Hotels & Accommodation Chains",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: In-Store Experience (On-Site/Physical Stay) (14 Questions)": 14,
+        "4. Section 4: Online Experience & E-commerce (14 Questions)": 14,
+        "5. Section 5: Product & Quality Perception (14 Questions)": 14,
+        "6. Section 6: Delivery & Aftercare Logistics (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.19  -  Fast Food Chains.docx",
+      "category": "Fast Food Chains",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: In-Store Experience (14 Questions)": 14,
+        "4. Section 4: Online Experience & Delivery E-commerce (14 Questions)": 14,
+        "5. Section 5: Product & Quality Perception (14 Questions)": 14,
+        "6. Section 6: Delivery & Aftercare Logistics (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.2 -  Furniture & Home.docx",
+      "category": "Furniture & Home",
+      "sections": {
+        "Section 1: Shopping Behaviour & Frequency (14 Questions)": 14,
+        "Section 2: Research & Decision Making (14 Questions)": 14,
+        "Section 3: In-Store Experience (14 Questions)": 14,
+        "Section 4: Online Experience & E-commerce (14 Questions)": 14,
+        "Section 5: Product & Quality Perception (14 Questions)": 14,
+        "Section 6: Delivery & Aftercare Logistics (14 Questions)": 14,
+        "Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "Section 8: Brand Perception & General Feedback (14 Questions)": 14
+      },
+      "total_questions": 112,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.20 - Worldwide Streaming Music Services.docx",
+      "category": "Worldwide Streaming Music Services",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: In-App Experience & Usability (14 Questions)": 14,
+        "4. Section 4: Content & Discovery (14 Questions)": 14,
+        "5. Section 5: Technical Quality & Reliability (14 Questions)": 14,
+        "6. Section 6: Delivery & Aftercare Logistics (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.21  -  Rail Transport Operators_.docx",
+      "category": "Rail Transport Operators_",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: On-Board/Physical Experience (14 Questions)": 14,
+        "4. Section 4: Technology & Digital Tools (14 Questions)": 14,
+        "5. Section 5: Safety & Security Perception (14 Questions)": 14,
+        "6. Section 6: Disruption Management & Compensation (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.22 - Telecoms (Mobile & SIMs).docx",
+      "category": "Telecoms (Mobile & SIMs)",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: Service Reliability & Quality (14 Questions)": 14,
+        "4. Section 4: Customer Service & Aftercare (14 Questions)": 14,
+        "5. Section 5: Roaming & International Use (14 Questions)": 14,
+        "6. Section 6: Plan Structure & Flexibility (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.23 -  Pharmacies & Health Retail.docx",
+      "category": "Pharmacies & Health Retail",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: In-Store Experience & Service (14 Questions)": 14,
+        "4. Section 4: Digital Tools & Online Services (14 Questions)": 14,
+        "5. Section 5: Product & Quality Perception (14 Questions)": 14,
+        "6. Section 6: Clinical Service Provision (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.24  -  Ride-Hailing & Mobility_.docx",
+      "category": "Ride-Hailing & Mobility_",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: In-App Experience & Usability (14 Questions)": 14,
+        "4. Section 4: Vehicle & Driver Experience (14 Questions)": 14,
+        "5. Section 5: Safety & Security Perception (14 Questions)": 14,
+        "6. Section 6: Pricing & Transparency Logistics (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.25 - pets supplies and vets.docx",
+      "category": "pets supplies and vets",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: In-Store Experience & Retail (14 Questions)": 14,
+        "4. Section 4: Technology & Digital Tools (14 Questions)": 14,
+        "5. Section 5: Safety & Animal Welfare Perception (14 Questions)": 14,
+        "6. Section 6: Cost, Pricing & Insurance (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.26  -  Online Learning and tutoring Services._.docx",
+      "category": "Online Learning and tutoring Services._",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: Platform Usability & Experience (14 Questions)": 14,
+        "4. Section 4: Content Quality & Curriculum (14 Questions)": 14,
+        "5. Section 5: Customer Service & Support (14 Questions)": 14,
+        "6. Section 6: Value & Flexibility (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.27 - Bus Operators.docx",
+      "category": "Bus Operators",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: On-Board Experience & Comfort (14 Questions)": 14,
+        "4. Section 4: Digital Tools & Service Updates (14 Questions)": 14,
+        "5. Section 5: Reliability & Punctuality (14 Questions)": 14,
+        "6. Section 6: Customer Service & Security (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.28 - Luxury Fashion Retail_.docx",
+      "category": "Luxury Fashion Retail_",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: In-Store Experience & Service (14 Questions)": 14,
+        "4. Section 4: E-commerce & Digital Experience (14 Questions)": 14,
+        "5. Section 5: Security & Brand Integrity (14 Questions)": 14,
+        "6. Section 6: Price, Exclusivity & VIP Logistics (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.29 Technology Retail (Consumer Electronics)_.docx",
+      "category": "NGR.29 Technology Retail (Consumer Electronics)_",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: In-Store Experience & Service (14 Questions)": 14,
+        "4. Section 4: E-commerce & Digital Tools (14 Questions)": 14,
+        "5. Section 5: Aftercare & Support (14 Questions)": 14,
+        "6. Section 6: Pricing & Value (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.3 DIY & Home Improvement.docx",
+      "category": "NGR.3 DIY & Home Improvement",
+      "sections": {
+        "Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "Section 2: Research & Decision Making (14 Questions)": 14,
+        "Section 3: In-Store Experience (14 Questions)": 14,
+        "Section 4: Online Experience & E-commerce (14 Questions)": 14,
+        "Section 5: Product & Quality Perception (14 Questions)": 14,
+        "Section 6: Delivery & Aftercare Logistics (14 Questions)": 14,
+        "Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "Section 8: Brand Perception & General Feedback (14 Questions)": 14
+      },
+      "total_questions": 112,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.30 - Gyms & Fitness_.docx",
+      "category": "Gyms & Fitness_",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: Facility Quality & Atmosphere (14 Questions)": 14,
+        "4. Section 4: Content Quality & Instruction (14 Questions)": 14,
+        "5. Section 5: Customer Service & Safety (14 Questions)": 14,
+        "6. Section 6: Value & Flexibility (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.31 - (including worldwide) Delivery & Courier service.docx",
+      "category": "(including worldwide) Delivery & Courier service",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Tracking & Communication (14 Questions)": 14,
+        "3. Section 3: Delivery Driver & Last-Mile Service (14 Questions)": 14,
+        "4. Section 4: E-commerce Integration & Digital Tools (14 Questions)": 14,
+        "5. Section 5: Reliability & Damage (14 Questions)": 14,
+        "6. Section 6: Price, Value & Insurance (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.32 - Discount Stores_.docx",
+      "category": "Discount Stores_",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: In-Store Experience & Service (14 Questions)": 14,
+        "4. Section 4: Digital Tools & Service Updates (14 Questions)": 14,
+        "5. Section 5: Reliability & Stock (14 Questions)": 14,
+        "6. Section 6: Customer Service & Returns (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.33 - Opticians_.docx",
+      "category": "Opticians_",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Clinical Experience & Trust (14 Questions)": 14,
+        "3. Section 3: Retail & Dispensing Experience (14 Questions)": 14,
+        "4. Section 4: E-commerce & Digital Tools (14 Questions)": 14,
+        "5. Section 5: Price, Value & Promotions (14 Questions)": 14,
+        "6. Section 6: Aftercare & Follow-Up (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Practice Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.34 - Dental Practices.docx",
+      "category": "Dental Practices",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Clinical Quality & Trust (14 Questions)": 14,
+        "3. Section 3: Practice Environment & Comfort (14 Questions)": 14,
+        "4. Section 4: Communication & Digital Tools (14 Questions)": 14,
+        "5. Section 5: Cost, Pricing & Affordability (14 Questions)": 14,
+        "6. Section 6: Administrative & Customer Service (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Practice Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.35 off-licence, Convenience Store & Corner Shop.docx",
+      "category": "NGR.35 off-licence, Convenience Store & Corner Shop",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: In-Store Experience & Service (14 Questions)": 14,
+        "4. Section 4: Digital Tools & Loyalty (14 Questions)": 14,
+        "5. Section 5: Reliability & Stock (14 Questions)": 14,
+        "6. Section 6: Value & Pricing (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.36 -  Petrol Gas Station_.docx",
+      "category": "Petrol Gas Station_",
+      "sections": {
+        "2. Section 2: Research & Decision Making (14 Questions)": 14,
+        "3. Section 3: Forecourt Experience & Service (14 Questions)": 14,
+        "4. Section 4: Digital Tools & Loyalty (14 Questions)": 14,
+        "5. Section 5: Reliability & Stock (14 Questions)": 14,
+        "6. Section 6: Pricing & Value (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Brand Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 97,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.37   Worldwide - Sport brands.docx",
+      "category": "NGR.37   Worldwide - Sport brands",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Brand Perception & Trust (14 Questions)": 14,
+        "3. Section 3: Retail & Direct-to-Consumer (DTC) Experience (14 Questions)": 14,
+        "4. Section 4: E-commerce & Digital Tools (14 Questions)": 14,
+        "5. Section 5: Price, Value & Promotions (14 Questions)": 14,
+        "6. Section 6: Aftercare & Sustainability (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.38 - Private hospitals.docx",
+      "category": "Private hospitals",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Medical Excellence & Outcomes (14 Questions)": 14,
+        "3. Section 3: Facilities & Comfort (14 Questions)": 14,
+        "4. Section 4: Pricing & Transparency (14 Questions)": 14,
+        "5. Section 5: Staff & Customer Service (14 Questions)": 14,
+        "6. Section 6: Digital & Patient Portal (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.39 - Dating Sites.docx",
+      "category": "Dating Sites",
+      "sections": {
+        "Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Product & Feature Value (14 Questions)": 14,
+        "3. Section 3: User Experience & Interface (14 Questions)": 14,
+        "4. Section 4: Safety & Privacy (14 Questions)": 14,
+        "5. Section 5: Cost, Pricing & Value (14 Questions)": 14,
+        "6. Section 6: Algorithm & Matching Quality (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.4  -  Food Delivery & Takeaway Apps_.docx",
+      "category": "Food Delivery & Takeaway Apps_",
+      "sections": {
+        "Section 1: Usage Behaviour & Frequency (14 Questions)": 14,
+        "Section 2: Restaurant & Cuisine Discovery (14 Questions)": 14,
+        "Section 3: User Interface & Experience (14 Questions)": 14,
+        "Section 4: Pricing, Fees & Value Perception (14 Questions)": 14,
+        "Section 5: Food & Order Quality (14 Questions)": 14,
+        "Section 6: Delivery & Aftercare Logistics (14 Questions)": 14,
+        "Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "Section 8: Brand Perception & General Feedback (14 Questions)": 14
+      },
+      "total_questions": 112,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.40 - Cinemas.docx",
+      "category": "Cinemas",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Screen & Sound Quality (14 Questions)": 14,
+        "3. Section 3: Seating & Auditorium Comfort (14 Questions)": 14,
+        "4. Section 4: Communication & Digital Tools (14 Questions)": 14,
+        "5. Section 5: Cost, Pricing & Affordability (14 Questions)": 14,
+        "6. Section 6: Food, Beverage & Amenities (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.41 - Local council _ County.docx",
+      "category": "Local council _ County",
+      "sections": {
+        "1. Section 1: Service Interaction & Frequency (14 Questions)": 14,
+        "2. Section 2: Core Service Delivery (14 Questions)": 14,
+        "3. Section 3: Digital & Website Experience (14 Questions)": 14,
+        "4. Section 4: Public Finances & Value (14 Questions)": 14,
+        "5. Section 5: Staff & Customer Service (14 Questions)": 14,
+        "6. Section 6: Local Infrastructure & Planning (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Trust (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.42 - Airports.docx",
+      "category": "Airports",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Security & Border Control (14 Questions)": 14,
+        "3. Section 3: Retail, F&B, and Lounges (14 Questions)": 14,
+        "4. Section 4: Wayfinding & Communication (14 Questions)": 14,
+        "5. Section 5: Ground Transport & Parking (14 Questions)": 14,
+        "6. Section 6: Infrastructure & Cleanliness (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.43 - Political Parties.docx",
+      "category": "Political Parties",
+      "sections": {
+        "1. Section 1: Engagement & Voting Behaviour (14 Questions)": 14,
+        "2. Section 2: Policy Focus & Clarity (14 Questions)": 14,
+        "3. Section 3: Leadership & Personnel (14 Questions)": 14,
+        "4. Section 4: Media & Communication (14 Questions)": 14,
+        "5. Section 5: Ethics & Transparency (14 Questions)": 14,
+        "6. Section 6: Intra-Party Dynamics & Unity (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.44 - Colleges_Universities.docx",
+      "category": "Colleges_Universities",
+      "sections": {
+        "1. Section 1: Application & Decision Behaviour (14 Questions)": 14,
+        "2. Section 2: Academic Quality & Teaching (14 Questions)": 14,
+        "3. Section 3: Digital & Campus Facilities (14 Questions)": 14,
+        "4. Section 4: Student Support & Wellbeing (14 Questions)": 14,
+        "5. Section 5: Student Experience & Community (14 Questions)": 14,
+        "6. Section 6: Value for Money & Fees (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.45 -  restaurants and family dining (not fast food chains).docx",
+      "category": "restaurants and family dining (not fast food chains)",
+      "sections": {
+        "1. Section 1: Reservation & Visit Behaviour (14 Questions)": 14,
+        "2. Section 2: Food Quality & Culinary Focus (14 Questions)": 14,
+        "3. Section 3: Service Quality & Staff Interaction (14 Questions)": 14,
+        "4. Section 4: Ambiance, Cleanliness & Comfort (14 Questions)": 14,
+        "5. Section 5: Value, Pricing & Payment (14 Questions)": 14,
+        "6. Section 6: Loyalty Programs & Digital Experience (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.46 - Pubs, Bars & Breweries.docx",
+      "category": "Pubs, Bars & Breweries",
+      "sections": {
+        "1. Section 1: Visit & Ordering Behaviour (14 Questions)": 14,
+        "2. Section 2: Drink Quality & Menu (14 Questions)": 14,
+        "3. Section 3: Staff & Service Efficiency (14 Questions)": 14,
+        "4. Section 4: Ambiance, Cleanliness & Comfort (14 Questions)": 14,
+        "5. Section 5: Value, Pricing & Payment (14 Questions)": 14,
+        "6. Section 6: Loyalty Programs & Digital Experience (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.47 - Video Game & eSports Platforms.docx",
+      "category": "Video Game & eSports Platforms",
+      "sections": {
+        "1. Section 1: Platform & Access Behaviour (14 Questions)": 14,
+        "2. Section 2: eSports & Competitive Gaming (14 Questions)": 14,
+        "3. Section 3: Monetary & In-Game Purchases (14 Questions)": 14,
+        "4. Section 4: Customer Support & Platform Integrity (14 Questions)": 14,
+        "5. Section 5: Streaming & Content Consumption (14 Questions)": 14,
+        "6. Section 6: User Experience & Design (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.48 - Buy-Now-Pay-Later Services.docx",
+      "category": "Buy-Now-Pay-Later Services",
+      "sections": {
+        "1. Section 1: Usage & Adoption Behaviour (14 Questions)": 14,
+        "2. Section 2: Transparency & Fee Structure (14 Questions)": 14,
+        "3. Section 3: Digital User Experience & App Functionality (14 Questions)": 14,
+        "4. Section 4: Customer Support & Complaint Handling (14 Questions)": 14,
+        "5. Section 5: Financial Literacy & Debt Perception (14 Questions)": 14,
+        "6. Section 6: Regulation & Industry Control (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.49 - Cruise Lines & River Cruises.docx",
+      "category": "Cruise Lines & River Cruises",
+      "sections": {
+        "1. Section 1: Booking & Pre-Voyage Behaviour (14 Questions)": 14,
+        "2. Section 2: Onboard Experience & Amenities (14 Questions)": 14,
+        "3. Section 3: Port Experience & Excursions (14 Questions)": 14,
+        "4. Section 4: Cabin & Accommodation Quality (14 Questions)": 14,
+        "5. Section 5: Value, Pricing & Onboard Spending (14 Questions)": 14,
+        "6. Section 6: Loyalty Programs & Repeat Booking (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Sustainability (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.5 - Home & White goods retailers_suppliers _.docx",
+      "category": "Home & White goods retailers_suppliers _",
+      "sections": {
+        "Section 1: Shopping Behaviour & Frequency (14 Questions)": 14,
+        "Section 2: Product & Trend Discovery (14 Questions)": 14,
+        "Section 3: Website User Experience (14 Questions)": 14,
+        "Section 4: Pricing, Fees & Value Perception (14 Questions)": 14,
+        "Section 5: Product Quality & Description (14 Questions)": 14,
+        "Section 6: Delivery & Returns Logistics (14 Questions)": 14,
+        "Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "Section 8: Brand Perception & General Feedback (14 Questions)": 14
+      },
+      "total_questions": 112,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.50 -  Holiday Resorts Survey Questions.docx",
+      "category": "Holiday Resorts Survey Questions",
+      "sections": {
+        "1. Section 1: Booking & Pre-Arrival Behaviour (14 Questions)": 14,
+        "2. Section 2: On-Site Activities & Entertainment (14 Questions)": 14,
+        "3. Section 3: Staff & Service Efficiency (14 Questions)": 14,
+        "4. Section 4: Accommodation & Cleanliness Standards (14 Questions)": 14,
+        "5. Section 5: Dining & Food Service Quality (14 Questions)": 14,
+        "6. Section 6: Loyalty Programs & Repeat Booking (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.51 - Driving Schools & Lessons.docx",
+      "category": "Driving Schools & Lessons",
+      "sections": {
+        "1. Section 1: Initial Choice & Booking Behaviour (14 Questions)": 14,
+        "2. Section 2: Quality of Instruction & Teaching Style (14 Questions)": 14,
+        "3. Section 3: Financial & Value Perception (14 Questions)": 14,
+        "4. Section 4: Vehicle & Equipment Standards (14 Questions)": 14,
+        "5. Section 5: Test Preparation & Passing the Test (14 Questions)": 14,
+        "6. Section 6: Administrative & Communication (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.52 - Social Media Services _.docx",
+      "category": "Social Media Services _",
+      "sections": {
+        "1. Section 1: Usage & Engagement Behaviour (14 Questions)": 14,
+        "2. Section 2: Content Quality & Moderation (14 Questions)": 14,
+        "3. Section 3: Privacy & Data Security (14 Questions)": 14,
+        "4. Section 4: Advertising & Commercialization (14 Questions)": 14,
+        "5. Section 5: Impact on Well-being & Mental Health (14 Questions)": 14,
+        "6. Section 6: Governance & Accountability (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Potential Shifts (14 Questions)": 14,
+        "8. Section 8: General Perception & Overall Value (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.6  -  Telecoms (Mobile & SIMs)_.docx",
+      "category": "Telecoms (Mobile & SIMs)_",
+      "sections": {
+        "Section 1: Usage Behaviour & Frequency (14 Questions)": 14,
+        "Section 2: Network Coverage & Reliability (14 Questions)": 14,
+        "Section 3: User Interface & App Experience (14 Questions)": 14,
+        "Section 4: Pricing, Fees & Value Perception (14 Questions)": 12,
+        "Section 5: Perks & Added Value (14 Questions)": 12,
+        "Section 6: Technical Support & Customer Service (14 Questions)": 14,
+        "Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "Section 8: Brand Perception & General Feedback (14 Questions)": 14
+      },
+      "total_questions": 108,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.7 -  local Airlines_.docx",
+      "category": "local Airlines_",
+      "sections": {
+        "Section 1: Booking Behaviour & Frequency (14 Questions)": 14,
+        "Section 2: Destination & Route Discovery (14 Questions)": 14,
+        "Section 3: Website & App User Experience (14 Questions)": 14,
+        "Section 4: Pricing, Fees & Value Perception (14 Questions)": 12,
+        "Section 5: In-Flight Experience & Service (14 Questions)": 12,
+        "Section 6: Punctuality & Baggage Logistics (14 Questions)": 14,
+        "Section 7: Future Intentions & Loyalty (14 Questions)": 12,
+        "Section 8: Brand Perception & General Feedback (14 Questions)": 14
+      },
+      "total_questions": 120,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.8 - Supermarkets & Grocery Chains_.docx",
+      "category": "Supermarkets & Grocery Chains_",
+      "sections": {
+        "Section 1: Shopping Behaviour & Frequency (14 Questions)": 14,
+        "Section 2: Product & Recipe Discovery (14 Questions)": 14,
+        "Section 3: In-Store Experience & Usability (14 Questions)": 14,
+        "Section 4: Online Experience & Delivery (14 Questions)": 14,
+        "Section 5: Product Quality & Freshness Perception (14 Questions)": 14,
+        "Section 6: Delivery & Aftercare Logistics (14 Questions)": 14,
+        "Section 7: Future Intentions & Loyalty (14 Questions)": 10,
+        "Section 8: Brand Perception & General Feedback (14 Questions)": 14
+      },
+      "total_questions": 108,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    },
+    {
+      "file": "NGR.9 -  Insurance (General & Car_Home)_.docx",
+      "category": "Insurance (General & Car_Home)_",
+      "sections": {
+        "Section 1: Purchasing Behaviour & Frequency (14 Questions).": 14,
+        "Section 2: Product & Policy Discovery (14 Questions)": 14,
+        "Section 3: Website & App User Experience (14 Questions)": 14,
+        "Section 4: Pricing, Fees & Value Perception (14 Questions)": 12,
+        "Section 5: Coverage & Inclusions Perception (14 Questions)": 12,
+        "Section 6: Claims & Aftercare Logistics (14 Questions)": 14,
+        "Section 7: Future Intentions & Loyalty (14 Questions)": 12,
+        "Section 8: Brand Perception & General Feedback (14 Questions)": 14
+      },
+      "total_questions": 106,
+      "user_confirmed": true,
+      "status": "rolled_back"
+    }
+  ]
+}

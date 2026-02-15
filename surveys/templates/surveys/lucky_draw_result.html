@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header {% if is_winner %}bg-success{% else %}bg-warning{% endif %} text-white">
+                    <h2 class="h4 mb-0">
+                        {% if is_winner %}
+                            <i class="fas fa-trophy me-2"></i>Congratulations!
+                        {% else %}
+                            <i class="fas fa-info-circle me-2"></i>Better Luck Next Time!
+                        {% endif %}
+                    </h2>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        {% if is_winner %}
+                            <i class="fas fa-gift fa-5x text-success mb-3"></i>
+                            <h3>You Won a Prize!</h3>
+                            <p class="lead">Your prize: <strong>{{ prize }}</strong></p>
+                        {% else %}
+                            <i class="fas fa-sad-tear fa-5x text-warning mb-3"></i>
+                            <h3>Not This Time</h3>
+                            <p class="lead">The winning number was: <strong>{{ entry.winning_number }}</strong></p>
+                        {% endif %}
+                        
+                        <div class="result-details mt-4 p-3 bg-light rounded">
+                            <p class="mb-1">Your guess: <strong>{{ entry.guessed_number }}</strong></p>
+                            <p class="mb-0">Winning number: <strong>{{ entry.winning_number }}</strong></p>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
+                        <a href="{% url 'surveys:survey_list' %}" class="btn btn-primary me-md-2">
+                            <i class="fas fa-clipboard-list me-1"></i> View More Surveys
+                        </a>
+                        {% if is_winner %}
+                            <a href="{% url 'surveys:lucky_draw' %}" class="btn btn-outline-success">
+                                <i class="fas fa-gift me-1"></i> Try Again
+                            </a>
+                        {% else %}
+                            <a href="{% url 'surveys:lucky_draw' %}" class="btn btn-outline-warning">
+                                <i class="fas fa-redo me-1"></i> Try Again
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .result-details {
+        max-width: 300px;
+        margin: 0 auto;
+    }
+    .card {
+        border: none;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .card-header {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}

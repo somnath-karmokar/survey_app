@@ -1,0 +1,632 @@
+/* Base Styles */
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: #f8f9fa;
+}
+
+main {
+    flex: 1;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+/* Navbar Customization */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.5rem;
+}
+
+/* Card Styling */
+.card {
+    border: none;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    margin-bottom: 1.5rem;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 1.25rem 1.5rem;
+}
+
+/* Form Styling */
+.form-control:focus, .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Buttons */
+.btn {
+    padding: 0.5rem 1.25rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+/* Question Cards */
+.question-card {
+    background-color: #fff;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.05);
+}
+
+/* Required Field Indicator */
+.question-required::after {
+    content: " *";
+    color: #dc3545;
+}
+
+/* Survey List Items */
+.list-group-item {
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    margin-bottom: 0.5rem;
+    border-radius: 0.375rem !important;
+    transition: all 0.2s ease-in-out;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+}
+
+/* Lucky Draw Section */
+.lucky-draw-container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* Footer */
+footer {
+    background-color: #f8f9fa;
+    margin-top: auto;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    .d-flex.justify-content-between {
+        flex-direction: column;
+        gap: 1rem;
+    }
+}
+
+
+/* Question Card */
+.question-card {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border: 1px solid #e9ecef;
+}
+
+.question-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #f0f2f5;
+}
+
+.question-title {
+    color: #2d3748;
+    font-weight: 600;
+    font-size: 1.2rem;
+    margin: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    line-height: 1.5;
+}
+
+.question-number {
+    color: #4f46e5;
+    font-weight: 700;
+    min-width: 2rem;
+}
+
+.question-text {
+    flex: 1;
+}
+
+.question-help-text {
+    background-color: #f8f9ff;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    color: #4a5568;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    border-left: 3px solid #4f46e5;
+}
+
+.question-help-text i {
+    color: #4f46e5;
+    margin-top: 0.2rem;
+}
+
+/* Form Elements */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #4a5568;
+}
+
+.input-field {
+    position: relative;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: #2d3748;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus {
+    border-color: #a5b4fc;
+    outline: 0;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* Radio and Checkbox Styles */
+.form-check {
+    margin-bottom: 1rem;
+    padding: 0;
+    border: none;
+    background: none;
+}
+
+.form-check-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.form-check-input {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+}
+
+.form-check-label {
+    padding: 0;
+    color: #4a5568;
+    line-height: 1.5;
+    cursor: pointer;
+}
+
+.option-text {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Invalid Feedback */
+.invalid-feedback {
+    display: flex;
+    align-items: center;
+    color: #e53e3e;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+}
+
+.invalid-feedback i {
+    margin-right: 0.5rem;
+}
+
+/* Range Input */
+input[type="range"] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: #e2e8f0;
+    outline: none;
+    margin: 1.5rem 0;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #4f46e5;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+input[type="range"]:hover::-webkit-slider-thumb {
+    transform: scale(1.1);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .question-card {
+        padding: 1.25rem;
+    }
+    
+    .question-title {
+        font-size: 1.1rem;
+    }
+    
+    .form-check-wrapper {
+        gap: 0.5rem;
+    }
+}
+
+/* Tooltip */
+.tooltip {
+    font-size: 0.875rem;
+}
+
+/* Make sure the form controls don't have extra margins */
+.form-control:not(textarea) {
+    height: auto;
+}
+
+/* Textarea specific styles */
+textarea.form-control {
+    min-height: 120px;
+    resize: vertical;
+}
+
+/* Update the question body styles */
+.question-body {
+    padding: 0.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Ensure form groups take full width */
+.question-body > .form-group,
+.question-body > .form-check {
+    width: 100%;
+    margin: 0;
+}
+
+/* Fix alignment for form check items */
+.form-check.option-item {
+    padding: 0.75rem 1rem;
+    margin: 0 -1rem;
+    border-radius: 0.5rem;
+    transition: background-color 0.2s ease;
+}
+
+.form-check.option-item:hover {
+    background-color: #f8f9ff;
+}
+
+/* Fix for radio and checkbox alignment */
+.form-check-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.form-check-input[type="radio"],
+.form-check-input[type="checkbox"] {
+    margin: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+}
+
+/* Fix for text inputs and textareas */
+.input-field {
+    width: 100%;
+}
+
+.input-field .form-control {
+    width: 100%;
+    margin: 0;
+}
+
+/* Fix for the range input */
+input[type="range"] {
+    width: 100%;
+    margin: 1rem 0;
+}
+
+/* Ensure proper spacing between options */
+.option-item + .option-item {
+    margin-top: 0.5rem;
+}
+
+/* Fix for the form group spacing */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+/* Make sure the form controls are properly aligned */
+.form-control {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Fix for the navigation buttons */
+.navigation-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Ensure consistent spacing */
+.form-check-label {
+    padding: 0.25rem 0;
+    line-height: 1.5;
+}
+
+/* Fix for the question card padding */
+.question-card {
+    overflow: hidden;
+}
+
+/* Fix for the form controls inside the card */
+.question-card .form-control,
+.question-card .form-select {
+    background-color: #fff;
+    border: 1px solid #e2e8f0;
+}
+
+/* Make sure the form controls have consistent height */
+.form-control,
+.form-select {
+    min-height: 2.75rem;
+}
+
+/* Fix for the textarea */
+textarea.form-control {
+    min-height: 120px;
+}
+
+/* Fix for the navigation buttons */
+.btn {
+    padding: 0.5rem 1.25rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+}
+
+/* Ensure proper spacing between form elements */
+.form-group:not(:last-child) {
+    margin-bottom: 1.5rem;
+}
+
+/* Question Body Styles */
+.question-body {
+    padding: 1rem 0;
+    width: 100%;
+}
+
+/* Form Check Wrapper */
+.form-check-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    transition: background-color 0.2s ease;
+}
+
+.form-check.option-item {
+    margin: 0.25rem 0;
+    width: 100%;
+}
+
+.form-check.option-item:hover .form-check-wrapper {
+    background-color: #f8f9ff;
+}
+
+/* Form Check Input */
+.form-check-input[type="radio"],
+.form-check-input[type="checkbox"] {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.form-check-label {
+    padding: 0.25rem 0;
+    line-height: 1.5;
+    cursor: pointer;
+    flex-grow: 1;
+}
+
+/* Form Group Styles */
+.form-group {
+    margin-bottom: 1.5rem;
+    width: 100%;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #4a5568;
+}
+
+/* Input Field Styles */
+.input-field {
+    width: 100%;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus {
+    border-color: #a5b4fc;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    outline: none;
+}
+
+/* Error States */
+.invalid-feedback {
+    color: #e53e3e;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+/* Range Input */
+input[type="range"] {
+    width: 100%;
+    margin: 1rem 0;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .form-check-wrapper {
+        padding: 0.5rem 0.25rem;
+    }
+    
+    .form-control {
+        padding: 0.65rem 0.85rem;
+    }
+}
+
+/* Form Check Wrapper */
+.form-check-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    transition: background-color 0.2s ease;
+}
+
+/* Style the actual label that comes from Django */
+.form-check-label {
+    margin: 0;
+    padding: 0.25rem 0;
+    line-height: 1.5;
+    cursor: pointer;
+    flex-grow: 1;
+}
+
+/* Hide the default label if it's being rendered by Django */
+.form-check-wrapper > .form-check-label {
+    display: none;
+}
+
+/* Ensure the input is properly aligned */
+.form-check-input[type="radio"],
+.form-check-input[type="checkbox"] {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+/* Basic form control styling */
+.form-control, .form-select {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+/* Form check wrapper */
+.form-check-wrapper {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+/* Form check input and label */
+.form-check-input {
+    margin-right: 0.5rem;
+}
+
+.form-check-label {
+    margin-bottom: 0;
+    cursor: pointer;
+}
+
+/* Range input value display */
+.range-value {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+/* Make file inputs look better */
+input[type="file"].form-control {
+    padding: 0.375rem 0.75rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .form-control, .form-select {
+        font-size: 16px; /* Prevent zoom on mobile */
+    }
+}
+

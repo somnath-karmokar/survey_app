@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="inner_banner">
+    <img src="images/survey_img6.jpeg" />
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="inner_banner_content">
+                    <h1>Sign Up / Log In</h1>
+                    <div class="breadcrumb_box">
+                        <ul>
+                            <li><a href="index.html">Home</a></li>
+                            <li><i class="fa fa-angle-right" aria-hidden="true"></i></li>
+                            <li>Sign Up / Log In</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="contact_area">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6 offset-md-3">
+                <div class="tabs-box">
+                    <div class="tabs-content tab_cont">
+                        <div class="form_area log_form tab active-tab" id="LogIn">
+                            <form class="row">
+                                <div class="col-md-12">
+                                    <input class="form-control" placeholder="Enter Email/Mobile Number" required="">
+                                </div>
+                                <div class="col-md-12 loginput_box">
+                                    <input class="form-control" placeholder="Enter Password" required="">
+                                    <span class="tab-btn" data-tab="#Forgot">Forgot?</span>
+                                </div>
+                                <div class="col-md-12">
+                                    <button class="form_btn">Log In</button>
+                                </div>
+                                <h5 class="tab-btn" data-tab="#Register">If you don't have account, <span>Click Here</span></h5>
+                            </form>
+                        </div>
+
+                        <div class="form_area log_form tab" id="Forgot" style="display: none;">
+                            <form class="row">
+                                <div class="col-md-12 loginput_box">
+                                    <input class="form-control" placeholder="Enter OTP" required="">
+                                    <span>Resend?</span>
+                                </div>
+                                <div class="col-md-12">
+                                    <button class="form_btn">Submit</button>
+                                </div>
+                                <h5 class="tab-btn" data-tab="#Register">If you don't have account, <span>Click Here</span></h5>
+                            </form>
+                        </div>
+
+                        <div class="form_area log_form tab" id="Register" style="display: none;">
+                            <form class="row">
+                                <div class="col-md-12">
+                                    <input class="form-control" placeholder="Enter Full Name" required="">
+                                </div>
+                                <div class="col-md-12">
+                                    <input class="form-control" placeholder="Enter Email Id" required="">
+                                </div>
+                                <div class="col-md-12">
+                                    <input class="form-control" placeholder="Enter Phone Number" required="">
+                                </div>
+                                <div class="col-md-12">
+                                    <input class="form-control" placeholder="Create Password" required="">
+                                </div>
+                                <div class="col-md-12">
+                                    <button class="form_btn">Register</button>
+                                </div>
+                                <h5 class="tab-btn" data-tab="#LogIn">Existing User? Log in. <span>Click Here</span></h5>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

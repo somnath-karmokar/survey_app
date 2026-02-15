@@ -1,0 +1,57 @@
+{
+  "country": "GB",
+  "started_at": "2026-01-10T18:18:19.379854",
+  "documents": [
+    {
+      "file": "U.K.2 -  Furniture & Home.docx",
+      "category": "Furniture & Home",
+      "sections": {
+        "Section 1: Shopping Behaviour & Frequency (14 Questions)": 14,
+        "Section 2: Research & Decision Making (14 Questions)": 14,
+        "Section 3: In-Store Experience (14 Questions)": 14,
+        "Section 4: Online Experience & E-commerce (14 Questions)": 14,
+        "Section 5: Product & Quality Perception (14 Questions)": 14,
+        "Section 6: Delivery & Aftercare Logistics (14 Questions)": 14,
+        "Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "Section 8: Brand Perception & General Feedback (14 Questions)": 14
+      },
+      "total_questions": 112,
+      "user_confirmed": true,
+      "status": "committed"
+    },
+    {
+      "file": "U.K.31 - Delivery & Courier service.docx",
+      "category": "Delivery & Courier service",
+      "sections": {
+        "1. Section 1: Project Behaviour & Frequency (14 Questions)": 14,
+        "2. Section 2: Tracking & Communication (14 Questions)": 14,
+        "3. Section 3: Delivery Driver & Last-Mile Service (14 Questions)": 14,
+        "4. Section 4: E-commerce Integration & Digital Tools (14 Questions)": 14,
+        "5. Section 5: Reliability & Damage (14 Questions)": 14,
+        "6. Section 6: Price, Value & Insurance (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "committed"
+    },
+    {
+      "file": "U.K.45 - Restaurants and family dining (not fast food chains).docx",
+      "category": "Restaurants and family dining (not fast food chains)",
+      "sections": {
+        "1. Section 1: Reservation & Visit Behaviour (14 Questions)": 14,
+        "2. Section 2: Food Quality & Culinary Focus (14 Questions)": 14,
+        "3. Section 3: Service Quality & Staff Interaction (14 Questions)": 14,
+        "4. Section 4: Ambiance, Cleanliness & Comfort (14 Questions)": 14,
+        "5. Section 5: Value, Pricing & Payment (14 Questions)": 14,
+        "6. Section 6: Loyalty Programs & Digital Experience (14 Questions)": 14,
+        "7. Section 7: Future Intentions & Loyalty (14 Questions)": 14,
+        "8. Section 8: Industry Perception & General Feedback (14 Questions)": 13
+      },
+      "total_questions": 111,
+      "user_confirmed": true,
+      "status": "committed"
+    }
+  ]
+}

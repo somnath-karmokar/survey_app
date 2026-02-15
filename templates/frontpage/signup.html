@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="text-center mb-0">Create an Account</h2>
+                </div>
+                <div class="card-body p-4">
+                    {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <strong>Please correct the following errors:</strong>
+                            <ul class="mb-0">
+                                {% for field, errors in form.errors.items %}
+                                    {% for error in errors %}
+                                        <li>{{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+
+                    <form method="post" action="{% url 'surveys:signup' %}" enctype="multipart/form-data" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <!-- Personal Information -->
+                            <div class="col-md-6 mb-3">
+                                <h5 class="border-bottom pb-2 mb-3">Personal Information</h5>
+                                
+                                <div class="mb-3">
+                                    <label for="id_first_name" class="form-label">First Name <span class="text-danger">*</span></label>
+                                    <input type="text" name="first_name" class="form-control" id="id_first_name" 
+                                           value="{{ form.first_name.value|default:'' }}" required>
+                                    <div class="invalid-feedback">Please enter your first name.</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_last_name" class="form-label">Last Name <span class="text-danger">*</span></label>
+                                    <input type="text" name="last_name" class="form-control" id="id_last_name" 
+                                           value="{{ form.last_name.value|default:'' }}" required>
+                                    <div class="invalid-feedback">Please enter your last name.</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_email" class="form-label">Email Address <span class="text-danger">*</span></label>
+                                    <input type="email" name="email" class="form-control" id="id_email" 
+                                           value="{{ form.email.value|default:'' }}" required>
+                                    <div class="invalid-feedback">Please enter a valid email address.</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_phone_number" class="form-label">Phone Number</label>
+                                    <input type="tel" name="phone_number" class="form-control" id="id_phone_number" 
+                                           value="{{ form.phone_number.value|default:'' }}">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_date_of_birth" class="form-label">Date of Birth</label>
+                                    <input type="date" name="date_of_birth" class="form-control" id="id_date_of_birth"
+                                           value="{{ form.date_of_birth.value|date:'Y-m-d'|default:'' }}">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_profile_picture" class="form-label">Profile Picture</label>
+                                    <input type="file" name="profile_picture" class="form-control" id="id_profile_picture"
+                                           accept="image/*">
+                                </div>
+                            </div>
+                            
+                            <!-- Account Information -->
+                            <div class="col-md-6 mb-3">
+                                <h5 class="border-bottom pb-2 mb-3">Account Information</h5>
+                                
+                                <div class="mb-3">
+                                    <label for="id_username" class="form-label">Username <span class="text-danger">*</span></label>
+                                    <input type="text" name="username" class="form-control" id="id_username" 
+                                           value="{{ form.username.value|default:'' }}" maxlength="150" required>
+                                    <div class="form-text">Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.</div>
+                                    <div class="invalid-feedback">Please choose a username.</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_password1" class="form-label">Password <span class="text-danger">*</span></label>
+                                    <input type="password" name="password1" class="form-control" 
+                                           id="id_password1" required>
+                                    <div class="form-text">Your password must contain at least 8 characters and can't be entirely numeric.</div>
+                                    <div class="invalid-feedback">Please enter a password.</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="id_password2" class="form-label">Password Confirmation <span class="text-danger">*</span></label>
+                                    <input type="password" name="password2" class="form-control" 
+                                           id="id_password2" required>
+                                    <div class="invalid-feedback">Passwords must match.</div>
+                                </div>
+                                
+                                <h5 class="border-bottom pb-2 mb-3 mt-4">Address Information</h5>
+                                
+                                <div class="mb-3">
+                                    <label for="id_address" class="form-label">Address</label>
+                                    <textarea name="address" class="form-control" id="id_address" 
+                                              rows="2">{{ form.address.value|default:'' }}</textarea>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="id_city" class="form-label">City</label>
+                                        <input type="text" name="city" class="form-control" id="id_city" 
+                                               value="{{ form.city.value|default:'' }}">
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="id_state" class="form-label">State/Province</label>
+                                        <input type="text" name="state" class="form-control" id="id_state" 
+                                               value="{{ form.state.value|default:'' }}">
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="id_country" class="form-label">Country <span class="text-danger">*</span></label>
+                                        <select name="country" class="form-select" id="id_country" required>
+                                            <option value="" disabled selected>Select Country</option>
+                                            {% for country in form.country.field.queryset %}
+                                                <option value="{{ country.id }}" 
+                                                    {% if form.country.value == country.id|stringformat:'s' %}selected{% endif %}>
+                                                    {{ country.name }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="invalid-feedback">Please select your country.</div>
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="id_postal_code" class="form-label">Postal Code</label>
+                                        <input type="text" name="postal_code" class="form-control" id="id_postal_code" 
+                                               value="{{ form.postal_code.value|default:'' }}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg">Create Account</button>
+                        </div>
+                    </form>
+                    
+                    <div class="mt-4 text-center">
+                        <p class="mb-0">Already have an account? <a href="{% url 'surveys:login' %}">Sign In</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Form validation script -->
+<script>
+// Example starter JavaScript for disabling form submissions if there are invalid fields
+(function () {
+  'use strict'
+
+  // Fetch all the forms we want to apply custom Bootstrap validation styles to
+  var forms = document.querySelectorAll('.needs-validation')
+
+  // Loop over them and prevent submission
+  Array.prototype.slice.call(forms)
+    .forEach(function (form) {
+      form.addEventListener('submit', function (event) {
+        if (!form.checkValidity()) {
+          event.preventDefault()
+          event.stopPropagation()
+        }
+
+        form.classList.add('was-validated')
+      }, false)
+    })
+})()
+</script>
+{% endblock %}

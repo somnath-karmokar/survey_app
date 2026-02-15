@@ -1,0 +1,46 @@
+{% extends 'emails/base_email.html' %}
+
+{% block title %}Congratulations! You're a Lucky Draw Winner!{% endblock %}
+
+{% block content %}
+    <div style="text-align: center; margin-bottom: 25px;">
+        <span style="font-size: 48px; display: block; margin-bottom: 15px;">🎉</span>
+        <h2 style="color: #e74c3c; margin-bottom: 10px;">Congratulations!</h2>
+        <h3 style="color: #4a6fa5; margin-top: 0;">You're a Winner!</h3>
+    </div>
+    
+    <p>Dear {{ user.get_full_name|default:user.username }},</p>
+    
+    <p>We're thrilled to inform you that you've won the {{ entry.month }} {{ entry.year }} Lucky Draw!</p>
+    
+    <div style="background-color: #f9f9f9; padding: 20px; border: 2px dashed #e74c3c; border-radius: 5px; margin: 20px 0; text-align: center;">
+        <h3 style="margin-top: 0; color: #4a6fa5;">Your Winning Number</h3>
+        <div style="font-size: 42px; font-weight: bold; color: #e74c3c; margin: 15px 0; letter-spacing: 3px;">
+            {{ entry.selected_number }}
+        </div>
+        <p>Draw Date: {{ entry.win_date|date:"F j, Y" }}</p>
+    </div>
+    
+    <h3>🎁 Your Prize:</h3>
+    <p>You've won an exciting prize! Our team will contact you shortly with details about how to claim your reward.</p>
+    
+    <div style="background-color: #e8f4fc; border-left: 4px solid #4a6fa5; padding: 15px; margin: 20px 0;">
+        <h4 style="margin-top: 0;">Next Steps:</h4>
+        <ol>
+            <li>Our team will contact you within 3-5 business days</li>
+            <li>You'll need to verify your identity</li>
+            <li>Prize delivery details will be confirmed</li>
+        </ol>
+    </div>
+    
+    <p>Thank you for participating in our survey program. Your feedback is valuable to us!</p>
+    
+    <p style="text-align: center; margin-top: 30px;">
+        <a href="{{ site_url }}/lucky-draw/" class="button" style="background-color: #e74c3c;">View Winner's Page</a>
+    </p>
+    
+    <p style="font-size: 12px; color: #777; margin-top: 30px;">
+        <strong>Note:</strong> This is an official notification. Please do not respond to this email. 
+        If you have any questions, please contact our support team.
+    </p>
+{% endblock %}

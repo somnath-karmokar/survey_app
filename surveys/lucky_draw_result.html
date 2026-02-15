@@ -1,0 +1,60 @@
+{% extends 'surveys/base/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header {% if is_winner %}bg-success{% else %}bg-warning{% endif %} text-white">
+                    <h2 class="h4 mb-0">Lucky Draw Result</h2>
+                </div>
+                <div class="card-body text-center">
+                    {% if is_winner %}
+                        <div class="mb-4">
+                            <div class="trophy-icon mb-3">
+                                <i class="fas fa-trophy fa-5x text-warning"></i>
+                            </div>
+                            <h3 class="text-success">Congratulations! 🎉</h3>
+                            <p class="lead">You've won: <strong>{{ prize }}</strong></p>
+                        </div>
+                    {% else %}
+                        <div class="mb-4">
+                            <i class="far fa-sad-tear fa-5x text-warning mb-3"></i>
+                            <h3>Better Luck Next Time!</h3>
+                            <p>The winning number was <span class="h4 font-weight-bold">{{ entry.winning_number }}</span></p>
+                        </div>
+                    {% endif %}
+
+                    <div class="result-details mt-4 p-3 bg-light rounded">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <p class="mb-1">Your Guess</p>
+                                <h4 class="font-weight-bold">{{ entry.guessed_number }}</h4>
+                            </div>
+                            <div class="col-6">
+                                <p class="mb-1">Winning Number</p>
+                                <h4 class="font-weight-bold">{{ entry.winning_number }}</h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        {% if is_winner %}
+                            <p class="text-muted">Your prize details have been sent to your email.</p>
+                            <a href="{% url 'surveys:survey_list' %}" class="btn btn-primary mt-3">
+                                <i class="fas fa-tasks me-2"></i>Take More Surveys
+                            </a>
+                        {% else %}
+                            <p class="text-muted">Complete more surveys to try again!</p>
+                            <a href="{% url 'surveys:survey_list' %}" class="btn btn-primary mt-3">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Surveys
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

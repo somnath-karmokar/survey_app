@@ -1,0 +1,44 @@
+/* Add this to your static/css/surveys.css or in a <style> tag in your base template */
+.survey {
+    border: 1px solid #ddd;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+}
+
+.survey.completed {
+    opacity: 0.7;
+    background-color: #f8f9fa;
+}
+
+.badge {
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+.bg-success {
+    background-color: #198754;
+    color: white;
+}
+
+.bg-warning {
+    background-color: #ffc107;
+    color: #000;
+}
+
+/* static/surveys/css/surveys.css */
+.survey-locked {
+    opacity: 0.7;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+.survey-locked .card-text {
+    color: #6c757d;
+}
+
+.survey-locked .btn[disabled] {
+    cursor: not-allowed;
+}
+

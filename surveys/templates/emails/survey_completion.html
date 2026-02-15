@@ -1,0 +1,26 @@
+{% extends 'emails/base_email.html' %}
+
+{% block title %}Survey Completed - {{ survey.name }}{% endblock %}
+
+{% block content %}
+    <h2>Thank You for Completing the Survey!</h2>
+    
+    <p>Hello {{ user.get_full_name|default:user.username }},</p>
+    
+    <p>We're excited to let you know that you've successfully completed the survey:</p>
+    
+    <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #4a6fa5; margin: 15px 0;">
+        <h3 style="margin-top: 0;">{{ survey.name }}</h3>
+        <p>{{ survey.description|default:"Thank you for your valuable feedback!" }}</p>
+    </div>
+    
+    <p>Your responses will help us improve our services and better understand your needs.</p>
+    
+    <p>If you have any questions about the survey, please don't hesitate to contact us.</p>
+    
+    <p>You can view your survey history by visiting your dashboard:</p>
+    
+    <p style="text-align: center;">
+        <a href="{{ site_url }}" class="button">View My Dashboard</a>
+    </p>
+{% endblock %}

@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Contact Us - Survey App{% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/swiper.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/slick.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+{% endblock %}
+
+{% block content %}
+
+{% if messages %}
+<div class="container mt-3">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<section class="inner_banner">
+    <img src="{% static 'images/survey_img6.jpeg' %}" alt="Contact Us Banner" class="img-fluid" />
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="inner_banner_content">
+                    <h1>Contact Us</h1>
+                    <div class="breadcrumb_box">
+                        <ul>
+                            <li><a href="{% url 'surveys:home' %}">Home</a></li>
+                            <li><i class="fa fa-angle-right" aria-hidden="true"></i></li>
+                            <li>Contact Us</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="contact_area">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="cont_left">
+                    <h2 class="head">Contact Information</h2>
+                    <div class="cont_box">
+                        <div class="cont_span">
+                            <span><i class="fa-solid fa-location-dot"></i></span>
+                        </div>
+                        <div class="cont_cont">
+                            <h3>Address</h3>
+                            <p>71 Pilgrim Avenue, Chevy Chase, MD 20815</p>
+                        </div>
+                    </div>
+                    <div class="cont_box">
+                        <div class="cont_span">
+                            <span><i class="fa-solid fa-phone-volume"></i></span>
+                        </div>
+                        <div class="cont_cont">
+                            <h3>Phone Number</h3>
+                            <p><a href="tel:+91 123456789">+91 123456789</a></p>
+                        </div>
+                    </div>
+                    <div class="cont_box">
+                        <div class="cont_span">
+                            <span><i class="fa-solid fa-envelope"></i></span>
+                        </div>
+                        <div class="cont_cont">
+                            <h3>Mail</h3>
+                            <p><a href="mailto:Info@sudraw.com">Info@sudraw.com</a></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="msn_right">
+                    <h2 class="head">Get in Touch</h2>
+                    <div class="form_area">
+                        <form class="row" method="post" action="{% url 'surveys:contact' %}">
+                            {% csrf_token %}
+                            <div class="col-md-6">
+                                <input type="text" name="name" class="form-control" placeholder="Your Name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <input type="email" name="email" class="form-control" placeholder="Your Email" required>
+                            </div>
+                            <div class="col-md-6">
+                                <input type="tel" name="phone" class="form-control" placeholder="Your Phone Number" required>
+                            </div>
+                            <div class="col-md-6">
+                                <select name="subject" class="form-control" required>
+                                    <option value="">-- Select Subject --</option>
+                                    <option value="General Inquiry">General Inquiry</option>
+                                    <option value="Support">Support</option>
+                                    <option value="Feedback">Feedback</option>
+                                    <option value="Partnership">Partnership</option>
+                                </select>
+                            </div>
+                            <div class="col-md-12">
+                                <textarea name="message" class="form-control" placeholder="Your Message" rows="5" required></textarea>
+                            </div>
+                            <div class="col-md-12">
+                                <button type="submit" class="form_btn">Send Message</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="map_area">
+    <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3102.019836744683!2d-77.08143562439373!3d38.96921504246398!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89b7c9a1db113849%3A0xc9d5235b99bee3a8!2sHoly%20Kids!5e0!3m2!1sen!2sin!4v1762440035808!5m2!1sen!2sin" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+</section>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize any contact page specific JavaScript here
+    document.addEventListener('DOMContentLoaded', function() {
+        // Form submission handling
+        const contactForm = document.querySelector('form');
+        if (contactForm) {
+            contactForm.addEventListener('submit', function(e) {
+                // Add any client-side validation here
+                console.log('Form submitted');
+            });
+        }
+    });
+</script>
+{% endblock %}

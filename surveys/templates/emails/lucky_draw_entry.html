@@ -1,0 +1,29 @@
+{% extends 'emails/base_email.html' %}
+
+{% block title %}Lucky Draw Entry Confirmation - {{ entry.month }}/{{ entry.year }}{% endblock %}
+
+{% block content %}
+    <h2>Your Lucky Draw Entry is Confirmed!</h2>
+    
+    <p>Hello {{ user.get_full_name|default:user.username }},</p>
+    
+    <p>Thank you for participating in our {{ entry.month }} {{ entry.year }} Lucky Draw. Your entry has been successfully recorded.</p>
+    
+    <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #4a6fa5; margin: 15px 0; text-align: center;">
+        <h3 style="margin-top: 0; color: #4a6fa5;">Your Lucky Number</h3>
+        <div style="font-size: 32px; font-weight: bold; color: #e74c3c; margin: 15px 0;">
+            {{ entry.selected_number }}
+        </div>
+        <p>Entry Date: {{ entry.entry_date|date:"F j, Y" }}</p>
+    </div>
+    
+    <p>The lucky draw will be held on the last day of the month. Winners will be notified via email and announced on our website.</p>
+    
+    <p>Good luck! 🍀</p>
+    
+    <p style="text-align: center;">
+        <a href="{{ site_url }}" class="button">View Lucky Draw Details</a>
+    </p>
+    
+    <p>If you have any questions about the lucky draw, please don't hesitate to contact us.</p>
+{% endblock %}

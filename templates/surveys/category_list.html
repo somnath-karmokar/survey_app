@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+{{ block.super }}
+<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/bootstrap.css' %}">
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+<link rel="stylesheet" href="{% static 'css/swiper.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/slick.min.css' %}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.5.2/animate.min.css">
+<style>
+    .features_area {
+        padding: 80px 0;
+    }
+    .serv_box {
+        background: #fff;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 30px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    .serv_box:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    .serv_img {
+        height: 200px;
+        overflow: hidden;
+    }
+    .serv_img img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: all 0.5s ease;
+    }
+    .serv_box:hover .serv_img img {
+        transform: scale(1.1);
+    }
+    .serv_cont {
+        padding: 25px;
+    }
+    .serv_icon {
+        font-size: 40px;
+        color: #0d6efd;
+        margin-bottom: 15px;
+    }
+    .serv_cont h3 {
+        font-size: 22px;
+        margin-bottom: 15px;
+        color: #333;
+    }
+    .serv_cont p {
+        color: #666;
+        margin-bottom: 20px;
+        font-size: 15px;
+        line-height: 1.6;
+    }
+    .serv_cont a {
+        display: inline-block;
+        background: #0d6efd;
+        color: #fff;
+        padding: 8px 20px;
+        border-radius: 5px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    .serv_cont a:hover {
+        background: #0b5ed7;
+        transform: translateY(-2px);
+    }
+    .inner_banner {
+        position: relative;
+        padding: 100px 0;
+        background-size: cover;
+        background-position: center;
+        color: #fff;
+        text-align: center;
+    }
+    .inner_banner::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.6);
+    }
+    .inner_banner_content {
+        position: relative;
+        z-index: 1;
+    }
+    .inner_banner h1 {
+        font-size: 48px;
+        margin-bottom: 15px;
+        font-weight: 700;
+    }
+    .breadcrumb_box {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .breadcrumb_box ul {
+        display: flex;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .breadcrumb_box li {
+        margin: 0 5px;
+    }
+    .breadcrumb_box a {
+        color: #fff;
+        text-decoration: none;
+    }
+    .breadcrumb_box a:hover {
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<section class="inner_banner" style="background-image: url('{% static "images/survey_img6.jpeg" %}')">
+
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="inner_banner_content">
+                    <h1>Categories</h1>
+                    <div class="breadcrumb_box">
+                        <ul>
+                            <li><a href="{% url 'surveys:home' %}">Home</a></li>
+                            <li><i class="fa fa-angle-right" aria-hidden="true"></i></li>
+                            <li>Categories</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Add this near the top of the template, after any existing messages -->
+{% if user.is_authenticated %}
+    {% if is_eligible_for_draw %}
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-trophy me-2"></i>
+            Congratulations! You are eligible for the lucky draw!
+            <a href="{% url 'surveys:lucky_draw' %}" class="alert-link">Click here to play!</a>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endif %}
+{% endif %}
+
+<section class="features_area">
+    <div class="container">
+        <div class="row">
+            {% for category in categories %}
+            <div class="col-lg-4 col-md-6 col-sm-12">
+                <div class="serv_box">
+                    {% if category.image %}
+                    <div class="serv_img">
+                        <img src="{{ category.image.url }}" alt="{{ category.name }}">
+                    </div>
+                    {% else %}
+                    <div class="serv_img">
+                        <img src="{% static 'images/survey_img1.jpeg' %}" alt="{{ category.name }}">
+                    </div>
+                    {% endif %}
+                    <div class="serv_cont">
+                        <div class="serv_icon">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </div>
+                        <h3>{{ category.name }}</h3>
+                        {% if category.description %}
+                        <p>{{ category.description|safe|truncatewords:20 }}</p>
+                        {% else %}
+                        <p>Explore our {{ category.name }} category to find relevant surveys and content.</p>
+                        {% endif %}
+                        <a href="{% url 'surveys:category_detail' category_slug=category.slug %}">View Category</a>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center">
+                <div class="alert alert-info">No categories available at the moment. Please check back later.</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{{ STATIC_URL }}js/bootstrap.bundle.min.js"></script>
+<script src="{{ STATIC_URL }}js/jquery-3.6.0.min.js"></script>
+<script src="{{ STATIC_URL }}js/swiper.min.js"></script>
+<script src="{{ STATIC_URL }}js/slick.min.js"></script>
+<script src="{{ STATIC_URL }}js/custom.js"></script>
+{% endblock %}

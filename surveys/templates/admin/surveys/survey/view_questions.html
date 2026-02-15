@@ -1,0 +1,120 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/forms.css' %}">
+<style>
+    .question-list {
+        margin: 20px 0;
+    }
+    .question-item {
+        background: #f8f8f8;
+        border: 1px solid #ddd;
+        padding: 10px 15px;
+        margin-bottom: 10px;
+        border-radius: 4px;
+        cursor: move;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .question-item:hover {
+        background: #f0f0f0;
+    }
+    .question-actions {
+        display: flex;
+        gap: 10px;
+    }
+    .question-text {
+        flex-grow: 1;
+    }
+    .question-type {
+        color: #666;
+        font-size: 0.9em;
+        margin-left: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='surveys' %}">Surveys</a>
+    &rsaquo; <a href="{% url 'admin:surveys_survey_changelist' %}">Surveys</a>
+    &rsaquo; {{ title|capfirst }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="module">
+        <h2>{{ title }}</h2>
+        
+        <div class="actions
+            <a href="{% url 'admin:surveys_question_add' %}?survey={{ survey.id }}" class="button">
+                <i class="icon-plus"></i> Add New Question
+            </a>
+            <a href="{% url 'admin:surveys_question_changelist' %}?survey__id__exact={{ survey.id }}" class="button">
+                <i class="icon-list"></i> View All Questions
+            </a>
+        </div>
+        
+        <form method="post" id="question-order-form">
+            {% csrf_token %}
+            <input type="hidden" name="question_order" id="question-order-input">
+            
+            <div class="question-list" id="sortable-questions">
+                {% for question in questions %}
+                <div class="question-item" data-id="{{ question.id }}">
+                    <div class="question-text">
+                        {{ question.question_text }}
+                        <span class="question-type">({{ question.get_question_type_display }})</span>
+                    </div>
+                    <div class="question-actions">
+                        <a href="{% url 'admin:surveys_question_change' question.id %}" class="button" title="Edit">
+                            <i class="icon-edit"></i> Edit
+                        </a>
+                        <a href="{% url 'admin:surveys_question_delete' question.id %}" class="button" title="Delete">
+                            <i class="icon-trash"></i> Delete
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <p>No questions found for this survey.</p>
+                {% endfor %}
+            </div>
+            
+            <div class="submit-row">
+                <input type="submit" value="Save Order" class="default" name="_save">
+                <a href="{% url 'admin:surveys_survey_change' survey.id %}" class="button cancel-link">Back to Survey</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
+<script>
+    $(function() {
+        // Make questions sortable
+        $("#sortable-questions").sortable({
+            update: function(event, ui) {
+                const order = $(this).sortable('toArray', {attribute: 'data-id'});
+                $("#question-order-input").val(order.join(','));
+            }
+        });
+        $("#sortable-questions").disableSelection();
+        
+        // Initialize the hidden input with current order
+        const initialOrder = [];
+        $(".question-item").each(function() {
+            initialOrder.push($(this).data('id'));
+        });
+        $("#question-order-input").val(initialOrder.join(','));
+    });
+</script>
+{% endblock %}

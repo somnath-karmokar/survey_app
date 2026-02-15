@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Login - SUDRAW2{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-container {
+        max-width: 500px;
+        margin: 50px auto;
+        padding: 30px;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    }
+    .login-title {
+        text-align: center;
+        margin-bottom: 30px;
+        color: #2c3e50;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-control {
+        height: 45px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        padding: 10px 15px;
+    }
+    .btn-login {
+        width: 100%;
+        padding: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        background: #0d6efd;
+        border: none;
+        border-radius: 5px;
+        color: #fff;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .btn-login:hover {
+        background: #0b5ed7;
+        transform: translateY(-2px);
+    }
+    .signup-link {
+        text-align: center;
+        margin-top: 20px;
+    }
+    .signup-link a {
+        color: #0d6efd;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .signup-link a:hover {
+        text-decoration: underline;
+    }
+    .errorlist {
+        color: #dc3545;
+        padding-left: 20px;
+        margin-top: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="login-container">
+        <h2 class="login-title">Welcome Back</h2>
+        
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+        
+        {% if form.errors %}
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                Your username and password didn't match. Please try again.
+            </div>
+        {% endif %}
+        
+        <form method="post" action="{% url 'surveys:login' %}" class="needs-validation" novalidate>
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="id_username" class="form-label">Username</label>
+                <input type="text" name="username" id="id_username" class="form-control" required autofocus>
+            </div>
+            
+            <div class="form-group">
+                <label for="id_password" class="form-label">Password</label>
+                <input type="password" name="password" id="id_password" class="form-control" required>
+            </div>
+            
+            <div class="form-group form-check">
+                <input type="checkbox" class="form-check-input" id="rememberMe">
+                <label class="form-check-label" for="rememberMe">Remember me</label>
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="btn btn-login">
+                    <i class="fas fa-sign-in-alt me-2"></i>Login
+                </button>
+            </div>
+            
+            <div class="text-center">
+                <a href="#" class="text-decoration-none">Forgot your password?</a>
+            </div>
+            
+            <div class="signup-link">
+                Don't have an account? <a href="{% url 'surveys:signup' %}">Sign up</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Form validation
+    (function () {
+        'use strict'
+        
+        // Fetch all the forms we want to apply custom Bootstrap validation styles to
+        var forms = document.querySelectorAll('.needs-validation')
+        
+        // Loop over them and prevent submission
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                    
+                    form.classList.add('was-validated')
+                }, false)
+            })
+    })()
+</script>
+{% endblock %}
+                    Don't have an account? 
+                    <a href="#" class="text-decoration-none">Contact admin</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Set focus to username field on page load
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('id_username').focus();
+});
+</script>
+{% endblock %}

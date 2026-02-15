@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+    .number-placeholder {
+        display: inline-block;
+        width: 100%;
+        text-align: center;
+    }
+    .number-text {
+        display: none;
+    }
+    .number-box.show-number .number-placeholder {
+        display: none;
+    }
+    .number-box.show-number .number-text {
+        display: inline-block;
+    }
+    .current-winner {
+        background: #f8f9fa;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 20px;
+        text-align: center;
+        border-left: 4px solid #0d6efd;
+    }
+    .winner-number {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #0d6efd;
+    }
+</style>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h4 mb-0">Lucky Draw</h2>
+                </div>
+                <div class="card-body">
+                    {% if not user_eligible %}
+                    <div class="alert {% if last_play_date %}alert-warning{% else %}alert-info{% endif %}">
+                        <!-- <i class="fas {% if last_play_date %}fa-clock me-2{% else %}fa-info-circle me-2{% endif %}"></i> -->
+                        {% if last_play_date %}
+                            <!-- You've already played the lucky draw. Complete {{ surveys_required }} more surveys to play again. -->
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    You've completed {{ surveys_completed }} of {{ surveys_required }} required surveys since your last play.
+                                </small>
+                            </div>
+                        {% else %}
+                            You need to complete {{ surveys_required }} surveys to play the lucky draw.
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    You've completed {{ surveys_completed }} of {{ surveys_required }} required surveys.
+                                </small>
+                            </div>
+                        {% endif %}
+                        <div class="progress mt-2" style="height: 20px;">
+                            {% widthratio surveys_completed surveys_required 100 as progress_percent %}
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" 
+                                 style="width: {{ progress_percent }}%;" 
+                                 aria-valuenow="{{ surveys_completed }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="{{ surveys_required }}">
+                                {{ surveys_completed }}/{{ surveys_required }}
+                            </div>
+                        </div>
+                        <!-- {% if last_play_date %}
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                Last played: {{ last_play_date|timesince }} ago
+                            </small>
+                        </div>
+                        {% endif %} -->
+                    </div>
+                    {% endif %}
+                    
+                    <div class="text-center mb-4">
+                        <i class="fas fa-gift fa-4x text-warning mb-3"></i>
+                        <h3>Lucky Draw</h3>
+                        {% if user_eligible %}
+                            <div class="alert alert-success mt-3">
+                                <h5>Lucky Number: {{ current_lucky_number }}</h5>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                  
+                    
+                    <div id="number-grid" class="row g-2 mb-4">
+                        {% for num in LUCKY_DRAW_CONFIG.NUMBER_RANGE %}
+                            <div class="col-2 col-sm-1 p-1">
+                                <button class="number-box btn btn-outline-primary d-flex align-items-center justify-content-center w-100" 
+                                        data-number="{{ num }}"
+                                        style="aspect-ratio: 1/1;"
+                                        {% if not user_eligible %}disabled{% endif %}>
+                                    <span class="number-text" style="display: none;">{{ num }}</span>
+                                    <span class="number-placeholder">?</span>
+                                </button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <!-- Show result if already played -->
+                    {% if has_played %}
+                    <div class="alert {% if last_result.is_winner %}alert-success{% else %}alert-danger{% endif %}">
+                        {% if last_result.is_winner %}
+                            <i class="fas fa-trophy me-2"></i> Congratulations! You found the lucky number {{ last_result.winning_number }}!
+                        {% else %}
+                            Sorry! You selected {{ last_result.guessed_number }} but the lucky number was {{ last_result.winning_number }}. Better luck next time!
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <div id="result-message" class="alert d-none">
+                        <p id="result-text"></p>
+                        <button id="play-again-btn" class="btn btn-primary mt-2 d-none">Play Again</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const numberBoxes = document.querySelectorAll('.number-box');
+    const resultMessage = document.getElementById('result-message');
+    const resultText = document.getElementById('result-text');
+    const playAgainBtn = document.getElementById('play-again-btn');
+    const luckyNumberSpan = document.getElementById('lucky-number');
+    let gameInProgress = true;
+    let luckyNumber = null;
+    // Shuffle number boxes
+    const numberGrid = document.getElementById('number-grid');
+    if (numberGrid) {
+        const boxes = Array.from(numberGrid.children);
+        for (let i = boxes.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            numberGrid.insertBefore(boxes[j], boxes[i]);
+        }
+    }
+    // Handle number box clicks
+    numberBoxes.forEach(box => {
+        box.addEventListener('click', async function() {
+            if (!gameInProgress) return;
+            
+            const number = parseInt(this.getAttribute('data-number'));
+            
+            // Disable all boxes immediately
+            numberBoxes.forEach(b => b.disabled = true);
+            
+            try {
+                // Send the selected number to the server
+                const response = await fetch('{% url "surveys:lucky_draw" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ number: number })
+                });
+                
+                const result = await response.json();
+                
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                
+                // Show the selected number
+                this.textContent = number;
+                this.classList.remove('btn-outline-primary');
+                this.classList.add('btn-primary');
+                
+                // Show result
+                resultMessage.classList.remove('d-none');
+                
+                if (result.is_winner) {
+                    resultMessage.className = 'alert alert-success';
+                    resultText.innerHTML = `<i class="fas fa-trophy me-2"></i> Congratulations! You won ${result.prize}!`;
+                } else {
+                    resultMessage.className = 'alert alert-danger';
+                    resultText.textContent = `Sorry! The number was ${result.winning_number}. Better luck next time!`;
+                }
+                
+                // Update the lucky number display
+                if (luckyNumberSpan) {
+                    luckyNumberSpan.textContent = result.winning_number;
+                }
+                
+                // Disable play again button since user can only play once
+                playAgainBtn.style.display = 'none';
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+                window.location.reload();
+            }
+            
+            gameInProgress = false;
+        });
+    });
+
+    button.addEventListener('click', function() {
+        if (this.classList.contains('active')) {
+            // If already selected, deselect it
+            this.classList.remove('active', 'btn-primary', 'btn-outline-primary');
+            this.classList.add('btn-outline-primary');
+            document.getElementById('selected-number').value = '';
+        } else {
+            // Deselect all other buttons
+            document.querySelectorAll('.number-box').forEach(btn => {
+                btn.classList.remove('active', 'btn-primary', 'btn-outline-primary');
+                btn.classList.add('btn-outline-primary');
+            });
+            
+            // Select this button
+            this.classList.add('active', 'btn-primary');
+            this.classList.remove('btn-outline-primary');
+            document.getElementById('selected-number').value = this.dataset.number;
+            
+            // Show the number
+            this.classList.add('show-number');
+        }
+    });
+});
+    
+</script>
+
+{% endblock %}

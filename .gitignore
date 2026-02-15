@@ -1,0 +1,58 @@
+# ========================
+# Python Virtual Environments
+# ========================
+myenv/
+venv/
+env/
+.myenv/
+.virtualenv/
+.venv/
+
+# ========================
+# Python Cache / Bytecode
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ========================
+# Django Specific
+# ========================
+*.log
+db.sqlite3
+staticfiles/
+
+# ========================
+# Environment Variables
+# ========================
+.env
+.env.*
+
+# ========================
+# OS Generated Files
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# IDE / Editor Files
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+
+# ========================
+# Test / Coverage
+# ========================
+.coverage
+htmlcov/
+.pytest_cache/
+
+# ========================
+# Packaging / Build
+# ========================
+build/
+dist/
+*.egg-info/

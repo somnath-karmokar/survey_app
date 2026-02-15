@@ -1,0 +1,208 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<section class="sd_breadcrumb_area">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6">
+                <h3>Dashboard</h3>
+            </div>
+            <div class="col-md-6">
+                <ul>
+                    <li><a href="#">Dashboard</a></li>
+                    <li>></li>
+                    <li>Dashboard</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="sd_area">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-3 col-sm-4">
+                <div class="sd_left_panel">
+                    <ul>
+                        <li><p>Listing Opportunities</p></li>
+                        <li><a href="#">Dashboard</a></li>
+                        <li><a href="#">Management</a></li>
+                        <li><a href="#">Categories</a></li>
+                        <li><a href="#">My surveys</a></li>
+                        <li><a href="#">My Account</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-lg-9 col-sm-8">
+                <div class="sd_user_area">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4>Hi, 👋 Welcome back {{ user.get_full_name|default:user.username }}</h4>
+                        </div>
+                        <div class="col-md-6">
+                            <form>
+                                <input type="date" class="form-control" value="{{ today|date:'Y-m-d' }}" />
+                            </form>
+                        </div>
+                    </div>
+                </div>
+        
+                <div class="sd_point_area">
+                    <div class="row">
+                        <div class="col-lg-3 col-sm-6">
+                            <div class="sd_point_box">
+                                <p>Total Earnings <span><i class="fa-solid fa-arrow-up"></i> +{{ response_increase|floatformat:2 }}%</span></p>
+                                <h3>₹{{ total_earnings|floatformat:0|default:'0' }}</h3>
+                                <a href="#" class="disabled-link" style="color: #6c757d; text-decoration: none; cursor: not-allowed;">Earnings coming soon</a>
+                                <div class="point_icon">
+                                    <i class="fa-solid fa-indian-rupee-sign"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-sm-6">
+                            <div class="sd_point_box sd_point_box2">
+                                <p>Total Surveys <span><i class="fa-solid fa-chart-line"></i> {{ active_surveys }} active</span></p>
+                                <h3>{{ total_surveys|default:'0' }}</h3>
+                                <a href="{% url 'surveys:survey_list' %}">View all surveys</a>
+                                <div class="point_icon">
+                                    <i class="fa-solid fa-clipboard-question"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-sm-6">
+                            <div class="sd_point_box">
+                                <p>Total Responses <span><i class="fa-solid fa-arrow-up"></i> {{ recent_responses }} new</span></p>
+                                <h3>{{ total_responses|default:'0' }}</h3>
+                                <a href="#" class="disabled-link" style="color: #6c757d; text-decoration: none; cursor: not-allowed;">View all responses</a>
+
+                                <div class="point_icon">
+                                    <i class="fa-solid fa-comment-dots"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-sm-6">
+                            <div class="sd_point_box">
+                                <p>My Balance <span>Available</span></p>
+                                <h3>₹{{ current_balance|floatformat:0|default:'0' }}</h3>
+                                <a href="#" class="disabled-link" style="color: #6c757d; text-decoration: none; cursor: not-allowed;">Withdraw coming soon</a>
+                                <div class="point_icon">
+                                    <i class="fa-solid fa-wallet"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if recent_surveys %}
+                <div class="recent-surveys mt-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Recent Surveys</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Title</th>
+                                            <th>Responses</th>
+                                            <th>Status</th>
+                                            <th>Created</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for survey in recent_surveys %}
+                                        <tr>
+                                            <td>{{ survey.title|truncatechars:30 }}</td>
+                                            <td>{{ survey.response_count|default:'0' }}</td>
+                                            <td>
+                                                <span class="badge {% if survey.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                                    {% if survey.is_active %}Active{% else %}Inactive{% endif %}
+                                                </span>
+                                            </td>
+                                            <td>{{ survey.last_response|date:"M d, Y"|default:"No responses" }}</td>
+                                            <td>
+                                                <a href="{% url 'surveys:survey_detail' survey.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="response-trend mt-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Response Trend (Last 7 Days)</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container" style="height: 250px;">
+                                <canvas id="responseChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {% block extra_js %}
+                <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        // Prepare chart data
+                        const chartData = {
+                            labels: [
+                                {% for day in response_trend %}
+                                    '{{ day.date|escapejs }}'{% if not forloop.last %},{% endif %}
+                                {% endfor %}
+                            ],
+                            datasets: [{
+                                label: 'Responses',
+                                data: [
+                                    {% for day in response_trend %}
+                                        {{ day.count|default:0 }}{% if not forloop.last %},{% endif %}
+                                    {% endfor %}
+                                ],
+                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 2,
+                                tension: 0.3,
+                                fill: true
+                            }]
+                        };
+                        
+                        // Initialize chart
+                        const ctx = document.getElementById('responseChart');
+                        if (ctx) {
+                            new Chart(ctx.getContext('2d'), {
+                                type: 'line',
+                                data: chartData,
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: { display: false }
+                                    },
+                                    scales: {
+                                        y: {
+                                            beginAtZero: true,
+                                            ticks: { stepSize: 1 }
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    });
+                </script>
+                {% endblock %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,331 @@
+<!-- templates/surveys/profile.html -->
+{% extends 'frontend/base_dashboard.html' %}
+{% load static %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    .profile-section {
+        padding: 2rem 0;
+        padding: 2rem 0 4rem;
+        background-color: #f8f9fa;
+    }
+    .profile-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+        margin-bottom: 2rem;
+        border: none;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .profile-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    .profile-header {
+        background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+        padding: 2rem;
+        color: white;
+        text-align: center;
+        position: relative;
+        margin-bottom: 80px;
+    }
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        margin: 0 auto 15px;
+        border: 4px solid white;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        background: white;
+    }
+    .profile-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .profile-name {
+        font-size: 1.75rem;
+        font-weight: 600;
+        margin: 0.5rem 0;
+    }
+    .profile-role {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 1rem;
+    }
+    .profile-body {
+        padding: 0 2rem 2rem;
+    }
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #4e73df;
+        margin: 1.5rem 0 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #f0f0f0;
+    }
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .info-card {
+        background: #f8f9fc;
+        border-radius: 8px;
+        padding: 1.5rem;
+        transition: all 0.3s;
+    }
+    .info-card:hover {
+        background: #f1f6ff;
+        transform: translateY(-3px);
+    }
+    .info-card i {
+        font-size: 1.5rem;
+        color: #4e73df;
+        margin-bottom: 1rem;
+        display: inline-block;
+    }
+    .info-card h5 {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .info-card p {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0;
+    }
+    .activity-item {
+        display: flex;
+        padding: 1rem 0;
+        border-bottom: 1px solid #eee;
+        align-items: center;
+    }
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #eef2ff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        flex-shrink: 0;
+    }
+    .activity-icon i {
+        color: #4e73df;
+    }
+    .activity-content {
+        flex-grow: 1;
+    }
+    .activity-text {
+        margin: 0;
+        color: #4a5568;
+    }
+    .activity-time {
+        font-size: 0.8rem;
+        color: #a0aec0;
+        margin-top: 0.25rem;
+    }
+    .btn-edit {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        transition: all 0.2s;
+    }
+    .btn-edit:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: rotate(15deg);
+    }
+    .badge-status {
+        background: #e3f7eb;
+        color: #1abc9c;
+        padding: 0.35em 0.65em;
+        border-radius: 50rem;
+        font-size: 0.75em;
+        font-weight: 600;
+        margin-left: 0.5rem;
+    }
+    .progress {
+        height: 10px;
+        border-radius: 5px;
+        margin-top: 0.5rem;
+    }
+    .progress-bar {
+        background-color: #4e73df;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}User Profile{% endblock %}
+
+{% block dashboard_content %}
+<div class="profile-section">
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Main content area -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <!-- Main Profile Card -->
+                <div class="profile-card">
+                    <div class="profile-header">
+                        <div class="profile-avatar">
+                            {% if user_profile.profile_picture %}
+                                <img src="{{ user_profile.profile_picture.url }}" alt="{{ user.get_full_name }}" class="img-fluid">
+                            {% else %}
+                                <img src="{% static 'images/default-avatar.jpg' %}" alt="Default Avatar" class="img-fluid">
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'surveys:edit_profile' %}" class="btn-edit" title="Edit Profile">
+                            <i class="fas fa-pencil-alt"></i>
+                        </a>
+                        <h1 class="profile-name">{{ user.get_full_name|default:user.username }}</h1>
+                        <div class="profile-role">
+                            Member since {{ user.date_joined|date:"F Y" }}
+                            <span class="badge-status">Active</span>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-body">
+                        <!-- Stats Overview -->
+                        <div class="info-grid">
+                            <div class="info-card">
+                                <i class="fas fa-clipboard-check"></i>
+                                <h5>Surveys Completed</h5>
+                                <p>{{ completed_surveys|default:"0" }}</p>
+                                <div class="progress">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: {{ survey_progress|default:'75' }}%" 
+                                         aria-valuenow="{{ survey_progress|default:'75' }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="info-card">
+                                <i class="fas fa-trophy"></i>
+                                <h5>Reward Points</h5>
+                                <p>{{ points_earned|default:"0" }}</p>
+                                <div class="progress">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: {{ points_progress|default:'45' }}%" 
+                                         aria-valuenow="{{ points_progress|default:'45' }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="info-card">
+                                <i class="fas fa-award"></i>
+                                <h5>Account Level</h5>
+                                <p>{{ user_level|default:"Silver" }}</p>
+                                <div class="progress">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: {{ level_progress|default:'60' }}%" 
+                                         aria-valuenow="{{ level_progress|default:'60' }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Personal Information -->
+                        <h3 class="section-title">Personal Information</h3>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small mb-1">Username</label>
+                                    <p class="mb-3">{{ user.username }}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small mb-1">Email Address</label>
+                                    <p class="mb-3">{{ user.email }}</p>
+                                </div>
+                                {% if user_profile.phone_number %}
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small mb-1">Phone Number</label>
+                                    <p class="mb-3">{{ user_profile.phone_number }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                {% if user_profile.date_of_birth %}
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small mb-1">Date of Birth</label>
+                                    <p class="mb-3">{{ user_profile.date_of_birth|date:"F d, Y" }}</p>
+                                </div>
+                                {% endif %}
+                                {% if user_profile.location %}
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small mb-1">Location</label>
+                                    <p class="mb-3">{{ user_profile.location }}</p>
+                                </div>
+                                {% endif %}
+                                {% if user_profile.bio %}
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small mb-1">About</label>
+                                    <p class="mb-3">{{ user_profile.bio|linebreaksbr }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Recent Activity -->
+                        <h3 class="section-title">Recent Activity</h3>
+                        <div class="activity-feed">
+                            {% for activity in recent_activities|slice:":5" %}
+                            <div class="activity-item">
+                                <div class="activity-icon">
+                                    <i class="fas fa-{{ activity.icon|default:'check' }}"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <p class="activity-text">{{ activity.title }}</p>
+                                    <div class="activity-time">
+                                        <i class="far fa-clock me-1"></i> {{ activity.date|timesince }} ago
+                                    </div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No recent activities found.</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- Quick Actions -->
+                        <div class="d-flex justify-content-between mt-4 pt-3 border-top">
+                            <a href="{% url 'surveys:lucky_draw' %}" class="btn btn-outline-primary">
+                                <i class="fas fa-gift me-2"></i>Try Lucky Draw
+                            </a>
+                            <a href="{% url 'surveys:my_surveys' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-list me-2"></i>View My Surveys
+                            </a>
+                            <a href="{% url 'surveys:edit_profile' %}" class="btn btn-primary">
+                                <i class="fas fa-user-edit me-2"></i>Edit Profile
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+</div>
+{% endblock %}

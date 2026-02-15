@@ -1,0 +1,60 @@
+<!-- templates/surveys/category_surveys.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>vxcvxc {{ category.name }}</h1>
+    <p class="lead">{{ category.description }}</p>
+    
+    {% if category_completed %}
+    <div class="alert alert-warning">
+        <i class="fas fa-lock me-2"></i>
+        You've already completed a survey in this category. Please wait for the cooldown period to end.
+    </div>
+    {% endif %}
+    
+    <div class="row">
+        {% for item in surveys %}
+        <div class="col-md-6 mb-4">
+            <div class="card {% if item.is_completed or item.is_locked %}survey-locked{% endif %}">
+                <div class="card-body">
+                    <h5 class="card-title">{{ item.survey.name }}</h5>
+                    <p class="card-text">{{ item.survey.description|truncatewords:30 }}</p>
+                    
+                    {% if item.is_completed %}
+                        <span class="badge bg-success">
+                            <i class="fas fa-check"></i> Completed
+                        </span>
+                    {% elif item.is_locked %}
+                        <button class="btn btn-secondary" disabled title="{{ item.lock_message }}">
+                            <i class="fas fa-lock me-2"></i> Locked
+                        </button>
+                    {% else %}
+                        <a href="{% url 'take_survey' item.survey.id %}" class="btn btn-primary">
+                            <i class="fas fa-play me-2"></i> Start Survey
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                No surveys available in this category at the moment.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+.survey-locked {
+    opacity: 0.7;
+    background-color: #f8f9fa;
+}
+.survey-locked .card-text {
+    color: #6c757d;
+}
+</style>
+{% endblock %}
