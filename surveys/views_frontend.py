@@ -565,6 +565,7 @@ def send_otp(request):
                                 Best regards,
                                 Survey App Team
                     '''
+                    print(f'DEBUG: Sending email to {email} with OTP code {otp.code} ..from  {settings.DEFAULT_FROM_EMAIL}')  # Debug
                     
                     send_mail(
                         subject,
