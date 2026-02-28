@@ -42,7 +42,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 EMAIL_HOST_USER = "info@sudraw.com" 
-EMAIL_HOST_PASSWORD = "SudrawMail@1991"
+EMAIL_HOST_PASSWORD = "SudrawMail@2021"
 DEFAULT_FROM_EMAIL = "info@sudraw.com"
 
 # Grappelli Configuration
