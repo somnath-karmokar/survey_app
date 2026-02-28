@@ -23,20 +23,12 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if active_page == 'available_surveys' %}active{% endif %}" 
-                           href="{% url 'surveys:survey_list' %}">
-                            <i class="fas fa-clipboard-list me-2"></i>
-                            Available Surveys
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link {% if active_page == 'profile' %}active{% endif %}" 
                            href="{% url 'surveys:user_profile' %}">
                             <i class="fas fa-user me-2"></i>
                             My Profile
                         </a>
                     </li>
-                    
 
                     {% if lucky_draw_eligible %}
                         <li class="nav-item">
