@@ -15,7 +15,7 @@ from django.utils.html import strip_tags
 from .models import Survey, SurveyCategory, Question, UserSurveyProgress, SurveyResponse, Answer, LuckyDrawEntry
 from .views import should_show_advertisement
 from .forms import SurveyResponseForm
-from .emails import send_survey_completion_email, send_lucky_draw_entry_email
+from .emails import send_survey_completion_email, send_lucky_draw_entry_email, send_lucky_draw_winner_email
 
 # surveys/views_surveys.py
 @login_required
@@ -254,9 +254,92 @@ def survey_detail(request, survey_id, question_index=0):
 
 @login_required
 def lucky_draw_entry(request):
-    """Deprecated entry view - redirect to new LuckyDrawView."""
-    messages.info(request, "This endpoint has been replaced by the new lucky draw interface.")
-    return redirect('surveys:lucky_draw')
+    """Handle lucky draw number selection"""
+    current_month = timezone.now().month
+    current_year = timezone.now().year
+    
+    # Check if user has completed all surveys for the current month
+    active_surveys = Survey.objects.filter(
+        is_active=True
+    )
+    
+    completed_surveys = SurveyResponse.objects.filter(
+        user=request.user,
+        completed_at__month=current_month,
+        completed_at__year=current_year
+    ).values_list('survey_id', flat=True)
+    
+    all_surveys_completed = all(survey.id in completed_surveys for survey in active_surveys)
+    
+    if not all_surveys_completed and active_surveys.exists():
+        messages.warning(request, 'Please complete all surveys before entering the lucky draw.')
+        return redirect('survey_list')
+    
+    # Check if user has already entered the lucky draw this month
+    existing_entry = LuckyDrawEntry.objects.filter(
+        user=request.user,
+        month=current_month,
+        year=current_year
+    ).first()
+    
+    if request.method == 'POST':
+        if existing_entry:
+            messages.info(request, 'You have already entered the lucky draw for this month.')
+            return redirect('survey_list')
+            
+        selected_number = request.POST.get('selected_number')
+        
+        if not selected_number or not selected_number.isdigit():
+            messages.error(request, 'Please select a valid number.')
+        else:
+            selected_number = int(selected_number)
+            if selected_number < 1 or selected_number > 100:
+                messages.error(request, 'Please select a number between 1 and 100.')
+            else:
+                # Check if the number is already taken this month
+                if LuckyDrawEntry.objects.filter(
+                    month=current_month,
+                    year=current_year,
+                    selected_number=selected_number
+                ).exists():
+                    messages.error(request, 'This number has already been selected. Please choose another one.')
+                else:
+                    # Create new lucky draw entry
+                    entry = LuckyDrawEntry.objects.create(
+                        user=request.user,
+                        selected_number=selected_number,
+                        month=current_month,
+                        year=current_year,
+                        is_winner=False
+                    )
+                    
+                    # Send lucky draw entry confirmation email
+                    try:
+                        send_lucky_draw_entry_email(request.user, entry)
+                    except Exception as e:
+                        # Log the error but don't show it to the user
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Failed to send lucky draw email: {str(e)}")
+                    
+                    messages.success(request, f'Your lucky number {selected_number} has been entered into the draw! A confirmation has been sent to your email.')
+                    return redirect('surveys:survey_list')
+    
+    # Get previous winners for display
+    previous_winners = LuckyDrawEntry.objects.filter(
+        is_winner=True
+    ).order_by('-year', '-month')[:10]  # Show last 10 winners
+    
+    context = {
+        'already_participated': existing_entry is not None,
+        'existing_entry': existing_entry,
+        'previous_winners': previous_winners,
+    }
+    
+    if existing_entry:
+        context['existing_entry'] = existing_entry
+    
+    return render(request, 'surveys/lucky_draw.html', context)
 
 @login_required
 def take_survey(request, survey_id, question_id=None):

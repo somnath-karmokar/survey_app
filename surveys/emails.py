@@ -29,8 +29,7 @@ def send_survey_completion_email(user, survey):
 
 def send_lucky_draw_entry_email(user, entry):
     """Send email confirmation for lucky draw entry"""
-    # the entry model no longer stores month/year, use the creation date
-    subject = f'Lucky Draw Entry Confirmation'
+    subject = f'Lucky Draw Entry Confirmation - {entry.month}/{entry.year}'
     
     context = {
         'user': user,
@@ -45,7 +44,7 @@ def send_lucky_draw_entry_email(user, entry):
     # Create email message
     msg = EmailMultiAlternatives(
         subject=subject,
-        body=f'Your lucky draw entry has been recorded. Your guess is: {entry.guessed_number}.',
+        body=f'Your lucky draw entry has been recorded. Your number is: {entry.selected_number}.',
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[user.email],
     )
@@ -55,7 +54,7 @@ def send_lucky_draw_entry_email(user, entry):
 
 def send_lucky_draw_winner_email(entry):
     """Send email to lucky draw winner"""
-    subject = f'Congratulations! You Won the Lucky Draw!'
+    subject = f'Congratulations! You Won the {entry.month}/{entry.year} Lucky Draw!'
     
     context = {
         'user': entry.user,
@@ -70,11 +69,7 @@ def send_lucky_draw_winner_email(entry):
     # Create email message
     msg = EmailMultiAlternatives(
         subject=subject,
-        body=(
-            f'Congratulations! You have won the lucky draw. '
-            f'Your guess was {entry.guessed_number} '
-            f'(winning number {entry.winning_number}).'
-        ),
+        body=f'Congratulations! You have won the lucky draw with number {entry.selected_number}.',
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[entry.user.email],
     )
@@ -84,7 +79,7 @@ def send_lucky_draw_winner_email(entry):
 
 def send_lucky_draw_winner_admin_notification(entry):
     """Send email notification to admin when a user wins the lucky draw"""
-    subject = f'🎉 Lucky Draw Winner Alert: {entry.user.get_full_name() or entry.user.username} won {entry.prize or "a prize"}!'
+    subject = f'🎉 Lucky Draw Winner Alert: {entry.user.get_full_name() or entry.user.username} won {entry.prize}!'
     
     context = {
         'user': entry.user,
@@ -100,12 +95,7 @@ def send_lucky_draw_winner_admin_notification(entry):
     # Create email message for admin
     msg = EmailMultiAlternatives(
         subject=subject,
-        body=(
-            f'Lucky Draw Winner Alert: {entry.user.get_full_name() or entry.user.username} '
-            f'has won {entry.prize or "a prize"}! '
-            f'Guess: {entry.guessed_number}, winning number: {entry.winning_number}. '
-            f'Entry created at {entry.created_at}.'
-        ),
+        body=f'Lucky Draw Winner Alert: {entry.user.get_full_name() or entry.user.username} has won {entry.prize} in the {entry.month}/{entry.year} lucky draw. Winning number: {entry.guessed_number}',
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[getattr(settings, 'ADMIN_EMAIL', settings.DEFAULT_FROM_EMAIL)],
     )

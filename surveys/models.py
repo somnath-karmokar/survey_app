@@ -344,25 +344,6 @@ class LuckyDrawEntry(models.Model):
         ordering = ['-created_at']
         verbose_name_plural = 'Lucky Draw Entries'
 
-# signal for automatic winner notification
-@receiver(post_save, sender=LuckyDrawEntry)
-def notify_lucky_draw_winner(sender, instance, created, **kwargs):
-    """
-    When a new LuckyDrawEntry is created and marked as a winner, send
-    congratulatory email to the user and an alert to the admin.  Placing
-    this logic in a signal ensures it fires regardless of how the entry is
-    created (web view, admin panel, API, management command, etc.).
-    """
-    if created and instance.is_winner:
-        from .emails import send_lucky_draw_winner_email, send_lucky_draw_winner_admin_notification
-        try:
-            send_lucky_draw_winner_email(instance)
-            send_lucky_draw_winner_admin_notification(instance)
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error sending lucky draw winner emails via signal: {e}")
-
 
 class LoginOTP(models.Model):
     """

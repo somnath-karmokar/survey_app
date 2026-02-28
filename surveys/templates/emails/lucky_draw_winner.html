@@ -11,14 +11,14 @@
     
     <p>Dear {{ user.get_full_name|default:user.username }},</p>
     
-    <p>We're thrilled to inform you that you've won the lucky draw!</p>
+    <p>We're thrilled to inform you that you've won the {{ entry.month }} {{ entry.year }} Lucky Draw!</p>
     
     <div style="background-color: #f9f9f9; padding: 20px; border: 2px dashed #e74c3c; border-radius: 5px; margin: 20px 0; text-align: center;">
         <h3 style="margin-top: 0; color: #4a6fa5;">Your Winning Number</h3>
         <div style="font-size: 42px; font-weight: bold; color: #e74c3c; margin: 15px 0; letter-spacing: 3px;">
-            {{ entry.winning_number }}
+            {{ entry.selected_number }}
         </div>
-        <p>Draw Date: {{ entry.created_at|date:"F j, Y" }}</p>
+        <p>Draw Date: {{ entry.win_date|date:"F j, Y" }}</p>
     </div>
     
     <h3>🎁 Your Prize:</h3>
@@ -30,12 +30,13 @@
             <li>Our team will contact you within 3-5 business days</li>
             <li>You'll need to verify your identity</li>
             <li>Prize delivery details will be confirmed</li>
-            <li>If you have any questions, reply to this message.</li>
         </ol>
     </div>
     
+    <p>Thank you for participating in our survey program. Your feedback is valuable to us!</p>
+    
     <p style="text-align: center; margin-top: 30px;">
-        <a href="{{ site_url }}/lucky-draw/" class="button" style="background-color: #e74c3c;">View Lucky Draw Details</a>
+        <a href="{{ site_url }}/lucky-draw/" class="button" style="background-color: #e74c3c;">View Winner's Page</a>
     </p>
     
     <p style="font-size: 12px; color: #777; margin-top: 30px;">
