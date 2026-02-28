@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-f%0s0@e_)ao=j4#!xm(j_2qsbotd)&=m8k^n0jj*glh!(k^wb*'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']  # For development only
 
@@ -304,7 +304,7 @@ SURVEY_CONFIG = {
 }
 
 LUCKY_DRAW_CONFIG = {
-    'SURVEYS_REQUIRED': 3,  # Number of same-level surveys to complete
+    'SURVEYS_REQUIRED': 10,  # Number of same-level surveys to complete
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 49,
     'PRIZES': [  # You can customize the prizes
