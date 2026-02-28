@@ -584,7 +584,7 @@ def send_otp(request):
                 except Exception as e:
                     return JsonResponse({
                         'success': False,
-                        'error': 'Failed to send email. Please try again.'
+                        'error': f'Failed to send email. Please try again--------> {e}'
                     })
             else:
                 return JsonResponse({
