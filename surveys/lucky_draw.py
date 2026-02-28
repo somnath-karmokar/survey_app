@@ -164,7 +164,7 @@ class LuckyDrawView(View):
         is_winner = (number == winning_number)
         prize = random.choice(settings.LUCKY_DRAW_CONFIG['PRIZES']) if is_winner else None
         
-        # Create entry
+        # Create entry (signal will handle any notification for winners)
         entry = LuckyDrawEntry.objects.create(
             user=request.user,
             guessed_number=number,
@@ -173,21 +173,6 @@ class LuckyDrawView(View):
             prize=prize,
             surveys_at_play=total_surveys
         )
-        
-        # Send email notifications if user won
-        if is_winner:
-            try:
-                # Send winner email to user
-                from .emails import send_lucky_draw_winner_email, send_lucky_draw_winner_admin_notification
-                send_lucky_draw_winner_email(entry)
-                send_lucky_draw_winner_admin_notification(entry)
-                print(f"Winner emails sent to {entry.user.email} and admin")
-            except Exception as e:
-                # Log the error but don't fail the request
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f"Failed to send winner emails: {str(e)}")
-                print(f"Error sending winner emails: {str(e)}")
         
         return JsonResponse({
             'is_winner': is_winner,

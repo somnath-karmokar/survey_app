@@ -175,49 +175,11 @@ def take_survey(request, survey_id):
 
 @login_required
 def lucky_draw_entry(request):
-    if request.method == 'POST':
-        current_month = timezone.now().month
-        current_year = timezone.now().year
-        
-        # Check if user has already entered this month
-        if LuckyDrawEntry.objects.filter(
-            user=request.user,
-            month=current_month,
-            year=current_year
-        ).exists():
-            messages.warning(request, 'You have already entered the lucky draw this month.')
-            return redirect('survey_list')
-        
-        # Check if user has completed all active surveys
-        active_surveys = Survey.objects.filter(is_active=True)
-        completed_surveys = SurveyResponse.objects.filter(
-            user=request.user,
-            completed_at__month=current_month,
-            completed_at__year=current_year
-        ).values_list('survey_id', flat=True)
-        
-        all_surveys_completed = not active_surveys.exclude(
-            id__in=completed_surveys
-        ).exists()
-        
-        if not all_surveys_completed:
-            messages.error(request, 'You need to complete all active surveys to enter the lucky draw.')
-            return redirect('survey_list')
-        
-        # Get the selected number from the form
-        selected_number = int(request.POST.get('selected_number', 0))
-        
-        if not (1 <= selected_number <= 100):
-            messages.error(request, 'Please select a number between 1 and 100.')
-            return redirect('survey_list')
-        
-        # Create the lucky draw entry
-        LuckyDrawEntry.objects.create(
-            user=request.user,
-            month=current_month,
-            year=current_year,
-            selected_number=selected_number
-        )
+    """Legacy endpoint - redirected by urls so this should not be reached.
+    In case it is called directly, send user to the modern view instead.
+    """
+    messages.info(request, "This legacy entry view is no longer used; please use the main lucky draw page.")
+    return redirect('surveys:lucky_draw')
         
         messages.success(request, f'You have successfully entered the lucky draw with number {selected_number}!')
         return redirect('survey_list')
@@ -226,31 +188,9 @@ def lucky_draw_entry(request):
 
 @login_required
 def lucky_draw_status(request):
-    current_month = timezone.now().month
-    current_year = timezone.now().year
-    
-    # Get the winning number (if drawn)
-    winning_entry = LuckyDrawEntry.objects.filter(
-        month=current_month,
-        year=current_year,
-        is_winner=True
-    ).first()
-    
-    # Get the user's entry for this month (if any)
-    user_entry = LuckyDrawEntry.objects.filter(
-        user=request.user,
-        month=current_month,
-        year=current_year
-    ).first()
-    
-    context = {
-        'winning_entry': winning_entry,
-        'user_entry': user_entry,
-        'current_month': current_month,
-        'current_year': current_year,
-    }
-    
-    return render(request, 'surveys/lucky_draw_status.html', context)
+    """Deprecated status view - redirect to the new lucky draw page."""
+    messages.info(request, "This endpoint is deprecated. Please use the main lucky draw interface.")
+    return redirect('surveys:lucky_draw')
 
 def category_detail(request, slug):
     """

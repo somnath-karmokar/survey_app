@@ -48,6 +48,36 @@ def test_implementation():
                 'profile_picture': winner.user.profile.profile_picture.url if hasattr(winner.user, 'profile') and winner.user.profile.profile_picture else None
             }
             print(f"✓ Winner data structure: {winner_data['name']} - {winner_data['prize']}")
+        
+    # --- additional checks ------------------------------------------------
+    # Test 5: creating a winning entry should trigger two emails
+    from django.core import mail
+    # switch to in-memory backend so we can inspect outbox
+    settings.EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+    # create user and entry
+    from django.contrib.auth.models import User
+    u = User.objects.create_user('tester', email='tester@example.com', password='pwd')
+    entry = LuckyDrawEntry.objects.create(
+        user=u,
+        guessed_number=7,
+        winning_number=7,
+        is_winner=True,
+        prize='Test Voucher',
+        surveys_at_play=5
+    )
+    print(f"✓ Created winning entry {entry.id}, outbox length: {len(mail.outbox)}")
+    if len(mail.outbox) >= 2:
+        print("✓ Winner and admin emails were queued successfully.")
+    else:
+        print("✗ Emails were NOT sent as expected. outbox contains", len(mail.outbox))
+    
+    # Test 6: serializer reflects current fields
+    from surveys.serializers import LuckyDrawEntrySerializer
+    serialized = LuckyDrawEntrySerializer(entry)
+    print("Serialized fields:", serialized.data.keys())
+    assert 'guessed_number' in serialized.data
+    assert 'winning_number' in serialized.data
+    assert 'prize' in serialized.data
             
     except Exception as e:
         print(f"✗ Error querying winners: {e}")
