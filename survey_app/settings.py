@@ -316,7 +316,7 @@ LUCKY_DRAW_CONFIG = {
 }
 
 # Email configuration for admin notifications
-ADMIN_EMAIL = 'karmokarsomnath@gmail.com'  # Change this to your admin email
+ADMIN_EMAIL = 'info@sudraw.com'  # Change this to your admin email
 
 # In settings.py
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # or 'django.contrib.sessions.backends.cached_db'

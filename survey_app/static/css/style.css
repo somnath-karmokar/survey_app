@@ -313,7 +313,7 @@ html{overflow-x: hidden;}
 .cont_cont p a{color: #000;word-break: break-all;}
 
 .msn_right .head span{margin-top: 0;}
-.form_area form input, .form_area form select, .form_area form textarea{background: #f4f5f8; border-radius: 8px; height: 60px; color:#303442;margin-bottom: 20px;}
+.form_area form input, .form_area form select, .form_area form textarea{background: #f4f5f8; border-radius: 8px; height: 20px; color:#303442;margin-bottom: 20px;}
 .form_area{width: 100%;}
 .form_area form input::placeholder, .form_area form select::placeholder, .form_area form textarea::placeholder{color:#303442;}
 .form_area form input:focus, .form_area form select:focus, .form_area form textarea:focus{background: #f4f5f8;}

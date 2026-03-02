@@ -67,7 +67,7 @@
                     <li class="nav-item">
                         <div class="dropdown">
                             <button class="btn btn-outline-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fas fa-user me-1"></i> {{ user.username }}
+                                <i class="fas fa-user me-1"></i> {{ user.firstname|default:user.username }}
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                                 <li><a class="dropdown-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'surveys:dashboard' %}"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
