@@ -93,7 +93,7 @@
     }
     
     .btn-resend:hover {
-        background: #5568d3;
+                            <div class="alert {% if 'success' in message.tags %}alert-success{% elif 'error' in message.tags or 'danger' in message.tags %}alert-danger{% else %}alert{% endif %}" role="status">
     }
     
     .btn-back {
@@ -107,15 +107,9 @@
     
     .btn-back:hover {
         color: #5568d3;
-    }
-    
-    .alert {
-        padding: 15px;
-        border-radius: 5px;
-        margin-bottom: 20px;
-    }
-    
-    .alert-success {
+                            <div class="resend-row">
+                                <input aria-label="Email address" type="email" name="email" placeholder="you@example.com" required autocomplete="email" value="{{ request.POST.email|default:'' }}">
+                                <button type="submit" class="btn-resend">Resend</button>
         background-color: #d4edda;
         color: #155724;
         border: 1px solid #c3e6cb;
