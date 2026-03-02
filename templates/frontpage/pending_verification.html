@@ -125,43 +125,50 @@
 {% endblock %}
 
 {% block content %}
-<div class="verification-container">
-    <div class="verification-box">
-        <div class="verification-icon">
-            🔐
-        </div>
-        
-        <h1>Verify Your Email</h1>
-        
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }}">
-                    {{ message }}
+<div class="sd_area">
+    <div class="container">
+        <div class="row">
+            <div class="verification-container">
+                <div class="verification-box">
+                    <div class="verification-icon">
+                        🔐
+                    </div>
+                    
+                    <h1>Verify Your Email</h1>
+                    
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    <p>We've sent a verification link to your email address.</p>
+                    <p>Please check your emails (including spam folder) and click the link to verify your account.</p>
+                    
+                    <div class="resend-form">
+                        <p><strong>Didn't receive the email?</strong></p>
+                        
+                        <form method="post" action="{% url 'surveys:pending_verification' %}">
+                            {% csrf_token %}
+                            <div class="form-group">
+                                <input 
+                                    type="email" 
+                                    name="email" 
+                                    placeholder="Enter your email address" 
+                                    required
+                                >
+                            </div>
+                            <button type="submit" class="btn-resend">Resend Verification Email</button>
+                        </form>
+                    </div>
+                    
+                    <a href="{% url 'surveys:login' %}" class="btn-back">← Back to Login</a>
                 </div>
-            {% endfor %}
-        {% endif %}
-        
-        <p>We've sent a verification link to your email address.</p>
-        <p>Please check your emails (including spam folder) and click the link to verify your account.</p>
-        
-        <div class="resend-form">
-            <p><strong>Didn't receive the email?</strong></p>
-            
-            <form method="post" action="{% url 'surveys:pending_verification' %}">
-                {% csrf_token %}
-                <div class="form-group">
-                    <input 
-                        type="email" 
-                        name="email" 
-                        placeholder="Enter your email address" 
-                        required
-                    >
-                </div>
-                <button type="submit" class="btn-resend">Resend Verification Email</button>
-            </form>
-        </div>
-        
-        <a href="{% url 'surveys:login' %}" class="btn-back">← Back to Login</a>
-    </div>
+            </div>
 </div>
+    </div>
+    </div>
+
 {% endblock %}
