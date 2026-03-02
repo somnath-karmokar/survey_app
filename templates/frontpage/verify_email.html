@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Email Verification - Survey App{% endblock %}
+
+{% block style %}
+<style>
+    .verification-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px;
+    }
+    
+    .verification-box {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        padding: 40px;
+        text-align: center;
+        max-width: 500px;
+        width: 100%;
+    }
+    
+    .verification-icon {
+        font-size: 60px;
+        margin-bottom: 20px;
+    }
+    
+    .verification-box h1 {
+        color: #333;
+        margin-bottom: 20px;
+        font-size: 28px;
+    }
+    
+    .verification-box p {
+        color: #666;
+        margin-bottom: 15px;
+        line-height: 1.6;
+    }
+    
+    .loading-spinner {
+        display: inline-block;
+        width: 30px;
+        height: 30px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 20px 0;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .alert {
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+    
+    .alert-success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .alert-error,
+    .alert-danger {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .btn-login {
+        display: inline-block;
+        background: #667eea;
+        color: white;
+        padding: 12px 30px;
+        border-radius: 5px;
+        text-decoration: none;
+        margin-top: 20px;
+        font-weight: 600;
+        transition: background 0.3s;
+    }
+    
+    .btn-login:hover {
+        background: #5568d3;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="verification-container">
+    <div class="verification-box">
+        {% if messages %}
+            {% for message in messages %}
+                {% if message.tags == 'success' %}
+                    <div class="verification-icon">
+                        ✓
+                    </div>
+                    <h1>Email Verified!</h1>
+                    
+                    <div class="alert alert-success">
+                        {{ message }}
+                    </div>
+                    
+                    <p>Your email has been successfully verified.</p>
+                    <a href="{% url 'surveys:login' %}" class="btn-login">Proceed to Login</a>
+                {% else %}
+                    <div class="verification-icon">
+                        ✗
+                    </div>
+                    <h1>Verification Failed</h1>
+                    
+                    <div class="alert alert-error">
+                        {{ message }}
+                    </div>
+                    
+                    <p>Please try again or contact support.</p>
+                    <a href="{% url 'surveys:signup' %}" class="btn-login">Back to Signup</a>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="loading-spinner"></div>
+            <h1>Verifying Your Email...</h1>
+            <p>Please wait while we verify your email address.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

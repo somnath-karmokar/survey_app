@@ -66,6 +66,18 @@ class CustomLoginView(BaseLoginView):
             if user is not None:
                 logger.info(f'User {email} authenticated successfully via OTP')
                 
+                # Check if email is verified
+                if hasattr(user, 'profile') and not user.profile.email_verified:
+                    logger.warning(f'User {email} email is not verified')
+                    messages.error(request, 'Please verify your email before logging in.')
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Please verify your email before logging in.',
+                            'redirect': reverse_lazy('surveys:pending_verification')
+                        })
+                    return self.form_invalid(self.get_form())
+                
                 # Check if user has a profile and is a frontend user
                 if hasattr(user, 'profile'):
                     logger.info(f'User profile exists. user_type: {user.profile.user_type}')
@@ -135,6 +147,12 @@ class CustomLoginView(BaseLoginView):
             
             if user is not None:
                 logger.info(f'User {username} authenticated successfully')
+                
+                # Check if email is verified
+                if hasattr(user, 'profile') and not user.profile.email_verified:
+                    logger.warning(f'User {username} email is not verified')
+                    messages.error(request, 'Please verify your email before logging in.')
+                    return redirect(reverse_lazy('surveys:pending_verification'))
                 
                 # Check if user has a profile and is a frontend user
                 if hasattr(user, 'profile'):
@@ -438,7 +456,7 @@ class SignUpView(CreateView):
     def form_valid(self, form):
         # Save the user first
         user = form.save(commit=False)
-        user.is_active = True  # Set to True for immediate activation
+        user.is_active = False  # Set to False until email is verified
         user.save()
         print(f'User created: {user}')
         
@@ -458,7 +476,8 @@ class SignUpView(CreateView):
                 'city': city,
                 'state': state,
                 'country': country,
-                'user_type': 'frontend'
+                'user_type': 'frontend',
+                'email_verified': False
             }
         )
         
@@ -469,6 +488,7 @@ class SignUpView(CreateView):
             profile.state = state
             profile.country = country
             profile.user_type = 'frontend'
+            profile.email_verified = False
         
         # Handle year of birth conversion
         if year_of_birth:
@@ -481,14 +501,16 @@ class SignUpView(CreateView):
         
         profile.save()
         
-        # Log the user in automatically since no password is required
-        from django.contrib.auth import login
-        from surveys.authentication import EmailOnlyBackend
-        login(self.request, user, backend='surveys.authentication.EmailOnlyBackend')
+        # Generate email verification token
+        from .models import EmailVerification
+        email_verification = EmailVerification.generate_token(user, user.email)
+        
+        # Send verification email
+        self.send_verification_email(user, email_verification)
         
         messages.success(
             self.request,
-            'Registration successful! Welcome to our survey platform.'
+            f'Registration successful! Check your email ({user.email}) to verify your account.'
         )
         
         # Return JSON response for AJAX handling
@@ -496,13 +518,13 @@ class SignUpView(CreateView):
             print(f"DEBUG: Returning JSON response for AJAX")  # Debug
             response_data = {
                 'success': True,
-                'message': 'Registration successful! Welcome to our survey platform.',
-                'redirect': reverse_lazy('surveys:dashboard')
+                'message': f'Registration successful! Check your email ({user.email}) to verify your account.',
+                'redirect': reverse_lazy('surveys:pending_verification')
             }
             print(f"DEBUG: Response data: {response_data}")  # Debug
             return JsonResponse(response_data)
         
-        return redirect(reverse_lazy('surveys:dashboard'))
+        return redirect(reverse_lazy('surveys:pending_verification'))
 
     def form_invalid(self, form):
         """Handle invalid form with AJAX response."""
@@ -526,6 +548,63 @@ class SignUpView(CreateView):
         return self.render_to_response(
             self.get_context_data(form=form)
         )
+    
+    def send_verification_email(self, user, email_verification):
+        """Send email verification link to the user"""
+        try:
+            verification_url = self.request.build_absolute_uri(
+                reverse_lazy('surveys:verify_email', kwargs={'token': email_verification.token})
+            )
+            
+            subject = 'Verify Your Email - Survey App'
+            message = f'''
+Hello {user.first_name or user.username},
+
+Thank you for registering with Survey App! 
+
+Please verify your email address by clicking the link below:
+
+{verification_url}
+
+This link will expire in 24 hours.
+
+If you didn't create this account, please ignore this email.
+
+Best regards,
+Survey App Team
+            '''
+            
+            html_message = f'''
+<html>
+<body>
+<p>Hello {user.first_name or user.username},</p>
+<p>Thank you for registering with Survey App!</p>
+<p>Please verify your email address by clicking the link below:</p>
+<p><a href="{verification_url}">Verify Email</a></p>
+<p>This link will expire in 24 hours.</p>
+<p>If you didn't create this account, please ignore this email.</p>
+<p>Best regards,<br/>Survey App Team</p>
+</body>
+</html>
+            '''
+            
+            print(f'DEBUG: Sending verification email to {user.email} with token {email_verification.token}')
+            
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+            
+            logger.info(f'Verification email sent to {user.email}')
+            
+        except Exception as e:
+            logger.error(f'Failed to send verification email to {user.email}: {e}')
+            print(f'ERROR: Failed to send verification email: {e}')
+
 
 
 def send_otp(request):
@@ -607,3 +686,127 @@ def send_otp(request):
         'success': False,
         'error': 'Invalid request method'
     })
+
+
+class VerifyEmailView(TemplateView):
+    """
+    View to verify user's email with token
+    """
+    template_name = 'frontpage/verify_email.html'
+    
+    def get(self, request, *args, **kwargs):
+        token = kwargs.get('token')
+        
+        if not token:
+            messages.error(request, 'Invalid verification link.')
+            return redirect('surveys:login')
+        
+        try:
+            from .models import EmailVerification
+            email_verification = EmailVerification.objects.get(token=token)
+            
+            if email_verification.verify():
+                messages.success(
+                    request,
+                    'Email verified successfully! You can now log in to your account.'
+                )
+                return redirect('surveys:login')
+            else:
+                messages.error(
+                    request,
+                    'This verification link has expired or already been used. Please sign up again.'
+                )
+                return redirect('surveys:signup')
+        
+        except EmailVerification.DoesNotExist:
+            messages.error(request, 'Invalid verification link.')
+            return redirect('surveys:login')
+        except Exception as e:
+            logger.error(f'Error verifying email: {e}')
+            messages.error(request, 'An error occurred while verifying your email.')
+            return redirect('surveys:login')
+
+
+class PendingVerificationView(TemplateView):
+    """
+    View to show pending email verification status
+    """
+    template_name = 'frontpage/pending_verification.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        """Resend verification email"""
+        email = request.POST.get('email', '').strip()
+        
+        if not email:
+            messages.error(request, 'Please provide your email address.')
+            return self.get(request, *args, **kwargs)
+        
+        try:
+            user = User.objects.get(email=email)
+            
+            if hasattr(user, 'profile') and user.profile.email_verified:
+                messages.info(request, 'Your email is already verified. You can now log in.')
+                return redirect('surveys:login')
+            
+            # Generate new verification token
+            from .models import EmailVerification
+            email_verification = EmailVerification.generate_token(user, user.email)
+            
+            # Send verification email (reuse SignUpView method)
+            verification_url = request.build_absolute_uri(
+                reverse_lazy('surveys:verify_email', kwargs={'token': email_verification.token})
+            )
+            
+            subject = 'Verify Your Email - Survey App'
+            message = f'''
+Hello {user.first_name or user.username},
+
+Please verify your email address by clicking the link below:
+
+{verification_url}
+
+This link will expire in 24 hours.
+
+If you didn't create this account, please ignore this email.
+
+Best regards,
+Survey App Team
+            '''
+            
+            html_message = f'''
+<html>
+<body>
+<p>Hello {user.first_name or user.username},</p>
+<p>Please verify your email address by clicking the link below:</p>
+<p><a href="{verification_url}">Verify Email</a></p>
+<p>This link will expire in 24 hours.</p>
+<p>If you didn't create this account, please ignore this email.</p>
+<p>Best regards,<br/>Survey App Team</p>
+</body>
+</html>
+            '''
+            
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+            
+            messages.success(request, f'Verification email resent to {email}. Please check your inbox.')
+            return self.get(request, *args, **kwargs)
+        
+        except User.DoesNotExist:
+            messages.error(request, 'No account found with this email address.')
+            return self.get(request, *args, **kwargs)
+        except Exception as e:
+            logger.error(f'Error resending verification email: {e}')
+            messages.error(request, 'An error occurred while resending the verification email.')
+            return self.get(request, *args, **kwargs)
+

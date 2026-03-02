@@ -124,6 +124,7 @@ DATABASES = {
         'USER': 'sudraw_database_user',
         'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # Change this to your PostgreSQL password
         'HOST': 'dpg-d68kcmh4tr6s73c8aetg-a',
+        # 'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com',
         'PORT': '5432',
     }
 }

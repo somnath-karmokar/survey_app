@@ -11,7 +11,7 @@ from django import forms
 from django.db import models
 from django.forms import CheckboxSelectMultiple
 from ckeditor.widgets import CKEditorWidget
-from .models import SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer, LuckyDrawEntry, UserProfile, Country
+from .models import SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer, LuckyDrawEntry, UserProfile, Country, EmailVerification
 from django.utils.safestring import mark_safe
 from django.urls import path
 from django.http import JsonResponse
@@ -386,6 +386,49 @@ class LuckyDrawEntryAdmin(admin.ModelAdmin):
         # Disable adding entries through admin since they should be created by the system
         return False
 
+class EmailVerificationAdmin(admin.ModelAdmin):
+    list_display = ('user', 'email', 'is_verified', 'created_at', 'expires_at', 'verified_at', 'token_preview')
+    list_filter = ('is_verified', 'created_at', 'expires_at')
+    search_fields = ('user__username', 'user__email', 'email')
+    readonly_fields = ('token', 'created_at', 'expires_at', 'verified_at')
+    list_per_page = 20
+    date_hierarchy = 'created_at'
+    
+    fieldsets = (
+        (None, {
+            'fields': ('user', 'email', 'token')
+        }),
+        ('Status', {
+            'fields': ('is_verified', 'verified_at')
+        }),
+        ('Dates', {
+            'fields': ('created_at', 'expires_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def has_add_permission(self, request):
+        # Disable adding verification tokens through admin
+        return False
+    
+    def has_delete_permission(self, request, obj=None):
+        # Disable deletion of verification records
+        return False
+    
+    def token_preview(self, obj):
+        """Show a truncated version of the token"""
+        if obj.token:
+            return f"{obj.token[:16]}..." if len(obj.token) > 16 else obj.token
+        return "-"
+    token_preview.short_description = 'Token Preview'
+    
+    def is_valid_token(self, obj):
+        """Display if token is still valid"""
+        if obj.is_verified:
+            return "Verified ✓"
+        return "Valid" if obj.is_valid() else "Expired ✗"
+    is_valid_token.short_description = 'Token Status'
+
 # Create custom admin site instance
 survey_admin_site = SurveyAdminSite(name='survey_admin')
 
@@ -528,6 +571,7 @@ survey_admin_site.register(Survey, SurveyAdmin)
 survey_admin_site.register(Question, QuestionAdmin)
 survey_admin_site.register(Choice)
 survey_admin_site.register(SurveyResponse, SurveyResponseAdmin)
+survey_admin_site.register(EmailVerification, EmailVerificationAdmin)
 survey_admin_site.register(Answer)
 survey_admin_site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 
