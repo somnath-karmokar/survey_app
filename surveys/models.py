@@ -411,3 +411,72 @@ class LoginOTP(models.Model):
         verbose_name_plural = "Login OTPs"
         ordering = ['-created_at']
 
+
+class EmailVerification(models.Model):
+    """
+    Model to store email verification tokens for new user registrations
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='email_verification')
+    email = models.EmailField()
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_verified = models.BooleanField(default=False)
+    verified_at = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Email verification for {self.email}"
+
+    @classmethod
+    def generate_token(cls, user, email):
+        """Generate a new verification token for the user"""
+        import uuid
+        
+        # Delete any existing unverified tokens for this user
+        cls.objects.filter(user=user, is_verified=False).delete()
+        
+        # Generate token
+        token = str(uuid.uuid4()).replace('-', '')
+        
+        # Set expiry time (24 hours from now)
+        expires_at = timezone.now() + timezone.timedelta(hours=24)
+        
+        return cls.objects.create(
+            user=user,
+            email=email,
+            token=token,
+            expires_at=expires_at
+        )
+
+    def is_valid(self):
+        """Check if token is valid (not expired and not verified)"""
+        return (
+            not self.is_verified and 
+            timezone.now() < self.expires_at
+        )
+
+    def verify(self):
+        """Mark the email as verified"""
+        if not self.is_valid():
+            return False
+        
+        self.is_verified = True
+        self.verified_at = timezone.now()
+        self.save()
+        
+        # Update user profile
+        if hasattr(self.user, 'profile'):
+            self.user.profile.email_verified = True
+            self.user.profile.save()
+        
+        # Activate user account
+        self.user.is_active = True
+        self.user.save()
+        
+        return True
+
+    class Meta:
+        verbose_name = "Email Verification"
+        verbose_name_plural = "Email Verifications"
+        ordering = ['-created_at']
+

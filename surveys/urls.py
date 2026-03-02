@@ -11,7 +11,9 @@ from .views_frontend import (
     SignUpView,
     CustomLoginView,
     DashboardView,
-    send_otp
+    send_otp,
+    VerifyEmailView,
+    PendingVerificationView
 )
 from .views_frontend import MySurveysView
 from .views_categories import CategoryListView, CategoryDetailView
@@ -48,6 +50,8 @@ urlpatterns = [
     path('login/', CustomLoginView.as_view(), name='login'),
     path('signup/', SignUpView.as_view(), name='signup'),
     path('send-otp/', send_otp, name='send_otp'),
+    path('verify-email/<str:token>/', VerifyEmailView.as_view(), name='verify_email'),
+    path('pending-verification/', PendingVerificationView.as_view(), name='pending_verification'),
     path('logout/', auth_views.LogoutView.as_view(next_page='surveys:home'), name='logout'),
     path('profile/', user_profile, name='user_profile'),
     path('profile/edit/', edit_profile, name='edit_profile'),
