@@ -84,7 +84,7 @@ def send_lucky_draw_winner_admin_notification(entry):
     context = {
         'user': entry.user,
         'entry': entry,
-        'site_name': getattr(settings, 'SITE_NAME', 'Survey App'),
+        'site_name': getattr(settings, 'SITE_NAME', 'Sudraw'),
         'site_url': getattr(settings, 'SITE_URL', ''),
         'admin_email': getattr(settings, 'ADMIN_EMAIL', settings.DEFAULT_FROM_EMAIL),
     }

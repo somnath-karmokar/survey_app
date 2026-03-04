@@ -2,7 +2,7 @@
 
 ## Summary: What Was Done
 
-I've successfully implemented a **complete email verification system** for your Survey App registration process. Users now **must verify their email before they can log in**.
+I've successfully implemented a **complete email verification system** for your Sudraw registration process. Users now **must verify their email before they can log in**.
 
 ---
 

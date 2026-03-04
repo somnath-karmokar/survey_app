@@ -1,4 +1,4 @@
-# Survey Application with Lucky Draw
+# Sudrawlication with Lucky Draw
 
 A Django-based web application for conducting surveys with multiple categories and a lucky draw feature.
 

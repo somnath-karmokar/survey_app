@@ -215,7 +215,9 @@ class UserRegisterForm(forms.ModelForm):
     first_name = forms.CharField(max_length=30, required=True)
     middle_name = forms.CharField(max_length=100, required=False)
     last_name = forms.CharField(max_length=30, required=True)
-    city = forms.CharField(max_length=100, required=False)
+    # Location fields
+    # City and country are now mandatory for registration per requirement.
+    city = forms.CharField(max_length=100, required=True)
     state = forms.CharField(max_length=100, required=False)
     country = forms.ModelChoiceField(
         queryset=Country.objects.none(),  # Will be set in __init__

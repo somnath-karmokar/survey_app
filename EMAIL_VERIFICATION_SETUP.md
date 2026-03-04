@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the improved registration process with email verification for the Survey App. Users must now verify their email address before they can access the platform.
+This document describes the improved registration process with email verification for the Sudraw. Users must now verify their email address before they can access the platform.
 
 ## How It Works
 

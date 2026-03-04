@@ -19,9 +19,9 @@ from django.db.models import Q
 
 # Custom Admin Site
 class SurveyAdminSite(AdminSite):
-    site_header = _('Survey App Administration')
-    site_title = _('Survey App Admin')
-    index_title = _('Welcome to Survey App Admin')
+    site_header = _('Sudraw Administration')
+    site_title = _('Sudraw Admin')
+    index_title = _('Welcome to Sudraw Admin')
     
     def get_app_list(self, request, app_label=None):
         """
