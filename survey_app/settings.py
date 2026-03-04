@@ -46,7 +46,7 @@ EMAIL_HOST_PASSWORD = "SudrawMail@2021"
 DEFAULT_FROM_EMAIL = "info@sudraw.com"
 
 # Grappelli Configuration
-GRAPPELLI_ADMIN_TITLE = 'Survey App Admin'
+GRAPPELLI_ADMIN_TITLE = 'Sudraw Admin'
 
 INSTALLED_APPS = [
     # Must be before django.contrib.admin
@@ -74,7 +74,7 @@ INSTALLED_APPS = [
 ]
 
 # Grappelli Settings
-GRAPPELLI_ADMIN_TITLE = 'Survey App Admin'
+GRAPPELLI_ADMIN_TITLE = 'Sudraw Admin'
 GRAPPELLI_SWITCH_USER = True
 
 # Admin Interface Settings
@@ -87,6 +87,8 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # custom auto-logout must sit after authentication so request.user is available
+    'surveys.middleware.AutoLogoutMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware'
@@ -178,7 +180,7 @@ USE_TZ = True
 
 
 # Application Settings
-SITE_NAME = 'Survey App'
+SITE_NAME = 'Sudraw'
 SITE_URL = 'http://localhost:8000'
 
 # Static files (CSS, JavaScript, Images)
@@ -198,6 +200,14 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Ensure the staticfiles directory exists
 os.makedirs(STATIC_ROOT, exist_ok=True)
+
+# Session settings for auto-logout
+# Default cookie age in seconds (2 hours)
+SESSION_COOKIE_AGE = 60 * 60 * 3  # 10800 seconds
+# Refresh session expiry on every request
+SESSION_SAVE_EVERY_REQUEST = True
+# Optionally enable expire at browser close if desired
+# SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 for static_dir in STATICFILES_DIRS:
     os.makedirs(static_dir, exist_ok=True)
 

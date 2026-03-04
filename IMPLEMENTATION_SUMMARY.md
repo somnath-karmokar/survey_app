@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully implemented a comprehensive email verification system for user registration in the Survey App. Users must now verify their email address before they can access the platform.
+Successfully implemented a comprehensive email verification system for user registration in the Sudraw. Users must now verify their email address before they can access the platform.
 
 ## What Was Implemented
 

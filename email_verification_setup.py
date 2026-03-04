@@ -35,7 +35,7 @@ def test_email_configuration():
     try:
         # Try to send a test email
         send_mail(
-            'Test Email from Survey App',
+            'Test Email from Sudraw',
             'This is a test email to verify your email configuration is working correctly.',
             settings.DEFAULT_FROM_EMAIL,
             [settings.DEFAULT_FROM_EMAIL],

@@ -49,7 +49,7 @@ urlpatterns = [
     # Custom admin site
     path('admin/', survey_admin_site.urls),
     
-    # Survey app URLs (for web interface) - Moved to the top to take precedence
+    # Sudraw URLs (for web interface) - Moved to the top to take precedence
     path('', include('surveys.urls')),  # This will be the main entry point
     
     # API Authentication

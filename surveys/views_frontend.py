@@ -556,11 +556,11 @@ class SignUpView(CreateView):
                 reverse_lazy('surveys:verify_email', kwargs={'token': email_verification.token})
             )
             
-            subject = 'Verify Your Email - Survey App'
+            subject = 'Verify Your Email - Sudraw'
             message = f'''
 Hello {user.first_name or user.username},
 
-Thank you for registering with Survey App! 
+Thank you for registering with Sudraw! 
 
 Please verify your email address by clicking the link below:
 
@@ -571,19 +571,19 @@ This link will expire in 24 hours.
 If you didn't create this account, please ignore this email.
 
 Best regards,
-Survey App Team
+Sudraw Team
             '''
             
             html_message = f'''
 <html>
 <body>
 <p>Hello {user.first_name or user.username},</p>
-<p>Thank you for registering with Survey App!</p>
+<p>Thank you for registering with Sudraw!</p>
 <p>Please verify your email address by clicking the link below:</p>
 <p><a href="{verification_url}">Verify Email</a></p>
 <p>This link will expire in 24 hours.</p>
 <p>If you didn't create this account, please ignore this email.</p>
-<p>Best regards,<br/>Survey App Team</p>
+<p>Best regards,<br/>Sudraw Team</p>
 </body>
 </html>
             '''
@@ -631,7 +631,7 @@ def send_otp(request):
                 print(f'OTP generated: {otp.code}')
                 # Send email
                 try:
-                    subject = 'Your Login Code - Survey App'
+                    subject = 'Your Login Code - Sudraw'
                     message = f'''
                                 Hello {user.first_name or user.username},
 
@@ -642,7 +642,7 @@ def send_otp(request):
                                 If you didn't request this code, please ignore this email.
 
                                 Best regards,
-                                Survey App Team
+                                Sudraw Team
                     '''
                     print(f'DEBUG: Sending email to {email} with OTP code {otp.code} ..from  {settings.DEFAULT_FROM_EMAIL}')  # Debug
                     
@@ -761,7 +761,7 @@ class PendingVerificationView(TemplateView):
                 reverse_lazy('surveys:verify_email', kwargs={'token': email_verification.token})
             )
             
-            subject = 'Verify Your Email - Survey App'
+            subject = 'Verify Your Email - Sudraw'
             message = f'''
 Hello {user.first_name or user.username},
 
@@ -774,7 +774,7 @@ This link will expire in 24 hours.
 If you didn't create this account, please ignore this email.
 
 Best regards,
-Survey App Team
+Sudraw Team
             '''
             
             html_message = f'''
@@ -785,7 +785,7 @@ Survey App Team
 <p><a href="{verification_url}">Verify Email</a></p>
 <p>This link will expire in 24 hours.</p>
 <p>If you didn't create this account, please ignore this email.</p>
-<p>Best regards,<br/>Survey App Team</p>
+<p>Best regards,<br/>Sudraw Team</p>
 </body>
 </html>
             '''

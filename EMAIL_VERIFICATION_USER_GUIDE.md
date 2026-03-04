@@ -46,7 +46,7 @@
 
 1. **Verification Email Sent**
    - User receives an email at their registered email address
-   - Email subject: "Verify Your Email - Survey App"
+   - Email subject: "Verify Your Email - Sudraw"
    - Email contains a secure verification link
 
 2. **Pending Verification Page** (`/pending-verification/`)
@@ -59,7 +59,7 @@
 
 #### Option 1: Click Verification Link (Recommended)
 1. Check email inbox (including spam/junk folder)
-2. Open email from Survey App
+2. Open email from Sudraw
 3. Click the "Verify Email" link in the email
 4. You'll be redirected to verification confirmation page
 5. See success message: "Email verified successfully!"
@@ -122,7 +122,7 @@
 **Solutions**:
 1. **Check Spam Folder**
    - Look in spam, junk, or other email folders
-   - Mark Survey App email as "not spam"
+   - Mark Sudraw email as "not spam"
 
 2. **Resend Email**
    - Go to `/pending-verification/`
@@ -239,7 +239,7 @@ from django.core.mail import send_mail
 
 send_mail(
     'Test Email',
-    'This is a test email from Survey App.',
+    'This is a test email from Sudraw.',
     'info@sudraw.com',
     ['recipient@example.com'],
     fail_silently=False

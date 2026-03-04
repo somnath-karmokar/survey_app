@@ -446,7 +446,7 @@ Trigger: User Registration or Resend
     │
     ▼
 Build Email Content
-├─ subject = "Verify Your Email - Survey App"
+├─ subject = "Verify Your Email - Sudraw"
 ├─ Build verification link:
 │  │ build_absolute_uri()
 │  │ reverse_lazy('surveys:verify_email')

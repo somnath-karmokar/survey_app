@@ -1,4 +1,4 @@
-// Main JavaScript for Survey App
+// Main JavaScript for Sudraw
 document.addEventListener('DOMContentLoaded', function() {
     // Enable Bootstrap tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));

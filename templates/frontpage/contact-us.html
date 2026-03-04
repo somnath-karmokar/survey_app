@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Contact Us - Survey App{% endblock %}
+{% block title %}Contact Us - Sudraw{% endblock %}
 
 {% block extra_css %}
 <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
@@ -50,7 +50,7 @@
             <div class="col-md-6">
                 <div class="cont_left">
                     <h2 class="head">Contact Information</h2>
-                    <div class="cont_box">
+                    {% comment %} <div class="cont_box">
                         <div class="cont_span">
                             <span><i class="fa-solid fa-location-dot"></i></span>
                         </div>
@@ -58,8 +58,8 @@
                             <h3>Address</h3>
                             <p>71 Pilgrim Avenue, Chevy Chase, MD 20815</p>
                         </div>
-                    </div>
-                    <div class="cont_box">
+                    </div> {% endcomment %}
+                    {% comment %} <div class="cont_box">
                         <div class="cont_span">
                             <span><i class="fa-solid fa-phone-volume"></i></span>
                         </div>
@@ -67,7 +67,7 @@
                             <h3>Phone Number</h3>
                             <p><a href="tel:+91 123456789">+91 123456789</a></p>
                         </div>
-                    </div>
+                    </div> {% endcomment %}
                     <div class="cont_box">
                         <div class="cont_span">
                             <span><i class="fa-solid fa-envelope"></i></span>

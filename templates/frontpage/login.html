@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Login - Survey App{% endblock %}
+{% block title %}Login - Sudraw{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -685,8 +685,8 @@
                                     <div class="row g-3">
                                         <div class="col-md-4">
                                             <div class="form-floating">
-                                                <input type="text" name="city" class="form-control" id="id_city" placeholder="City">
-                                                <label for="id_city">City</label>
+                                                <input type="text" name="city" class="form-control" id="id_city" placeholder="City" required>
+                                                <label for="id_city">City <span class="text-danger">*</span></label>
                                                 {% if signup_form.city.errors %}
                                                     <div class="text-danger small mt-1">{{ signup_form.city.errors|join:", " }}</div>
                                                 {% endif %}
@@ -711,9 +711,9 @@
                                                         <option value="" disabled>No countries available</option>
                                                     {% endfor %}
                                                 </select>
-                                                <label for="id_country">Country *</label>
-                                                {% if form.country.errors %}
-                                                    <div class="text-danger small mt-1">{{ form.country.errors|join:", " }}</div>
+                                                <label for="id_country">Country <span class="text-danger">*</span></label>
+                                                {% if signup_form.country.errors %}
+                                                    <div class="text-danger small mt-1">{{ signup_form.country.errors|join:", " }}</div>
                                                 {% endif %}
                                             </div>
                                         </div>
@@ -1346,6 +1346,18 @@
                         }
                         hasErrors = true;
                     }
+                }
+
+                // City and country required validation
+                const city = form.find('input[name="city"]').val().trim();
+                if (!city) {
+                    showFieldError(form, 'city', 'City is required.');
+                    hasErrors = true;
+                }
+                const countryVal = form.find('select[name="country"]').val();
+                if (!countryVal) {
+                    showFieldError(form, 'country', 'Country is required.');
+                    hasErrors = true;
                 }
                 
                 if (hasErrors) {
