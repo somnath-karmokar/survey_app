@@ -132,13 +132,13 @@ DATABASES = {
 }
 
 # DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.postgresql",
-#         "NAME": os.getenv("DB_NAME", "postgres"),
-#         "USER": os.getenv("DB_USER", "postgres"),
-#         "PASSWORD": os.getenv("DB_PASSWORD", ""),
-#         "HOST": os.getenv("DB_HOST", "localhost"),
-#         "PORT": os.getenv("DB_PORT", "5432"),
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'survey_app2',
+#         'USER': 'postgres',
+#         'PASSWORD': 'Somnath@16',  # Change this to your PostgreSQL password
+#         'HOST': 'localhost',
+#         'PORT': '5432',
 #     }
 # }
 
@@ -315,7 +315,7 @@ SURVEY_CONFIG = {
 }
 
 LUCKY_DRAW_CONFIG = {
-    'SURVEYS_REQUIRED': 10,  # Number of same-level surveys to complete
+    'SURVEYS_REQUIRED': 1,  # Number of same-level surveys to complete
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 49,
     'PRIZES': [  # You can customize the prizes
