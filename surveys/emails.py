@@ -75,7 +75,8 @@ def send_lucky_draw_winner_email(entry):
     )
     
     msg.attach_alternative(html_content, "text/html")
-    msg.send()
+    result = msg.send()
+    print(f"Winner email sent: {result} (to {entry.user.email})")
 
 def send_lucky_draw_winner_admin_notification(entry):
     """Send email notification to admin when a user wins the lucky draw"""
@@ -101,4 +102,5 @@ def send_lucky_draw_winner_admin_notification(entry):
     )
     
     msg.attach_alternative(html_content, "text/html")
-    msg.send()
+    result = msg.send()
+    print(f"Admin notification email sent: {result} (to {getattr(settings, 'ADMIN_EMAIL', settings.DEFAULT_FROM_EMAIL)})")
