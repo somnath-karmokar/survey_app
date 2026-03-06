@@ -10,6 +10,7 @@ import random
 from django.utils import timezone
 from django.http import JsonResponse  # Add this line
 import json
+from .emails import send_lucky_draw_winner_email, send_lucky_draw_winner_admin_notification
 
 
 class LuckyDrawView(View):
@@ -156,7 +157,7 @@ class LuckyDrawView(View):
         )['total'] or 0
         
         # Generate winning number
-        winning_number = random.randint(
+        winning_number = int(data.get('current_lucky_number')) if data.get('current_lucky_number') else random.randint(
             settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_START'],
             settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_END']
         )
@@ -178,7 +179,7 @@ class LuckyDrawView(View):
         if is_winner:
             try:
                 # Send winner email to user
-                from .emails import send_lucky_draw_winner_email, send_lucky_draw_winner_admin_notification
+                
                 send_lucky_draw_winner_email(entry)
                 send_lucky_draw_winner_admin_notification(entry)
                 print(f"Winner emails sent to {entry.user.email} and admin")

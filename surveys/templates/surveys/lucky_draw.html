@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         'X-CSRFToken': '{{ csrf_token }}',
                         'X-Requested-With': 'XMLHttpRequest'
                     },
-                    body: JSON.stringify({ number: number })
+                    body: JSON.stringify({ number: number, current_lucky_number: {{ current_lucky_number|default:"null" }} })
                 });
                 
                 const result = await response.json();
@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (result.is_winner) {
                     resultMessage.className = 'alert alert-success';
-                    resultText.innerHTML = `<i class="fas fa-trophy me-2"></i> Congratulations! You won ${result.prize}!`;
+                    resultText.innerHTML = `<i class="fas fa-trophy me-2"></i> Congratulations! You won  Lucky Draw!`;
                 } else {
                     resultMessage.className = 'alert alert-danger';
                     resultText.textContent = `Sorry! The number was ${result.winning_number}. Better luck next time!`;
