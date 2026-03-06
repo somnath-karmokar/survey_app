@@ -44,7 +44,7 @@ def send_lucky_draw_entry_email(user, entry):
     # Create email message
     msg = EmailMultiAlternatives(
         subject=subject,
-        body=f'Your lucky draw entry has been recorded. Your number is: {entry.selected_number}.',
+        body=f'Your lucky draw entry has been recorded. Your number is: {entry.guessed_number}.',
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[user.email],
     )
@@ -69,7 +69,7 @@ def send_lucky_draw_winner_email(entry):
     # Create email message
     msg = EmailMultiAlternatives(
         subject=subject,
-        body=f'Congratulations! You have won the lucky draw with number {entry.selected_number}.',
+        body=f'Congratulations! You have won the lucky draw with number {entry.guessed_number}.',
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[entry.user.email],
     )
