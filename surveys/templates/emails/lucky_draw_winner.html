@@ -16,9 +16,9 @@
     <div style="background-color: #f9f9f9; padding: 20px; border: 2px dashed #e74c3c; border-radius: 5px; margin: 20px 0; text-align: center;">
         <h3 style="margin-top: 0; color: #4a6fa5;">Your Winning Number</h3>
         <div style="font-size: 42px; font-weight: bold; color: #e74c3c; margin: 15px 0; letter-spacing: 3px;">
-            {{ entry.selected_number }}
+            {{ entry.guessed_number }}
         </div>
-        <p>Draw Date: {{ entry.win_date|date:"F j, Y" }}</p>
+        <p>Draw Date: {{ entry.created_at|date:"F j, Y" }}</p>
     </div>
     
     <h3>🎁 Your Prize:</h3>
