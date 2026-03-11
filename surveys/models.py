@@ -37,7 +37,7 @@ class Country(models.Model):
 
         
 class SurveyCategory(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=100, unique=True, blank=True, help_text='A URL-friendly version of the name. Will be automatically generated from the name.')
     country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='categories', help_text='The country this category belongs to')
     # Keeping region for backward compatibility
