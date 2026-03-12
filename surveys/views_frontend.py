@@ -257,7 +257,8 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         
         # Get available surveys
         available_surveys = Survey.objects.filter(
-            is_active=True
+            is_active=True,
+            category__country_id=user.profile.country_id if profile and profile.country_id else None
         ).exclude(
             responses__user=user,
             responses__completed_at__isnull=False
@@ -274,7 +275,8 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         
         # Get available surveys for the user
         available_surveys_list = Survey.objects.filter(
-            is_active=True
+            is_active=True,
+            category__country_id=user.profile.country_id if profile and profile.country_id else None
         ).exclude(
             responses__user=user,
             responses__completed_at__isnull=False
