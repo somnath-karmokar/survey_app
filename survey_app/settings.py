@@ -125,8 +125,8 @@ DATABASES = {
         'NAME': 'sudraw_database',
         'USER': 'sudraw_database_user',
         'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # Change this to your PostgreSQL password
-        'HOST': 'dpg-d68kcmh4tr6s73c8aetg-a',
-        # 'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com',
+        # 'HOST': 'dpg-d68kcmh4tr6s73c8aetg-a',
+        'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com',
         'PORT': '5432',
     }
 }
@@ -186,6 +186,10 @@ SITE_URL = 'http://localhost:8000'
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
+# Authentication redirect settings
+LOGIN_URL = 'surveys:login'
+LOGIN_REDIRECT_URL = 'surveys:survey_list'
+
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
@@ -242,7 +246,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Login settings
-LOGIN_URL = 'login'
+LOGIN_URL = 'surveys:login'
 LOGIN_REDIRECT_URL = 'surveys:survey_list'
 LOGOUT_REDIRECT_URL = 'surveys:survey_list'
 

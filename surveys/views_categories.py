@@ -18,7 +18,8 @@ class CategoryListView(ListView):
         # Start with base queryset
         queryset = SurveyCategory.objects.all()
         
-        # Check if user is authenticated
+        # If user is not authenticated, don't show any categories
+        # (requires login to view categories)
         if not self.request.user.is_authenticated:
             return queryset.none()
             

@@ -21,9 +21,15 @@ from .emails import send_survey_completion_email, send_lucky_draw_entry_email, s
 @login_required
 def survey_list(request):
     # Get all active categories that have active surveys
-    categories = SurveyCategory.objects.filter(
-        surveys__is_active=True
-    ).distinct().prefetch_related('surveys')
+    categories = SurveyCategory.objects.filter(surveys__is_active=True)
+
+    # Filter categories by the user's country (if available)
+    if request.user.is_authenticated:
+        profile = getattr(request.user, 'profile', None)
+        if profile and profile.country:
+            categories = categories.filter(country=profile.country)
+
+    categories = categories.distinct().prefetch_related('surveys')
     
     # Get all surveys the user has completed
     completed_responses = SurveyResponse.objects.filter(

@@ -325,13 +325,33 @@ class SurveyAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
 
     def change_view(self, request, object_id, form_url='', extra_context=None):
         extra_context = extra_context or {}
+        # Provide URL for the dedicated question-ordering view (if needed)
         url = reverse('admin:survey-questions', args=[object_id])
         if request.GET:
             query = request.GET.urlencode()
             if query:
                 url = f"{url}?{query}"
         extra_context['question_order_url'] = url
+
+        # Provide question list for inline ordering directly on the survey change form
+        survey = self.get_object(request, object_id)
+        if survey:
+            extra_context['questions_for_reorder'] = survey.questions.all().order_by('order', 'id')
+
         return super().change_view(request, object_id, form_url, extra_context=extra_context)
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+
+        # Persist question order from the survey change form
+        order_data = request.POST.get('question_order', '')
+        if order_data:
+            try:
+                order_list = [int(x) for x in order_data.split(',') if x]
+                for idx, qid in enumerate(order_list, 1):
+                    Question.objects.filter(pk=qid, surveys=obj).update(order=idx)
+            except ValueError:
+                pass
     
     def view_questions(self, request, survey_id):
         """

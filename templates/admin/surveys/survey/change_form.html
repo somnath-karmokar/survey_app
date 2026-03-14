@@ -1,5 +1,5 @@
 {% extends "admin/change_form.html" %}
-{% load i18n %}
+{% load static i18n %}
 
 {% block object-tools-items %}
   {{ block.super }}
@@ -9,5 +9,103 @@
         {% trans "Reorder Questions" %}
       </a>
     </li>
+  {% endif %}
+{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script type="text/javascript" src="{% static 'admin/js/jquery.init.js' %}"></script>
+  <script>
+    // Ensure the admin's django.jQuery is available globally so jQuery UI attaches correctly.
+    window.jQuery = window.$ = django && django.jQuery ? django.jQuery : window.jQuery;
+  </script>
+  <!-- jQuery UI (provides sortable) -->
+  <script type="text/javascript" src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+  <style>
+    .question-order-box {
+      margin: 20px 0;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #f9f9f9;
+    }
+    .question-order-box h2 {
+      margin-top: 0;
+    }
+    .question-order-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .question-order-item {
+      padding: 8px 12px;
+      margin-bottom: 6px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: move;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .question-order-item .handle {
+      cursor: move;
+      margin-right: 10px;
+      color: #999;
+    }
+  </style>
+{% endblock %}
+
+{% block after_related_objects %}
+  {{ block.super }}
+
+  {% if questions_for_reorder %}
+    <div class="question-order-box">
+      <h2>{% trans "Question order" %}</h2>
+      <p>{% trans "Drag and drop to reorder questions. Click Save to persist." %}</p>
+      <input type="hidden" name="question_order" id="question-order-input" value="" />
+      <ul id="sortable-questions" class="question-order-list">
+        {% for question in questions_for_reorder %}
+          <li class="question-order-item" data-id="{{ question.id }}">
+            <span class="handle">☰</span>
+            <span class="question-text">{{ question.question_text }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <script>
+      (function($) {
+        $(function() {
+          var $list = $("#sortable-questions");
+          var $input = $("#question-order-input");
+
+          function updateOrderValue() {
+            var order = [];
+            $list.find('.question-order-item').each(function() {
+              order.push($(this).data('id'));
+            });
+            $input.val(order.join(','));
+          }
+
+          if ($.isFunction($list.sortable)) {
+            $list.sortable({
+              handle: '.handle',
+              update: updateOrderValue
+            });
+          }
+
+          // Initialize order value
+          updateOrderValue();
+
+          // Ensure order is updated before form submission
+          $("form").on('submit', function() {
+            updateOrderValue();
+          });
+        });
+      })(
+        (typeof django !== 'undefined' && django.jQuery) ? django.jQuery : (typeof jQuery !== 'undefined' ? jQuery : (typeof $ !== 'undefined' ? $ : {}))
+      );
+    </script>
   {% endif %}
 {% endblock %}
