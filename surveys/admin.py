@@ -1,8 +1,9 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.admin import AdminSite
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User, Group
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin, GroupAdmin
+from django.db.models.deletion import ProtectedError
 from django.utils.translation import gettext_lazy as _
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -38,6 +39,48 @@ class SurveyAdminSite(AdminSite):
             app['models'].sort(key=lambda x: x['name'])
             
         return app_list
+
+
+class SafeDeleteAdminMixin:
+    """Adds a per-row delete link in list display and handles delete failures gracefully."""
+
+    def get_list_display(self, request):
+        list_display = super().get_list_display(request)
+        if self.has_delete_permission(request) and 'delete_link' not in list_display:
+            return list_display + ('delete_link',)
+        return list_display
+
+    def delete_link(self, obj):
+        # Provide a direct link to the admin delete confirmation page for the object
+        opts = obj._meta
+        url = reverse(f'admin:{opts.app_label}_{opts.model_name}_delete', args=[obj.pk])
+        return format_html('<a class="deletelink" href="{}">Delete</a>', url)
+    delete_link.short_description = 'Delete'
+
+    def _format_protected_error(self, obj_label, exc: ProtectedError) -> str:
+        protected = getattr(exc, 'protected_objects', None)
+        if protected:
+            names = sorted({str(o) for o in protected})
+            if len(names) > 5:
+                sample = ", ".join(names[:5])
+                sample += f" +{len(names) - 5} more"
+            else:
+                sample = ", ".join(names)
+            return f"Cannot delete {obj_label}: it is referenced by {sample}. Delete those first."
+        return f"Cannot delete {obj_label}: {exc}"
+
+    def delete_model(self, request, obj):
+        try:
+            super().delete_model(request, obj)
+        except ProtectedError as e:
+            messages.error(request, self._format_protected_error(obj, e))
+
+    def delete_queryset(self, request, queryset):
+        try:
+            super().delete_queryset(request, queryset)
+        except ProtectedError as e:
+            messages.error(request, self._format_protected_error('selected items', e))
+
 
 class ChoiceInline(admin.TabularInline):
     model = Choice
@@ -80,7 +123,7 @@ class QuestionAdminForm(forms.ModelForm):
         return cleaned_data
         
 @admin.register(Question)
-class QuestionAdmin(admin.ModelAdmin):
+class QuestionAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     form = QuestionAdminForm
     list_display = ('question_text', 'question_type', 'is_required', 'order', 'survey_links', 'created_at')
     list_filter = ('question_type', 'is_required', 'surveys__category')
@@ -192,7 +235,7 @@ class QuestionInline(admin.TabularInline):
         return obj is not None and obj.pk is not None
 
 
-class CountryAdmin(admin.ModelAdmin):
+class CountryAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     list_display = ('name', 'code', 'is_active', 'created_at')
     list_filter = ('is_active', 'created_at')
     search_fields = ('name', 'code')
@@ -229,7 +272,8 @@ class CountryAdmin(admin.ModelAdmin):
     populate_countries.short_description = 'Populate countries from django-countries'
 
 
-class SurveyAdmin(admin.ModelAdmin):
+class SurveyAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
+    change_form_template = 'admin/surveys/survey/change_form.html'
     inlines = [QuestionInline]
     list_display = ('name', 'category', 'level', 'get_country', 'question_count', 'is_active', 'created_at')
     list_filter = ('category', 'category__country', 'is_active', 'created_at', 'level')
@@ -278,6 +322,16 @@ class SurveyAdmin(admin.ModelAdmin):
             ),
         ]
         return custom_urls + urls
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        url = reverse('admin:survey-questions', args=[object_id])
+        if request.GET:
+            query = request.GET.urlencode()
+            if query:
+                url = f"{url}?{query}"
+        extra_context['question_order_url'] = url
+        return super().change_view(request, object_id, form_url, extra_context=extra_context)
     
     def view_questions(self, request, survey_id):
         """
@@ -347,7 +401,7 @@ class AnswerInline(admin.TabularInline):
     model = Answer
     extra = 0
     readonly_fields = ('question', 'get_answer_display')
-    can_delete = False
+    can_delete = True
     
     def get_answer_display(self, obj):
         if obj.question.question_type == 'text':
@@ -359,7 +413,7 @@ class AnswerInline(admin.TabularInline):
         return ""
     get_answer_display.short_description = 'Answer'
 
-class SurveyResponseAdmin(admin.ModelAdmin):
+class SurveyResponseAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     list_display = ('id', 'user', 'survey', 'completed_at', 'time_spent')
     list_filter = ('survey', 'completed_at')
     inlines = [AnswerInline]
@@ -374,7 +428,7 @@ class SurveyResponseAdmin(admin.ModelAdmin):
         return "Not available"
     time_spent.short_description = 'Time Spent'
 
-class LuckyDrawEntryAdmin(admin.ModelAdmin):
+class LuckyDrawEntryAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     list_display = ('user', 'created_at', 'is_winner', 'guessed_number', 'winning_number', 'prize')
     list_filter = ('is_winner', 'created_at')
     search_fields = ('user__username', 'prize')
@@ -386,7 +440,7 @@ class LuckyDrawEntryAdmin(admin.ModelAdmin):
         # Disable adding entries through admin since they should be created by the system
         return False
 
-class EmailVerificationAdmin(admin.ModelAdmin):
+class EmailVerificationAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     list_display = ('user', 'email', 'is_verified', 'created_at', 'expires_at', 'verified_at', 'token_preview')
     list_filter = ('is_verified', 'created_at', 'expires_at')
     search_fields = ('user__username', 'user__email', 'email')
@@ -409,10 +463,6 @@ class EmailVerificationAdmin(admin.ModelAdmin):
     
     def has_add_permission(self, request):
         # Disable adding verification tokens through admin
-        return False
-    
-    def has_delete_permission(self, request, obj=None):
-        # Disable deletion of verification records
         return False
     
     def token_preview(self, obj):
@@ -455,7 +505,7 @@ class SurveyCategoryAdminForm(forms.ModelForm):
             'description': CKEditorWidget(),
         }
 
-class SurveyCategoryAdmin(admin.ModelAdmin):
+class SurveyCategoryAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     form = SurveyCategoryAdminForm
     list_display = ('name', 'slug', 'country', 'parent', 'order', 'image_preview', 'survey_count', 'created_at')
     list_filter = ('country', 'parent', 'created_at')
@@ -521,26 +571,27 @@ class UserProfileInline(admin.StackedInline):
     verbose_name_plural = 'Profile'
     fk_name = 'user'
 
-class CustomUserAdmin(BaseUserAdmin):
+class CustomUserAdmin(SafeDeleteAdminMixin, BaseUserAdmin):
     inlines = (UserProfileInline,)
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_active', 'date_joined')
     list_filter = ('is_active', 'groups', 'date_joined')
     search_fields = ('username', 'first_name', 'last_name', 'email')
     ordering = ('-date_joined',)
     filter_horizontal = ('groups', 'user_permissions',)
-    
+
     # Only show non-staff users in the admin
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.filter(is_staff=False, is_superuser=False)
-    
-    # Fields shown when adding a new user
+
+    # Fields shown when adding users
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
             'fields': ('username', 'email', 'password1', 'password2'),
         }),
     )
+
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         (_('Personal info'), {'fields': ('first_name', 'last_name', 'email')}),
@@ -549,18 +600,15 @@ class CustomUserAdmin(BaseUserAdmin):
         }),
         (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
     )
-    # Fields for adding users
-    add_fieldsets = (
-        (None, {
-            'classes': ('wide',),
-            'fields': ('username', 'email', 'password1', 'password2'),
-        }),
-    )
-    
+
     def get_inline_instances(self, request, obj=None):
         if not obj:
             return []
         return super().get_inline_instances(request, obj)
+
+class DefaultModelAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
+    """Default admin with delete link support."""
+    pass
 
 # Register models with the custom admin site
 survey_admin_site.register(User, CustomUserAdmin)
@@ -569,15 +617,17 @@ survey_admin_site.register(Country, CountryAdmin)
 survey_admin_site.register(SurveyCategory, SurveyCategoryAdmin)
 survey_admin_site.register(Survey, SurveyAdmin)
 survey_admin_site.register(Question, QuestionAdmin)
-survey_admin_site.register(Choice)
+survey_admin_site.register(Choice, DefaultModelAdmin)
 survey_admin_site.register(SurveyResponse, SurveyResponseAdmin)
 survey_admin_site.register(EmailVerification, EmailVerificationAdmin)
-survey_admin_site.register(Answer)
+survey_admin_site.register(Answer, DefaultModelAdmin)
 survey_admin_site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 
 # Register with the default admin site (only non-auth models)
 admin.site.register(SurveyCategory, SurveyCategoryAdmin)
 admin.site.register(Survey, SurveyAdmin)
+admin.site.register(Choice, DefaultModelAdmin)
+admin.site.register(Answer, DefaultModelAdmin)
 admin.site.register(SurveyResponse, SurveyResponseAdmin)
 admin.site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 
