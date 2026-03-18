@@ -89,6 +89,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     # custom auto-logout must sit after authentication so request.user is available
     'surveys.middleware.AutoLogoutMiddleware',
+    'surveys.middleware.ExceptionRedirectMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware'
@@ -186,6 +187,10 @@ SITE_URL = 'http://localhost:8000'
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
+# Authentication redirect settings
+LOGIN_URL = 'surveys:login'
+LOGIN_REDIRECT_URL = 'surveys:survey_list'
+
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
@@ -242,7 +247,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Login settings
-LOGIN_URL = 'login'
+LOGIN_URL = 'surveys:login'
 LOGIN_REDIRECT_URL = 'surveys:survey_list'
 LOGOUT_REDIRECT_URL = 'surveys:survey_list'
 

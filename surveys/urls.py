@@ -32,7 +32,7 @@ urlpatterns = [
     
     # Category and Survey URLs
     path('categories/', CategoryListView.as_view(), name='category_list'),
-    path('category/<slug:category_slug>/', CategoryDetailView.as_view(), name='category_detail'),
+    path('category/<str:category_slug>/', CategoryDetailView.as_view(), name='category_detail'),
     path('surveys/', surveys_views.survey_list, name='survey_list'),
     path('surveys/<int:survey_id>/', surveys_views.survey_detail, {'question_index': 0}, name='survey_detail'),
     path('surveys/<int:survey_id>/q/<int:question_index>/', surveys_views.survey_detail, name='survey_question'),

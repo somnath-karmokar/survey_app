@@ -126,7 +126,7 @@ class QuestionAdminForm(forms.ModelForm):
 class QuestionAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     form = QuestionAdminForm
     list_display = ('question_text', 'question_type', 'is_required', 'order', 'survey_links', 'created_at')
-    list_filter = ('question_type', 'is_required', 'surveys__category')
+    list_filter = ('question_type', 'is_required', 'surveys', 'surveys__category')
     search_fields = ('question_text',)
     list_editable = ('order', 'is_required')
     list_per_page = 20
@@ -325,13 +325,33 @@ class SurveyAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
 
     def change_view(self, request, object_id, form_url='', extra_context=None):
         extra_context = extra_context or {}
+        # Provide URL for the dedicated question-ordering view (if needed)
         url = reverse('admin:survey-questions', args=[object_id])
         if request.GET:
             query = request.GET.urlencode()
             if query:
                 url = f"{url}?{query}"
         extra_context['question_order_url'] = url
+
+        # Provide question list for inline ordering directly on the survey change form
+        survey = self.get_object(request, object_id)
+        if survey:
+            extra_context['questions_for_reorder'] = survey.questions.all().order_by('order', 'id')
+
         return super().change_view(request, object_id, form_url, extra_context=extra_context)
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+
+        # Persist question order from the survey change form
+        order_data = request.POST.get('question_order', '')
+        if order_data:
+            try:
+                order_list = [int(x) for x in order_data.split(',') if x]
+                for idx, qid in enumerate(order_list, 1):
+                    Question.objects.filter(pk=qid, surveys=obj).update(order=idx)
+            except ValueError:
+                pass
     
     def view_questions(self, request, survey_id):
         """
@@ -573,15 +593,24 @@ class UserProfileInline(admin.StackedInline):
 
 class CustomUserAdmin(SafeDeleteAdminMixin, BaseUserAdmin):
     inlines = (UserProfileInline,)
-    list_display = ('username', 'email', 'first_name', 'last_name', 'is_active', 'date_joined')
-    list_filter = ('is_active', 'groups', 'date_joined')
+    list_display = ('username', 'email', 'first_name', 'last_name', 'country', 'is_active', 'date_joined')
+    list_filter = ('is_active', 'groups', 'date_joined', 'profile__country')
     search_fields = ('username', 'first_name', 'last_name', 'email')
     ordering = ('-date_joined',)
     filter_horizontal = ('groups', 'user_permissions',)
 
+    def country(self, obj):
+        if hasattr(obj, 'profile') and obj.profile and obj.profile.country:
+            return obj.profile.country
+        return None
+    country.short_description = 'Country'
+    country.admin_order_field = 'profile__country'
+
     # Only show non-staff users in the admin
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+        # Prefetch profile + country to avoid N+1 queries
+        qs = qs.select_related('profile__country')
         return qs.filter(is_staff=False, is_superuser=False)
 
     # Fields shown when adding users
