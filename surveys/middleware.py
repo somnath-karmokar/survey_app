@@ -1,6 +1,12 @@
 from django.utils import timezone
 from django.contrib.auth import logout
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
+from django.shortcuts import redirect
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AutoLogoutMiddleware:
@@ -37,3 +43,24 @@ class AutoLogoutMiddleware:
 
         response = self.get_response(request)
         return response
+
+
+class ExceptionRedirectMiddleware:
+    """Catch unhandled exceptions and redirect to home instead of showing an error.
+
+    This prevents debug/error tracebacks from being displayed in the UI.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        try:
+            return self.get_response(request)
+        except (Http404, PermissionDenied):
+            # Let Django handle typical 404/403 cases as normal
+            raise
+        except Exception as exc:
+            logger.exception("Unhandled exception caught by ExceptionRedirectMiddleware")
+            # Redirect to home page (change this if you'd like a different landing page)
+            return redirect('surveys:home')

@@ -89,6 +89,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     # custom auto-logout must sit after authentication so request.user is available
     'surveys.middleware.AutoLogoutMiddleware',
+    'surveys.middleware.ExceptionRedirectMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware'
@@ -125,8 +126,8 @@ DATABASES = {
         'NAME': 'sudraw_database',
         'USER': 'sudraw_database_user',
         'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # Change this to your PostgreSQL password
-        # 'HOST': 'dpg-d68kcmh4tr6s73c8aetg-a',
-        'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com',
+        'HOST': 'dpg-d68kcmh4tr6s73c8aetg-a',
+        # 'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com',
         'PORT': '5432',
     }
 }

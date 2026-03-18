@@ -126,7 +126,7 @@ class QuestionAdminForm(forms.ModelForm):
 class QuestionAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     form = QuestionAdminForm
     list_display = ('question_text', 'question_type', 'is_required', 'order', 'survey_links', 'created_at')
-    list_filter = ('question_type', 'is_required', 'surveys__category')
+    list_filter = ('question_type', 'is_required', 'surveys', 'surveys__category')
     search_fields = ('question_text',)
     list_editable = ('order', 'is_required')
     list_per_page = 20
@@ -593,15 +593,24 @@ class UserProfileInline(admin.StackedInline):
 
 class CustomUserAdmin(SafeDeleteAdminMixin, BaseUserAdmin):
     inlines = (UserProfileInline,)
-    list_display = ('username', 'email', 'first_name', 'last_name', 'is_active', 'date_joined')
-    list_filter = ('is_active', 'groups', 'date_joined')
+    list_display = ('username', 'email', 'first_name', 'last_name', 'country', 'is_active', 'date_joined')
+    list_filter = ('is_active', 'groups', 'date_joined', 'profile__country')
     search_fields = ('username', 'first_name', 'last_name', 'email')
     ordering = ('-date_joined',)
     filter_horizontal = ('groups', 'user_permissions',)
 
+    def country(self, obj):
+        if hasattr(obj, 'profile') and obj.profile and obj.profile.country:
+            return obj.profile.country
+        return None
+    country.short_description = 'Country'
+    country.admin_order_field = 'profile__country'
+
     # Only show non-staff users in the admin
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+        # Prefetch profile + country to avoid N+1 queries
+        qs = qs.select_related('profile__country')
         return qs.filter(is_staff=False, is_superuser=False)
 
     # Fields shown when adding users
