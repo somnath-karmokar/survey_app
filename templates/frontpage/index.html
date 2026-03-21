@@ -58,7 +58,12 @@
                                     <img src="{% static 'images/survey_img3.jpeg' %}" alt="{{ winner.name }}" />
                                 {% endif %}
                             </div>
-                            <p>{{ winner.details }}</p>
+                            <p>
+                                {{ winner.name }}
+                                {% if winner.city %}, {{ winner.city }}{% endif %}
+                                {% if winner.country %}, {{ winner.country }}{% endif %}
+                                {% comment %} {% if winner.month %}, {{ winner.month }}{% endif %} {% endcomment %}
+                            </p>
                         </div>
 
                         
@@ -218,29 +223,29 @@
                             <div class="single-item">
                                 <div class="inner">
                                     <figure class="icon_box"><img src="{% static 'images/poll_img1.webp' %}" alt=""></figure>
-                                    <h3><span>01</span><a>Ask Multiple Choice questions<i class="fa-solid fa-arrow-right"></i></a></h3>
-                                    <p>For any excess distance travelled.</p>
+                                    <h3><span>01</span><a>Poll 1<i class="fa-solid fa-arrow-right"></i></a></h3>
+                                    <p>Coming soon...</p>
                                 </div>
                             </div>
                             <div class="single-item">
                                 <div class="inner">
                                     <figure class="icon_box"><img src="{% static 'images/poll_img2.webp' %}" alt=""></figure>
-                                    <h3><span>02</span><a>Try innovative visualizations<i class="fa-solid fa-arrow-right"></i></a></h3>
-                                    <p>Actual costs are subject to the final ride routing.</p>
+                                    <h3><span>02</span><a>Poll 2<i class="fa-solid fa-arrow-right"></i></a></h3>
+                                    <p>Coming soon...</p>
                                 </div>
                             </div>
                             <div class="single-item">
                                 <div class="inner">
                                     <figure class="icon_box"><img src="{% static 'images/poll_img3.webp' %}" alt=""></figure>
-                                    <h3><span>03</span><a>Add images as options<i class="fa-solid fa-arrow-right"></i></a></h3>
-                                    <p>Payments for the invoice or any advances shall be made online directly.</p>
+                                    <h3><span>03</span><a>Poll 3<i class="fa-solid fa-arrow-right"></i></a></h3>
+                                    <p>Coming soon...</p>
                                 </div>
                             </div>
 							<div class="single-item">
                                 <div class="inner">
                                     <figure class="icon_box"><img src="{% static 'images/poll_img4.webp' %}" alt=""></figure>
-                                    <h3><span>04</span><a>See trends with segmentation<i class="fa-solid fa-arrow-right"></i></a></h3>
-                                    <p>We recommend not to give any cash or cash tips to our drivers.</p>
+                                    <h3><span>04</span><a>Poll 4<i class="fa-solid fa-arrow-right"></i></a></h3>
+                                    <p>Coming soon...</p>
                                 </div>
                             </div>
                         </div>
@@ -251,4 +256,3 @@
     </div>
 </section>
 {% endblock %}
-
