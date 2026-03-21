@@ -360,7 +360,11 @@ class HomePageView(TemplateView):
             else:
                 formatted_name = full_name
             
-            # Get country name
+            # Get city and country name
+            city_name = ""
+            if hasattr(winner.user, 'profile') and winner.user.profile.city:
+                city_name = winner.user.profile.city
+
             country_name = ""
             if hasattr(winner.user, 'profile') and winner.user.profile.country:
                 country_name = winner.user.profile.country.name
@@ -368,12 +372,15 @@ class HomePageView(TemplateView):
             # Get month name
             month_name = winner.created_at.strftime("%B")
             
-            # Combine all details
-            winner_details = f"{formatted_name}, {country_name}, {month_name}"
-            
+            # Combine all details, skipping any missing fields
+            winner_details = ", ".join(
+                part for part in [formatted_name, city_name, country_name, month_name] if part
+            )
+
             winners_data.append({
                 'details': winner_details,
                 'name': formatted_name,
+                'city': city_name,
                 'country': country_name,
                 'month': month_name,
                 'date': winner.created_at,
@@ -811,4 +818,3 @@ Sudraw Team
             logger.error(f'Error resending verification email: {e}')
             messages.error(request, 'An error occurred while resending the verification email.')
             return self.get(request, *args, **kwargs)
-

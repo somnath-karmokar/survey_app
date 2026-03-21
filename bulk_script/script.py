@@ -3,7 +3,7 @@ import sys
 import django
 import re
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from docx import Document
 from django.db import transaction
 
@@ -89,11 +89,14 @@ def save_choices(question, options):
 def process_document(doc_path: str, country):
     filename = os.path.basename(doc_path)
     category_name = extract_category_name(filename)
-
+    print(f"\n📁 Processing file: {filename} | Extracted category: {category_name}")
     category, _ = SurveyCategory.objects.get_or_create(
         name=category_name,
+        country=country,  # hardcoded to USA for now
         defaults={"country": country, "order": 1}
     )
+    print(f"   Created category: {category.name} for country: {country.name}")
+    print(f"   Category: {category.name} | Country: {category.country.name}")
 
     doc = Document(doc_path)
 
@@ -113,15 +116,18 @@ def process_document(doc_path: str, country):
             # -------------------------
             # Section
             # -------------------------
+            print(f"   Processing line: {text}")  # Debug: show first 50 chars of line
             if SECTION_REGEX.match(text):
+                print(f"\n📂 Detected Section: {text}")  # Debug: show detected section
                 save_choices(current_question, option_buffer)
                 option_buffer = []
-
+                # print(f"\n📂 Processing Section: {text}")
                 current_survey, _ = Survey.objects.get_or_create(
                     name=text,
                     category=category,
                     defaults={"is_active": True}
                 )
+                # print(f"   Created survey: {current_survey.name}")
 
                 inside_section = True
                 current_question = None
@@ -191,10 +197,11 @@ def process_document(doc_path: str, country):
 # -------------------------------------------------
 def import_from_directory(country_code: str, directory: str):
     country = Country.objects.get(code=country_code)
+    print(f"🚀 Starting import for country: {country.name} from directory: {directory}")
 
     report = {
         "country": country_code,
-        "started_at": datetime.utcnow().isoformat(),
+        "started_at": datetime.now(timezone.utc).isoformat(),
         "documents": []
     }
 
@@ -206,33 +213,34 @@ def import_from_directory(country_code: str, directory: str):
         doc_path = os.path.join(directory, file)
         record = {"file": file}
 
-        try:
-            with transaction.atomic():
-                category, sections, total = process_document(doc_path, country)
+        # try:
+        with transaction.atomic():
+            category, sections, total = process_document(doc_path, country)
 
-                record.update({
-                    "category": category,
-                    "sections": sections,
-                    "total_questions": total
-                })
+            record.update({
+                "category": category,
+                "sections": sections,
+                "total_questions": total
+            })
 
-                print("\n📊 IMPORT SUMMARY")
-                for s, c in sections.items():
-                    print(f"{s:<45} : {c}")
-                print(f"TOTAL QUESTIONS : {total}")
+            print("\n📊 IMPORT SUMMARY")
+            for s, c in sections.items():
+                print(f"{s:<45} : {c}")
+            print(f"TOTAL QUESTIONS : {total}")
 
-                # confirm = input("👉 Confirm import for this document? (y/n): ").strip().lower()
-                # record["user_confirmed"] = confirm == "y"
-                record["user_confirmed"] = True
+            # confirm = input("👉 Confirm import for this document? (y/n): ").strip().lower()
+            # record["user_confirmed"] = confirm == "y"
+            record["user_confirmed"] = True
+            confirm = "y"  # auto-confirm for now
 
-                if confirm != "y":
-                    record["status"] = "rolled_back"
-                    raise RuntimeError("User aborted")
+            if confirm != "y":
+                record["status"] = "rolled_back"
+                raise RuntimeError("User aborted")
 
-                record["status"] = "committed"
+            record["status"] = "committed"
 
-        except Exception:
-            record.setdefault("status", "rolled_back")
+        # except Exception:
+        #     record.setdefault("status", "rolled_back")
 
         report["documents"].append(record)
 
