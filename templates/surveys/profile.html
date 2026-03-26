@@ -186,13 +186,13 @@
                 <!-- Main Profile Card -->
                 <div class="profile-card">
                     <div class="profile-header">
-                        <div class="profile-avatar">
+                        {% comment %} <div class="profile-avatar">
                             {% if user_profile.profile_picture %}
                                 <img src="{{ user_profile.profile_picture.url }}" alt="{{ user.get_full_name }}" class="img-fluid">
                             {% else %}
                                 <img src="{% static 'images/default-avatar.jpg' %}" alt="Default Avatar" class="img-fluid">
                             {% endif %}
-                        </div>
+                        </div> {% endcomment %}
                         <a href="{% url 'surveys:edit_profile' %}" class="btn-edit" title="Edit Profile">
                             <i class="fas fa-pencil-alt"></i>
                         </a>
