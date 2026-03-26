@@ -36,13 +36,13 @@
                 <div class="profile-form-card">
                     <h2 class="mb-4">Edit Profile</h2>
                     
-                    <div class="text-center mb-4">
+                    {% comment %} <div class="text-center mb-4">
                         {% if user.profile.profile_picture %}
                             <img id="profile-preview" src="{{ user.profile.profile_picture.url }}" alt="{{ user.get_full_name }}" class="profile-picture-preview">
                         {% else %}
                             <img id="profile-preview" src="{% static 'images/default-avatar.jpg' %}" alt="Default Avatar" class="profile-picture-preview">
                         {% endif %}
-                    </div>
+                    </div> {% endcomment %}
                     
                     <form method="post" enctype="multipart/form-data">
                         {% csrf_token %}
@@ -88,14 +88,14 @@
                             {% endif %}
                         </div>
                         
-                        <div class="mb-4">
+                        {% comment %} <div class="mb-4">
                             <label for="{{ form.profile_picture.id_for_label }}" class="form-label">Profile Picture</label>
                             {{ form.profile_picture }}
                             {% if form.profile_picture.errors %}
                                 <div class="text-danger">{{ form.profile_picture.errors }}</div>
                             {% endif %}
                             <div class="form-text">Max size: 2MB. Recommended: 500x500px</div>
-                        </div>
+                        </div> {% endcomment %}
                         
                         <div class="d-flex justify-content-between">
                             <a href="{% url 'surveys:user_profile' %}" class="btn btn-outline-secondary">Cancel</a>
