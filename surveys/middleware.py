@@ -56,11 +56,20 @@ class ExceptionRedirectMiddleware:
 
     def __call__(self, request):
         try:
-            return self.get_response(request)
+            response = self.get_response(request)
         except (Http404, PermissionDenied):
-            # Let Django handle typical 404/403 cases as normal
-            raise
+            logger.warning("Redirecting to home after handled error", exc_info=True)
+            return redirect('surveys:home')
         except Exception as exc:
             logger.exception("Unhandled exception caught by ExceptionRedirectMiddleware")
             # Redirect to home page (change this if you'd like a different landing page)
             return redirect('surveys:home')
+
+        if response.status_code in (403, 404, 500):
+            logger.warning(
+                "Redirecting to home after error response with status %s",
+                response.status_code,
+            )
+            return redirect('surveys:home')
+
+        return response
