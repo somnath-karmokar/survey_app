@@ -38,6 +38,25 @@
                         crossorigin="anonymous"></script>   
 </head>
 <body>
+    <style>
+        .categories-shortcut {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 1050;
+            border-radius: 999px;
+            padding: 0.85rem 1.2rem;
+            box-shadow: 0 10px 25px rgba(13, 110, 253, 0.25);
+        }
+
+        @media (max-width: 768px) {
+            .categories-shortcut {
+                right: 16px;
+                bottom: 16px;
+                padding: 0.75rem 1rem;
+            }
+        }
+    </style>
     <header class="head_nav" id="sticky-header">
         <nav class="navbar navbar-expand-lg">
             <div class="container">
@@ -75,7 +94,6 @@
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                                 <li><a class="dropdown-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'surveys:dashboard' %}"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
                                 <li><a class="dropdown-item {% if request.resolver_match.url_name == 'user_profile' %}active{% endif %}" href="{% url 'surveys:user_profile' %}"><i class="fas fa-user me-2"></i>Profile</a></li>
-                                <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Settings</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item text-danger" href="{% url 'surveys:logout' %}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
                             </ul>
@@ -108,6 +126,10 @@
     <main>
         {% block content %}{% endblock %}
     </main>
+
+    <a href="{% url 'surveys:category_list' %}" class="btn btn-primary categories-shortcut">
+        <i class="fas fa-layer-group me-2"></i>Categories
+    </a>
 
     {% block footer %}
     <!-- main-footer -->

@@ -21,6 +21,7 @@ from django.conf import settings
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.cache import never_cache
 from .milestones import check_and_award_milestones
+from django.contrib.auth import logout
 
 
 @login_required
@@ -339,6 +340,7 @@ def user_profile(request):
         'survey_progress': 75,  # Calculate based on user's progress
         'points_progress': 45,  # Calculate based on points
         'level_progress': 60,   # Calculate based on level
+        'active_page': 'profile',
     }
     return render(request, 'surveys/profile.html', context)
 
@@ -362,6 +364,24 @@ def edit_profile(request):
         'form': form,
         'active_tab': 'profile'
     })
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_account(request):
+    confirmation_text = request.POST.get('delete_confirmation', '').strip().lower()
+    if confirmation_text != 'delete profile':
+        messages.error(request, 'Please type "delete profile" to confirm account deletion.')
+        return redirect('surveys:user_profile')
+
+    user = request.user
+    username = user.get_full_name() or user.username
+
+    logout(request)
+    user.delete()
+
+    messages.success(request, f'Account for {username} has been deleted successfully.')
+    return redirect('surveys:home')
 
 @login_required
 def debug_ad(request):
