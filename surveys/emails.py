@@ -104,3 +104,76 @@ def send_lucky_draw_winner_admin_notification(entry):
     msg.attach_alternative(html_content, "text/html")
     result = msg.send()
     print(f"Admin notification email sent: {result} (to {getattr(settings, 'ADMIN_EMAIL', settings.DEFAULT_FROM_EMAIL)})")
+
+
+def send_milestone_achievement_email(user, achievement):
+    """Send email notification when a user reaches a milestone reward."""
+    milestone_label = achievement.get_milestone_type_display()
+    subject = f'Congratulations! You reached a Sudraw milestone'
+
+    context = {
+        'user': user,
+        'achievement': achievement,
+        'milestone_label': milestone_label,
+        'site_name': getattr(settings, 'SITE_NAME', 'Sudraw'),
+        'site_url': getattr(settings, 'SITE_URL', ''),
+    }
+
+    html_content = render_to_string('emails/milestone_achievement.html', context)
+    body = (
+        f"Hello {user.first_name or user.username},\n\n"
+        f"You have reached the {milestone_label.lower()} milestone "
+        f"with a total of {achievement.achieved_value}.\n"
+        f"Prize awarded: {achievement.prize_name}\n\n"
+        f"Our team will contact you with the next steps.\n\n"
+        f"Best regards,\n"
+        f"{getattr(settings, 'SITE_NAME', 'Sudraw')} Team"
+    )
+
+    msg = EmailMultiAlternatives(
+        subject=subject,
+        body=body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[user.email],
+    )
+    msg.attach_alternative(html_content, "text/html")
+    msg.send()
+
+
+def send_milestone_achievement_admin_notification(user, achievement):
+    """Send admin notification when a user reaches a milestone reward."""
+    milestone_label = achievement.get_milestone_type_display()
+    admin_email = getattr(settings, 'ADMIN_EMAIL', settings.DEFAULT_FROM_EMAIL)
+    subject = (
+        f'Milestone Reward Alert: '
+        f'{user.get_full_name() or user.username} reached {milestone_label}'
+    )
+
+    context = {
+        'user': user,
+        'achievement': achievement,
+        'milestone_label': milestone_label,
+        'site_name': getattr(settings, 'SITE_NAME', 'Sudraw'),
+        'site_url': getattr(settings, 'SITE_URL', ''),
+        'admin_email': admin_email,
+    }
+
+    html_content = render_to_string('emails/milestone_achievement_admin.html', context)
+    body = (
+        f"Milestone reward alert\n\n"
+        f"User: {user.get_full_name() or user.username}\n"
+        f"Email: {user.email}\n"
+        f"Milestone: {milestone_label}\n"
+        f"Threshold: {achievement.threshold}\n"
+        f"Current total: {achievement.achieved_value}\n"
+        f"Prize awarded: {achievement.prize_name}\n"
+    )
+
+    msg = EmailMultiAlternatives(
+        subject=subject,
+        body=body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[admin_email],
+    )
+    msg.attach_alternative(html_content, "text/html")
+    msg.send()

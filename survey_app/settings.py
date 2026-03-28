@@ -126,8 +126,8 @@ DATABASES = {
         'NAME': 'sudraw_database',
         'USER': 'sudraw_database_user',
         'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # Change this to your PostgreSQL password
-        'HOST': 'dpg-d68kcmh4tr6s73c8aetg-a',
-        # 'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com',
+        # 'HOST': 'dpg-d68kcmh4tr6s73c8aetg-a',
+        'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com',
         'PORT': '5432',
     }
 }
@@ -183,6 +183,18 @@ USE_TZ = True
 # Application Settings
 SITE_NAME = 'Sudraw'
 SITE_URL = 'http://localhost:8000'
+MILESTONE_REWARDS = (
+    {
+        'milestone_type': 'surveys_completed',
+        'threshold': 200,
+        'prize_name': '200 Surveys Achievement Prize',
+    },
+    {
+        'milestone_type': 'points_earned',
+        'threshold': 2200,
+        'prize_name': '2200 Points Achievement Prize',
+    },
+)
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
