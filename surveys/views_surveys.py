@@ -16,6 +16,7 @@ from .models import Survey, SurveyCategory, Question, UserSurveyProgress, Survey
 from .views import should_show_advertisement
 from .forms import SurveyResponseForm
 from .emails import send_survey_completion_email, send_lucky_draw_entry_email, send_lucky_draw_winner_email
+from .milestones import check_and_award_milestones
 
 # surveys/views_surveys.py
 @login_required
@@ -196,13 +197,6 @@ def survey_detail(request, survey_id, question_index=0):
                         answer.rating_value = int(answer_value)
                         answer.save()
                 
-                # Create the survey response with completion time
-                response = SurveyResponse.objects.create(
-                    user=request.user,
-                    survey=survey,
-                    completed_at=timezone.now()
-                )
-                
                 # Update or create user's survey progress
                 progress, created = UserSurveyProgress.objects.get_or_create(
                     user=request.user,
@@ -221,6 +215,7 @@ def survey_detail(request, survey_id, question_index=0):
                     progress.refresh_from_db()
                 
                 print(f"Updated progress for {request.user.username} - {survey.category.name} (Level {survey.level}): {progress.completed_count} surveys completed")
+                check_and_award_milestones(request.user)
                 # Clear the session data
                 if session_key in request.session:
                     del request.session[session_key]

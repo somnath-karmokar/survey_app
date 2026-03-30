@@ -480,3 +480,33 @@ class EmailVerification(models.Model):
         verbose_name_plural = "Email Verifications"
         ordering = ['-created_at']
 
+
+class MilestoneAchievement(models.Model):
+    MILESTONE_TYPE_CHOICES = [
+        ('surveys_completed', 'Surveys Completed'),
+        ('points_earned', 'Points Earned'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='milestone_achievements'
+    )
+    milestone_type = models.CharField(max_length=32, choices=MILESTONE_TYPE_CHOICES)
+    threshold = models.PositiveIntegerField()
+    achieved_value = models.PositiveIntegerField()
+    prize_name = models.CharField(max_length=255)
+    achieved_at = models.DateTimeField(auto_now_add=True)
+    email_sent_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        unique_together = ('user', 'milestone_type', 'threshold')
+        ordering = ['-achieved_at']
+        verbose_name = 'Milestone Achievement'
+        verbose_name_plural = 'Milestone Achievements'
+
+    def __str__(self):
+        return (
+            f"{self.user.username} - {self.get_milestone_type_display()} "
+            f"{self.threshold}"
+        )

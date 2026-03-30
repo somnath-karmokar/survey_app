@@ -1,0 +1,18 @@
+<html>
+<body style="font-family: Arial, sans-serif; color: #212529; line-height: 1.6;">
+    <p>A user has reached a milestone reward on {{ site_name }}.</p>
+
+    <p>
+        <strong>User:</strong> {{ user.get_full_name|default:user.username }}<br>
+        <strong>Email:</strong> {{ user.email }}<br>
+        <strong>Milestone:</strong> {{ milestone_label }}<br>
+        <strong>Threshold:</strong> {{ achievement.threshold }}<br>
+        <strong>Current total:</strong> {{ achievement.achieved_value }}<br>
+        <strong>Prize awarded:</strong> {{ achievement.prize_name }}
+    </p>
+
+    <p>
+        Please follow up with the user to arrange prize delivery.
+    </p>
+</body>
+</html>

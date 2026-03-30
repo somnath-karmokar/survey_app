@@ -4,7 +4,61 @@
 {% block title %}Sudraw - Home{% endblock %}
 
 {% block extra_css %}
-    
+<style>
+    .survey_area .category-grid {
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    .survey_area .category-grid > [class*="col-"] {
+        display: flex;
+    }
+
+    .survey_area .serv_box {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        height: 100%;
+        min-height: 520px;
+        width: 100%;
+    }
+
+    .survey_area .serv_img {
+        flex: 0 0 240px;
+    }
+
+    .survey_area .serv_cont {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+    }
+
+    .survey_area .serv_cont h3 {
+        min-height: 48px;
+    }
+
+    .survey_area .serv_cont p {
+        flex: 1;
+        min-height: 96px;
+        margin-bottom: 16px;
+    }
+
+    .survey_area .serv_cont a {
+        margin-top: auto;
+    }
+
+    @media (max-width: 991.98px) {
+        .survey_area .serv_box {
+            min-height: 500px;
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        .survey_area .serv_box {
+            min-height: auto;
+        }
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -126,85 +180,42 @@
                 <h2 class="head">Easy to start. Simple to connect</h2>
             </div>
         </div>
-        <div class="row">
+        <div class="row category-grid">
+            {% for category in featured_categories %}
             <div class="col-lg-4 col-sm-6">
                 <div class="serv_box">
                     <div class="serv_img">
-                        <img src="{% static 'images/survey_img1.jpeg' %}" alt="">
+                        {% if category.image %}
+                            <img src="{{ category.image.url }}" alt="{{ category.name }}">
+                        {% elif forloop.counter == 1 %}
+                            <img src="{% static 'images/survey_img1.jpeg' %}" alt="{{ category.name }}">
+                        {% elif forloop.counter == 2 %}
+                            <img src="{% static 'images/survey_img2.jpeg' %}" alt="{{ category.name }}">
+                        {% elif forloop.counter == 3 %}
+                            <img src="{% static 'images/survey_img3.jpeg' %}" alt="{{ category.name }}">
+                        {% elif forloop.counter == 4 %}
+                            <img src="{% static 'images/survey_img4.jpeg' %}" alt="{{ category.name }}">
+                        {% elif forloop.counter == 5 %}
+                            <img src="{% static 'images/survey_img5.jpeg' %}" alt="{{ category.name }}">
+                        {% else %}
+                            <img src="{% static 'images/survey_img6.jpeg' %}" alt="{{ category.name }}">
+                        {% endif %}
                     </div>
                     <div class="serv_cont">
-                        <div class="serv_icon"><i class="fa-solid fa-user"></i></div>
-                        <h3>Offshore Projects</h3>
-                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.</p>
-                        <a href="products.html" tabindex="0">Start the Survey</a>
+                        <div class="serv_icon"><i class="fa-solid fa-layer-group"></i></div>
+                        <h3>{{ category.name }}</h3>
+                        <p>{{ category.description|striptags|truncatewords:20|default:"Explore this survey category and discover available surveys tailored for you." }}</p>
+                        <a href="{% url 'surveys:category_detail' category.slug %}" tabindex="0">Start the Survey</a>
                     </div>
                 </div>
             </div>
-            <div class="col-lg-4 col-sm-6">
-                <div class="serv_box">
-                    <div class="serv_img">
-                        <img src="{% static 'images/survey_img2.jpeg' %}" alt="">
-                    </div>
-                    <div class="serv_cont">
-                        <div class="serv_icon"><i class="fa-solid fa-dollar-sign"></i></div>
-                        <h3>IT Consultancy</h3>
-                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.</p>
-                        <a href="products.html" tabindex="0">Start the Survey</a>
-                    </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="text-center py-4">
+                    <p class="mb-0">No categories are available right now.</p>
                 </div>
             </div>
-            <div class="col-lg-4 col-sm-6">
-                <div class="serv_box">
-                    <div class="serv_img">
-                        <img src="{% static 'images/survey_img3.jpeg' %}" alt="">
-                    </div>
-                    <div class="serv_cont">
-                        <div class="serv_icon"><i class="fa-solid fa-file"></i></div>
-                        <h3>Venture Capitalism</h3>
-                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.</p>
-                        <a href="products.html" tabindex="0">Start the Survey</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-4 col-sm-6">
-                <div class="serv_box">
-                    <div class="serv_img">
-                        <img src="{% static 'images/survey_img4.jpeg' %}" alt="">
-                    </div>
-                    <div class="serv_cont">
-                        <div class="serv_icon"><i class="fa-solid fa-briefcase"></i></div>
-                        <h3>Marketing Services</h3>
-                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.</p>
-                        <a href="products.html" tabindex="0">Start the Survey</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-4 col-sm-6">
-                <div class="serv_box">
-                    <div class="serv_img">
-                        <img src="{% static 'images/survey_img5.jpeg' %}" alt="">
-                    </div>
-                    <div class="serv_cont">
-                        <div class="serv_icon"><i class="fa-solid fa-shield"></i></div>
-                        <h3>Lawyer Consultancy</h3>
-                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.</p>
-                        <a href="products.html" tabindex="0">Start the Survey</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-4 col-sm-6">
-                <div class="serv_box">
-                    <div class="serv_img">
-                        <img src="{% static 'images/survey_img6.jpeg' %}" alt="">
-                    </div>
-                    <div class="serv_cont">
-                        <div class="serv_icon"><i class="fa-solid fa-thumbs-up"></i></div>
-                        <h3>Investment Consultancy</h3>
-                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.</p>
-                        <a href="products.html" tabindex="0">Start the Survey</a>
-                    </div>
-                </div>
-            </div>
+            {% endfor %}
         </div>
     </div>
 </section>

@@ -5,7 +5,7 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, authenticate, get_user_model
 from django.utils import timezone
 from datetime import timedelta
-from .models import Survey, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry
+from .models import Survey, SurveyCategory, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry
 from django.http import JsonResponse, HttpResponseRedirect
 from django.core.mail import send_mail
 from django.conf import settings
@@ -19,7 +19,7 @@ User = get_user_model()
 from django.db.models import Sum, Count, F, Q, Max
 from django.utils import timezone
 from datetime import timedelta
-from surveys.models import Country, Survey, SurveyResponse, UserProfile
+from surveys.models import Country, Survey, SurveyCategory, SurveyResponse, UserProfile
 from django.contrib import messages
 from django.urls import reverse_lazy
 from django.contrib.auth.views import LoginView
@@ -336,6 +336,18 @@ class HomePageView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
+        categories = SurveyCategory.objects.filter(
+            surveys__is_active=True,
+            country__is_active=True,
+        ).distinct()
+
+        if self.request.user.is_authenticated:
+            profile = getattr(self.request.user, 'profile', None)
+            if profile and profile.country_id:
+                categories = categories.filter(country_id=profile.country_id)
+
+        context['featured_categories'] = categories.order_by('?')[:6]
         
         # Get the number of days to show winners from settings
         winners_display_days = getattr(django_settings, 'LUCKY_DRAW_CONFIG', {}).get('WINNERS_DISPLAY_DAYS', 30)

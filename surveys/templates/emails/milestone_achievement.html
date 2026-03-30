@@ -1,0 +1,29 @@
+<html>
+<body style="font-family: Arial, sans-serif; color: #212529; line-height: 1.6;">
+    <p>Hello {{ user.first_name|default:user.username }},</p>
+
+    <p>
+        Congratulations on reaching a new milestone on {{ site_name }}.
+        You have achieved the <strong>{{ milestone_label }}</strong> target.
+    </p>
+
+    <p>
+        <strong>Milestone target:</strong> {{ achievement.threshold }}<br>
+        <strong>Your current total:</strong> {{ achievement.achieved_value }}<br>
+        <strong>Prize awarded:</strong> {{ achievement.prize_name }}
+    </p>
+
+    <p>
+        Our team will contact you shortly with the details to claim your prize.
+    </p>
+
+    <p>
+        Thank you for being part of {{ site_name }}.
+    </p>
+
+    <p>
+        Best regards,<br>
+        {{ site_name }} Team
+    </p>
+</body>
+</html>

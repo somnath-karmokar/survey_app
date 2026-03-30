@@ -173,35 +173,6 @@
         color: #667eea;
     }
     
-    /* Profile Picture Upload Area */
-    .upload-area {
-        transition: all 0.3s ease;
-        cursor: pointer;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .upload-area:hover {
-        border-color: #667eea !important;
-        background-color: #f8f9ff !important;
-        transform: scale(1.02);
-    }
-    
-    .upload-area::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-        transition: left 0.5s;
-    }
-    
-    .upload-area:hover::before {
-        left: 100%;
-    }
-    
     /* Enhanced Terms and Conditions */
     .terms-container {
         border: 2px solid #e9ecef;
@@ -588,7 +559,7 @@
                                 <p class="text-muted">Join our community and start earning rewards</p>
                             </div>
                             
-                            <form method="post" action="{% url 'surveys:signup' %}" id="signup-form" enctype="multipart/form-data">
+                            <form method="post" action="{% url 'surveys:signup' %}" id="signup-form">
                                 {% csrf_token %}
                                 {% if signup_form.non_field_errors %}
                                     <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -717,37 +688,6 @@
                                                 {% endif %}
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Profile Picture Section -->
-                                <div class="form-section mb-4">
-                                    <div class="section-header d-flex align-items-center mb-3">
-                                        <div class="section-icon bg-warning text-white rounded-circle me-2" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-                                            <i class="fas fa-camera"></i>
-                                        </div>
-                                        <h5 class="mb-0 fw-semibold">Profile Picture</h5>
-                                    </div>
-                                    
-                                    <div class="profile-picture-upload">
-                                        <div class="upload-area border-2 border-dashed border-secondary rounded-3 p-4 text-center bg-light" id="uploadArea">
-                                            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
-                                            <p class="mb-2">Click to upload or drag and drop</p>
-                                            <p class="text-muted small mb-3">PNG, JPG, GIF up to 2MB</p>
-                                            <input type="file" name="profile_picture" class="form-control d-none" id="id_profile_picture" accept="image/*">
-                                            <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('id_profile_picture').click()">
-                                                <i class="fas fa-upload me-2"></i>Choose File
-                                            </button>
-                                        </div>
-                                        <div id="imagePreview" class="mt-3 d-none">
-                                            <img src="" alt="Profile preview" class="img-thumbnail rounded" style="max-width: 150px; max-height: 150px;">
-                                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeImage()">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </div>
-                                        {% if signup_form.profile_picture.errors %}
-                                            <div class="text-danger small mt-2">{{ signup_form.profile_picture.errors|join:", " }}</div>
-                                        {% endif %}
                                     </div>
                                 </div>
                                 
@@ -1184,87 +1124,6 @@
             }
         }
 
-        // Profile Picture Upload Functionality
-        const profileInput = document.getElementById('id_profile_picture');
-        const uploadArea = document.getElementById('uploadArea');
-        const imagePreview = document.getElementById('imagePreview');
-        
-        if (profileInput && uploadArea) {
-            // Click to upload
-            uploadArea.addEventListener('click', function() {
-                profileInput.click();
-            });
-            
-            // Drag and drop functionality
-            uploadArea.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                this.style.borderColor = '#667eea';
-                this.style.backgroundColor = '#f8f9ff';
-            });
-            
-            uploadArea.addEventListener('dragleave', function(e) {
-                e.preventDefault();
-                this.style.borderColor = '#6c757d';
-                this.style.backgroundColor = '#f8f9fa';
-            });
-            
-            uploadArea.addEventListener('drop', function(e) {
-                e.preventDefault();
-                this.style.borderColor = '#6c757d';
-                this.style.backgroundColor = '#f8f9fa';
-                
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    profileInput.files = files;
-                    handleImageUpload(files[0]);
-                }
-            });
-            
-            // File input change
-            profileInput.addEventListener('change', function(e) {
-                if (e.target.files.length > 0) {
-                    handleImageUpload(e.target.files[0]);
-                }
-            });
-        }
-        
-        function handleImageUpload(file) {
-            // Validate file type
-            if (!file.type.startsWith('image/')) {
-                showNotification('Please upload an image file', 'error');
-                return;
-            }
-            
-            // Validate file size (2MB)
-            if (file.size > 2 * 1024 * 1024) {
-                showNotification('Image size should be less than 2MB', 'error');
-                return;
-            }
-            
-            // Preview image
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const previewImg = imagePreview.querySelector('img');
-                previewImg.src = e.target.result;
-                imagePreview.classList.remove('d-none');
-                uploadArea.style.display = 'none';
-                
-                // Add animation
-                imagePreview.style.opacity = '0';
-                setTimeout(() => {
-                    imagePreview.style.opacity = '1';
-                }, 100);
-            };
-            reader.readAsDataURL(file);
-        }
-        
-        // Remove image function
-        window.removeImage = function() {
-            profileInput.value = '';
-            imagePreview.classList.add('d-none');
-            uploadArea.style.display = 'block';
-        };
-        
         // Enhanced form validation and submission
         const signupForm = document.getElementById('signup-form');
         console.log('Signup form found:', signupForm); // Debug
@@ -1396,7 +1255,6 @@
                             console.log('Showing success message'); // Debug
                             showNotification(response.message || 'Registration successful!', 'success');
                             form.trigger('reset');
-                            removeImage();
                             setTimeout(() => {
                                 $('.tab-btn[data-tab="#LogIn"]').click();
                             }, 2000);
@@ -1504,21 +1362,174 @@
                 </style>
             </head>
             <body>
-                <h5>Terms and Conditions</h5>
-                <h6>1. Acceptance of Terms</h6>
-                <p>By accessing or using our services, you agree to be bound by these terms and conditions.</p>
-                
-                <h6>2. User Responsibilities</h6>
-                <p>You are responsible for maintaining the confidentiality of your account and password.</p>
-                
-                <h6>3. Use of Service</h6>
-                <p>Our service is provided for survey participation and related activities. You agree to use the service only for lawful purposes.</p>
-                
-                <h6>4. Account Termination</h6>
-                <p>We reserve the right to terminate or suspend your account at any time for violations of these terms.</p>
-                
-                <h6>5. Limitation of Liability</h6>
-                <p>We shall not be liable for any indirect, incidental, or consequential damages arising from your use of our service.</p>
+                <p><strong>Last Updated:</strong> February 2026</p>
+
+                <h6>1. Introduction</h6>
+                <p>Welcome to SUDRAW (“we”, “our”, “us”). These Terms and Conditions govern your use of our website, surveys, prize draws, and related services (the “Platform”). By using SUDRAW, you agree to comply with these terms.</p>
+
+                <h6>2. Eligibility</h6>
+                <p>You must be at least 16+ years old to participate.</p>
+
+                <h6>3. Account Registration</h6>
+                <p>You must provide accurate, current, and complete information.</p>
+                <p>We reserve the right to suspend or terminate accounts suspected of fraud or misuse.</p>
+
+                <h6>4. Surveys</h6>
+                <p>Participation in surveys is voluntary.</p>
+                <p>You agree to provide honest and accurate responses.</p>
+                <p>We may disqualify incomplete, inconsistent, fake, incoherent, or fraudulent responses.</p>
+                <p>Rewards or entries may not be granted if responses are deemed invalid.</p>
+
+                <h6>5. Prize Draws</h6>
+                <p>Entry into prize draws will be gained through completion of 10 surveys with up to 14 questions each.</p>
+                <p>The draw is completely free upon completion of 114 questions.</p>
+                <p>You qualify immediately after completing 114 questions.</p>
+                <p>Winners are determined immediately.</p>
+
+                <h6>6. Free Entry Route</h6>
+                <p>The draws are completely free upon successful submission of 114 questions.</p>
+
+                <h6>7. Rewards & Incentives</h6>
+                <p>Rewards may include vouchers or cash equivalents.</p>
+                <p>Rewards may be withdrawn in cases of fraud, abuse, or breach of terms.</p>
+
+                <h6>8. User Conduct</h6>
+                <p>You agree not to submit false or misleading information.</p>
+                <p>You must not use bots or scripts.</p>
+                <p>You must not manipulate survey results or prize outcomes.</p>
+                <p>You must not impersonate others.</p>
+
+                <h6>9. Data Protection & Privacy</h6>
+                <p>We process personal data in accordance with UK GDPR.</p>
+                <p>No personal data is shared with third parties.</p>
+                <p>You can delete your account anytime.</p>
+
+                <h6>10. Intellectual Property</h6>
+                <p>All content is owned or licensed by SUDRAW and cannot be reused without permission.</p>
+
+                <h6>11. Limitation of Liability</h6>
+                <p>We are not liable for technical failures, lost entries, or indirect losses.</p>
+
+                <h6>12. Suspension or Termination</h6>
+                <p>We may suspend or terminate accounts without notice if terms are breached.</p>
+
+                <h6>13. Amendments</h6>
+                <p>We may update these terms at any time. Continued use means acceptance.</p>
+
+                <h6>14. Governing Law</h6>
+                <p>These terms are governed by your country’s laws.</p>
+
+                <h6>15. Contact Information</h6>
+                <p>Email: info@sudraw.com</p>
+
+                <h6>16. Acceptance</h6>
+                <p>By using SUDRAW, you agree to these terms.</p>
+
+                <hr/>
+
+                <h5>SUDRAW – Privacy Policy</h5>
+
+                <h6>1. Who We Are</h6>
+                <p>SUDRAW operates a survey and prize draw platform and is the data controller.</p>
+                <p>Email: info@sudraw.com</p>
+
+                <h6>2. What Data We Collect</h6>
+                <p>Identity data (name, year of birth).</p>
+                <p>Contact data (email, city, country).</p>
+                <p>Survey responses.</p>
+
+                <h6>3. How We Use Your Data</h6>
+                <p>To manage accounts, deliver surveys, rewards, and improve services.</p>
+
+                <h6>4. Legal Basis</h6>
+                <p>Consent, contract, legitimate interest, and legal obligations.</p>
+
+                <h6>5. Sharing Your Data</h6>
+                <p>We do not sell personal data.</p>
+                <p>Survey responses may be shared without personal identifiers.</p>
+
+                <h6>6. Data Retention</h6>
+                <p>We retain data only as necessary.</p>
+
+                <h6>7. Your Rights</h6>
+                <p>Access, correction, deletion, withdrawal of consent, and complaint rights.</p>
+
+                <h6>8. Data Security</h6>
+                <p>We use security measures to protect your data.</p>
+
+                <h6>9. International Transfers</h6>
+                <p>We do not transfer data outside your country.</p>
+
+                <h6>10. Contact</h6>
+                <p>Email: info@sudraw.com</p>
+
+                <h6>Cookies</h6>
+                <p>Cookies improve user experience.</p>
+
+                <h6>Types of Cookies</h6>
+                <p>Essential, performance, functionality, and marketing cookies.</p>
+
+                <h6>Managing Cookies</h6>
+                <p>You can control cookies via browser settings.</p>
+
+                <h6>Consent</h6>
+                <p>We obtain consent before non-essential cookies.</p>
+
+                <hr/>
+
+                <h5>SUDRAW – Prize Draw Rules</h5>
+
+                <h6>1. Promoter</h6>
+                <p>All draws are operated by SUDRAW.</p>
+
+                <h6>2. Eligibility</h6>
+                <p>Open to participants aged 16+.</p>
+
+                <h6>3. Entry Methods</h6>
+                <p>Automatic via surveys or free entry routes.</p>
+
+                <h6>4. Entry Limits</h6>
+                <p>Duplicate or fraudulent entries will be disqualified.</p>
+
+                <h6>5. Winner Selection</h6>
+                <p>Winners are selected based on system-generated numbers.</p>
+
+                <h6>6. Winner Notification</h6>
+                <p>Winners are contacted within 48 hours.</p>
+
+                <h6>7. Prizes</h6>
+                <p>Non-transferable, may be substituted.</p>
+
+                <h6>9. Liability</h6>
+                <p>We are not responsible for delays or technical issues.</p>
+
+                <h6>10. Fraud & Abuse</h6>
+                <p>Fraudulent users will be disqualified.</p>
+
+                <h6>11. Data Use</h6>
+                <p>Used only for draw administration.</p>
+
+                <h6>12. Contact</h6>
+                <p>Email: info@sudraw.com</p>
+
+                <hr/>
+
+                <h5>Eligibility & Prize Draw Clause</h5>
+
+                <h6>1. Eligibility</h6>
+                <p>Minimum age: 16 years.</p>
+                <p>Available in UK, USA, Canada, Nigeria.</p>
+
+                <h6>2. Consent for Minors</h6>
+                <p>Participants aged 16–17 confirm legal consent.</p>
+                <p>Parental consent may be required for prizes.</p>
+
+                <h6>3. Prize Draw Rules</h6>
+                <p>No purchase required.</p>
+                <p>Proof of age may be requested.</p>
+
+                <h6>4. Prohibited Content</h6>
+                <p>Responses must not contain offensive or fake content.</p>
             </body>
             </html>
         `;

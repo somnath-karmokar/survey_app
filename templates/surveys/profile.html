@@ -172,6 +172,21 @@
     .progress-bar {
         background-color: #4e73df;
     }
+    .danger-zone {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        border: 1px solid #f5c2c7;
+        border-radius: 12px;
+        background: #fff5f5;
+    }
+    .danger-zone h4 {
+        color: #b02a37;
+        margin-bottom: 0.5rem;
+    }
+    .danger-zone p {
+        margin-bottom: 1rem;
+        color: #6c757d;
+    }
 </style>
 {% endblock %}
 
@@ -193,9 +208,9 @@
                                 <img src="{% static 'images/default-avatar.jpg' %}" alt="Default Avatar" class="img-fluid">
                             {% endif %}
                         </div> {% endcomment %}
-                        <a href="{% url 'surveys:edit_profile' %}" class="btn-edit" title="Edit Profile">
+                        {% comment %} <a href="{% url 'surveys:edit_profile' %}" class="btn-edit" title="Edit Profile">
                             <i class="fas fa-pencil-alt"></i>
-                        </a>
+                        </a> {% endcomment %}
                         <h1 class="profile-name">{{ user.get_full_name|default:user.username }}</h1>
                         <div class="profile-role">
                             Member since {{ user.date_joined|date:"F Y" }}
@@ -318,9 +333,19 @@
                             <a href="{% url 'surveys:my_surveys' %}" class="btn btn-outline-secondary">
                                 <i class="fas fa-list me-2"></i>View My Surveys
                             </a>
-                            <a href="{% url 'surveys:edit_profile' %}" class="btn btn-primary">
+                            {% comment %} <a href="{% url 'surveys:edit_profile' %}" class="btn btn-primary">
                                 <i class="fas fa-user-edit me-2"></i>Edit Profile
-                            </a>
+                            </a> {% endcomment %}
+                        </div>
+
+                        <div class="danger-zone">
+                            <h4><i class="fas fa-exclamation-triangle me-2"></i>Delete Account</h4>
+                            <p>
+                                This will permanently remove your account and related profile data. This action cannot be undone.
+                            </p>
+                            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
+                                <i class="fas fa-trash-alt me-2"></i>Delete My Account
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -328,4 +353,64 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-labelledby="deleteAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-danger" id="deleteAccountModalLabel">Confirm Account Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {% with delete_error_text='Please type "delete profile" to confirm account deletion.' %}
+                    {% for message in messages %}
+                        {% if message.tags == 'error' and message|stringformat:"s" == delete_error_text %}
+                            <div class="alert alert-danger" role="alert" id="deleteAccountErrorMessage">
+                                {{ message }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endwith %}
+                <p class="mb-2">Are you sure you want to delete your account?</p>
+                <p class="text-muted mb-3">Once deleted, your profile and survey history associated with this account will be removed permanently.</p>
+                <label for="delete_confirmation" class="form-label">
+                    Type <strong>delete profile</strong> to confirm
+                </label>
+                <input
+                    type="text"
+                    class="form-control"
+                    id="delete_confirmation"
+                    name="delete_confirmation"
+                    form="delete-account-form"
+                    placeholder="delete profile"
+                    required
+                >
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" action="{% url 'surveys:delete_account' %}" class="m-0" id="delete-account-form">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash-alt me-2"></i>Yes, Delete My Account
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const deleteErrorMessage = document.getElementById('deleteAccountErrorMessage');
+        if (deleteErrorMessage) {
+            const deleteModalElement = document.getElementById('deleteAccountModal');
+            const deleteModal = new bootstrap.Modal(deleteModalElement);
+            deleteModal.show();
+        }
+    });
+</script>
 {% endblock %}

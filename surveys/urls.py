@@ -2,7 +2,7 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 from . import views_surveys as surveys_views
 from . import views
-from .views import user_profile, edit_profile
+from .views import user_profile, edit_profile, delete_account
 from .views_frontend import (
     HomePageView, 
     FeaturesPageView, 
@@ -55,6 +55,7 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(next_page='surveys:home'), name='logout'),
     path('profile/', user_profile, name='user_profile'),
     path('profile/edit/', edit_profile, name='edit_profile'),
+    path('profile/delete/', delete_account, name='delete_account'),
     
     # Advertisement tracking
     path('survey/ad-shown/', views.survey_ad_shown, name='survey_ad_shown'),

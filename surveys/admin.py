@@ -12,7 +12,7 @@ from django import forms
 from django.db import models
 from django.forms import CheckboxSelectMultiple
 from ckeditor.widgets import CKEditorWidget
-from .models import SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer, LuckyDrawEntry, UserProfile, Country, EmailVerification
+from .models import SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer, LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement
 from django.utils.safestring import mark_safe
 from django.urls import path
 from django.http import JsonResponse
@@ -87,6 +87,16 @@ class ChoiceInline(admin.TabularInline):
     extra = 1
     fields = ('choice_text',)  # Removed 'order' since the field doesn't exist
     show_change_link = True
+
+
+class MilestoneAchievementAdmin(admin.ModelAdmin):
+    list_display = (
+        'user', 'milestone_type', 'threshold', 'achieved_value',
+        'prize_name', 'achieved_at', 'email_sent_at'
+    )
+    list_filter = ('milestone_type', 'email_sent_at', 'achieved_at')
+    search_fields = ('user__username', 'user__email', 'prize_name')
+    readonly_fields = ('achieved_at', 'email_sent_at')
 
 class QuestionAdminForm(forms.ModelForm):
     category = forms.ModelChoiceField(
@@ -651,6 +661,7 @@ survey_admin_site.register(SurveyResponse, SurveyResponseAdmin)
 survey_admin_site.register(EmailVerification, EmailVerificationAdmin)
 survey_admin_site.register(Answer, DefaultModelAdmin)
 survey_admin_site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
+survey_admin_site.register(MilestoneAchievement, MilestoneAchievementAdmin)
 
 # Register with the default admin site (only non-auth models)
 admin.site.register(SurveyCategory, SurveyCategoryAdmin)
@@ -659,4 +670,4 @@ admin.site.register(Choice, DefaultModelAdmin)
 admin.site.register(Answer, DefaultModelAdmin)
 admin.site.register(SurveyResponse, SurveyResponseAdmin)
 admin.site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
-
+admin.site.register(MilestoneAchievement, MilestoneAchievementAdmin)
