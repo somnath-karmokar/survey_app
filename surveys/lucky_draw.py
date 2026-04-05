@@ -70,10 +70,11 @@ class LuckyDrawView(View):
         print("==========================\n")
         
         # Generate number range from settings
-        number_range = range(
+        number_range = list(range(
             settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_START'],
             settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_END'] + 1
-        )
+        ))
+        random.shuffle(number_range)
         
         # Generate or get current lucky number
         current_lucky_number = random.randint(
@@ -163,7 +164,7 @@ class LuckyDrawView(View):
         )
         
         is_winner = (number == winning_number)
-        prize = random.choice(settings.LUCKY_DRAW_CONFIG['PRIZES']) if is_winner else None
+        prize =  None
         
         # Create entry
         entry = LuckyDrawEntry.objects.create(
