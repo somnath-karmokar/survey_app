@@ -336,9 +336,9 @@ LUCKY_DRAW_CONFIG = {
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 49,
     'PRIZES': [  # You can customize the prizes
-        "₹1000 Amazon Voucher",
-        "₹500 Flipkart Voucher",
-        "₹250 BookMyShow Voucher"
+        # "₹1000 Amazon Voucher",
+        # "₹500 Flipkart Voucher",
+        # "₹250 BookMyShow Voucher"
     ],
     'WINNERS_DISPLAY_DAYS': 30,  # Number of days to show winners from last winning date
 }
