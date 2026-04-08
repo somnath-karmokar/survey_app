@@ -90,11 +90,11 @@ def survey_detail(request, survey_id, question_index=0):
     """Display and handle survey questions with pagination"""
     survey = get_object_or_404(Survey, id=survey_id, is_active=True)
 
-    # Check if user can take this survey based on cooldown
+    # Check if user can take this survey based on level order and cooldown
     can_take, message = survey.can_user_take_survey(request.user)
     if not can_take:
         messages.warning(request, message)
-        return redirect('surveys:survey_list')
+        return redirect('surveys:category_detail', category_slug=survey.category.slug)
 
     # Allow users to retake surveys by removing the existing response check
     # Users can now retake surveys regardless of when they last completed them
@@ -346,15 +346,11 @@ def lucky_draw_entry(request):
 def take_survey(request, survey_id, question_id=None):
     survey = get_object_or_404(Survey, id=survey_id, is_active=True)
     questions = list(survey.questions.all().order_by('order'))
-    
-    # Check if user has already completed this survey
-    if SurveyResponse.objects.filter(
-        user=request.user,
-        survey=survey,
-        completed_at__isnull=False
-    ).exists():
-        messages.warning(request, 'You have already completed this survey.')
-        return redirect('surveys:survey_detail', survey_id=survey.id)
+
+    can_take, message = survey.can_user_take_survey(request.user)
+    if not can_take:
+        messages.warning(request, message)
+        return redirect('surveys:category_detail', category_slug=survey.category.slug)
     
     
     # Handle form submission
