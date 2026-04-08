@@ -73,7 +73,11 @@
                         </div>
                         
                         <div class="survey-status mb-3">
-                            {% if survey_data.is_completed %}
+                            {% if survey_data.is_locked %}
+                                <div class="alert alert-danger py-1 mb-0">
+                                    <i class="fas fa-lock me-1"></i> {{ survey_data.lock_message }}
+                                </div>
+                            {% elif survey_data.is_completed %}
                                 {% if survey_data.can_retake %}
                                     <div class="alert alert-success py-1 mb-0">
                                         <i class="fas fa-sync-alt me-1"></i> Ready to Retake
@@ -84,15 +88,15 @@
                                         Available in {{ cooldown_days|sub:survey_data.days_since_completion }} days
                                     </div>
                                 {% endif %}
-                            {% elif survey_data.is_locked %}
-                                <div class="alert alert-danger py-1 mb-0">
-                                    <i class="fas fa-lock me-1"></i> {{ survey_data.lock_message }}
-                                </div>
                             {% endif %}
                         </div>
                         
                         <div class="d-grid gap-2">
-                            {% if survey_data.is_completed %}
+                            {% if survey_data.is_locked %}
+                                <button class="btn btn-outline-secondary" disabled>
+                                    <i class="fas fa-lock me-1"></i> Survey Locked
+                                </button>
+                            {% elif survey_data.is_completed %}
                                 {% if survey_data.can_retake %}
                                     <a href="{% url 'surveys:take_survey' survey.id %}" 
                                        class="btn btn-primary">
@@ -104,10 +108,6 @@
                                         Available in {{ cooldown_days|sub:survey_data.days_since_completion }} days
                                     </button>
                                 {% endif %}
-                            {% elif survey_data.is_locked %}
-                                <button class="btn btn-outline-secondary" disabled>
-                                    <i class="fas fa-lock me-1"></i> Survey Locked
-                                </button>
                             {% else %}
                                 <a href="{% url 'surveys:take_survey' survey.id %}" 
                                    class="btn btn-primary">

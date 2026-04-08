@@ -110,11 +110,67 @@ class Survey(models.Model):
     def cooldown_days(self):
         """Get the cooldown period from settings, with a default of 60 days."""
         return getattr(settings, 'SURVEY_CONFIG', {}).get('DEFAULT_COOLDOWN_DAYS', 60)
+
+    def get_sequence_lock_info(self, user):
+        """
+        Lock a survey until every earlier survey in the category sequence
+        (ordered by level, then id) has been completed by the user.
+        """
+        if not user.is_authenticated:
+            return False, None
+
+        ordered_survey_ids = list(
+            Survey.objects.filter(
+                category=self.category,
+                is_active=True,
+            ).order_by('level', 'id').values_list('id', flat=True)
+        )
+
+        try:
+            current_index = ordered_survey_ids.index(self.id)
+        except ValueError:
+            return False, None
+
+        if current_index == 0:
+            return False, None
+
+        previous_survey_ids = ordered_survey_ids[:current_index]
+        completion_counts = {
+            item['survey_id']: item['count']
+            for item in SurveyResponse.objects.filter(
+                user=user,
+                survey_id__in=ordered_survey_ids,
+                completed_at__isnull=False,
+            ).values('survey_id').annotate(count=models.Count('id'))
+        }
+        current_completion_count = completion_counts.get(self.id, 0)
+
+        for previous_survey_id in previous_survey_ids:
+            previous_completion_count = completion_counts.get(previous_survey_id, 0)
+            if previous_completion_count <= current_completion_count:
+                previous_survey = Survey.objects.filter(id=previous_survey_id).only('name', 'level').first()
+                if previous_survey:
+                    if current_completion_count > 0:
+                        return True, f"Retake '{previous_survey.name}' (Level {previous_survey.level}) first"
+                    return True, f"Complete '{previous_survey.name}' (Level {previous_survey.level}) to unlock"
+                if current_completion_count > 0:
+                    return True, "Retake the previous survey first"
+                return True, "Complete the previous survey to unlock"
+
+        return False, None
+
+    def get_level_lock_info(self, user):
+        """Backward-compatible wrapper for sequence-based locking."""
+        return self.get_sequence_lock_info(user)
     
     def can_user_take_survey(self, user):
-        """Check if the user can take this specific survey based on cooldown."""
+        """Check if the user can take this survey based on level order and cooldown."""
         if not user.is_authenticated:
             return False, "You must be logged in to take this survey."
+
+        is_sequence_locked, sequence_lock_message = self.get_sequence_lock_info(user)
+        if is_sequence_locked:
+            return False, sequence_lock_message
         
         # Check if user has already completed this specific survey
         last_response = SurveyResponse.objects.filter(
@@ -132,10 +188,15 @@ class Survey(models.Model):
                     f"Please wait {days_left} more days before taking this survey again."
                 )
         return True, None
+
     def is_locked_for_user(self, user):
-        """Check if this specific survey is locked for the user based on cooldown."""
+        """Check if this survey is locked for the user based on level order or cooldown."""
         if not user.is_authenticated:
             return False, "You must be logged in to take this survey."
+
+        is_sequence_locked, sequence_lock_message = self.get_sequence_lock_info(user)
+        if is_sequence_locked:
+            return True, sequence_lock_message
             
         # Check if user has completed this specific survey
         last_response = SurveyResponse.objects.filter(

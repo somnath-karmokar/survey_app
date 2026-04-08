@@ -8,7 +8,6 @@ from django.conf import settings  # Add this import
 from .views import should_show_advertisement
 from django.utils import timezone
 from django.db.models import Sum
-
 class CategoryListView(ListView):
     model = SurveyCategory
     template_name = 'surveys/category_list.html'
@@ -81,9 +80,7 @@ class CategoryDetailView(DetailView):
         context = super().get_context_data(**kwargs)
         category = self.get_object()
         surveys = category.surveys.filter(is_active=True).order_by('level', 'id')
-        
-        # Initialize user's highest level
-        user_highest_level = 0
+
         completed_surveys = {}
         
         if self.request.user.is_authenticated:
@@ -114,19 +111,23 @@ class CategoryDetailView(DetailView):
                 survey_id = response.survey_id
                 if survey_id not in completed_surveys or completed_surveys[survey_id] < response.completed_at:
                     completed_surveys[survey_id] = response.completed_at
-                    # Update highest level if this survey is from a higher level
-                    if response.survey.level > user_highest_level:
-                        user_highest_level = response.survey.level
 
         # Process each survey
         surveys_with_status = []
+        unlocked_count = 0
         for survey in surveys:
             is_completed = survey.id in completed_surveys
             last_completed = completed_surveys.get(survey.id)
-            is_locked = survey.level > (user_highest_level + 1)
-            lock_message = f"Complete Level {survey.level - 1} surveys to unlock" if is_locked else ""
+            is_locked, lock_message = survey.get_sequence_lock_info(self.request.user)
             days_since_completion = (timezone.now() - last_completed).days if last_completed else None
-            can_retake = bool(last_completed and days_since_completion >= settings.SURVEY_CONFIG.get('DEFAULT_COOLDOWN_DAYS', 10))
+            can_retake = bool(
+                last_completed and
+                not is_locked and
+                days_since_completion >= settings.SURVEY_CONFIG.get('DEFAULT_COOLDOWN_DAYS', 10)
+            )
+
+            if not is_locked:
+                unlocked_count += 1
             
             surveys_with_status.append({
                 'survey': survey,
@@ -142,7 +143,7 @@ class CategoryDetailView(DetailView):
             'surveys': surveys_with_status,
             'now': timezone.now(),
             'cooldown_days': settings.SURVEY_CONFIG.get('DEFAULT_COOLDOWN_DAYS', 10),
-            'user_highest_level': user_highest_level,
+            'user_highest_level': unlocked_count,
             'show_advertisement': should_show_advertisement(self.request)
         })
         
