@@ -42,7 +42,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 EMAIL_HOST_USER = "info@sudraw.com" 
-EMAIL_HOST_PASSWORD = "SudrawMail@2021"
+EMAIL_HOST_PASSWORD = "@Water4Planter@"
 DEFAULT_FROM_EMAIL = "info@sudraw.com"
 
 # Grappelli Configuration
@@ -332,7 +332,7 @@ SURVEY_CONFIG = {
 }
 
 LUCKY_DRAW_CONFIG = {
-    'SURVEYS_REQUIRED': 5,  # Number of same-level surveys to complete
+    'SURVEYS_REQUIRED': 2,  # Number of same-level surveys to complete
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 49,
     'PRIZES': [  # You can customize the prizes
