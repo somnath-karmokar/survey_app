@@ -12,7 +12,11 @@ from django import forms
 from django.db import models
 from django.forms import CheckboxSelectMultiple
 from ckeditor.widgets import CKEditorWidget
-from .models import SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer, LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement
+from .models import (
+    SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer,
+    LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement,
+    Poll, PollQuestion, PollChoice, PollResponse, PollAnswer, CountryLuckyDrawConfig
+)
 from django.utils.safestring import mark_safe
 from django.urls import path
 from django.http import JsonResponse
@@ -87,6 +91,90 @@ class ChoiceInline(admin.TabularInline):
     extra = 1
     fields = ('choice_text',)  # Removed 'order' since the field doesn't exist
     show_change_link = True
+
+
+class PollChoiceInline(admin.TabularInline):
+    model = PollChoice
+    extra = 1
+    fields = ('choice_text', 'order')
+
+
+class PollQuestionInline(admin.TabularInline):
+    model = PollQuestion
+    extra = 1
+    fields = ('question_text', 'question_type', 'is_required', 'order')
+    show_change_link = True
+
+
+class PollAnswerInline(admin.TabularInline):
+    model = PollAnswer
+    extra = 0
+    readonly_fields = ('question', 'get_answer_display')
+    fields = ('question', 'get_answer_display')
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def get_answer_display(self, obj):
+        if obj.question.question_type == 'text':
+            return obj.text_answer
+        if obj.question.question_type == 'rating':
+            return obj.rating_value
+        return ", ".join(choice.choice_text for choice in obj.selected_choices.all())
+    get_answer_display.short_description = 'Answer'
+
+
+class PollAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
+    inlines = [PollQuestionInline]
+    list_display = ('title', 'country', 'question_count', 'response_count', 'is_active', 'order', 'created_at')
+    list_filter = ('country', 'is_active', 'created_at')
+    search_fields = ('title', 'description', 'country__name')
+    list_select_related = ('country',)
+    fields = ('title', 'description', 'country', 'is_active', 'order')
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('country').prefetch_related('questions', 'responses')
+
+    def question_count(self, obj):
+        return obj.questions.count()
+    question_count.short_description = 'Questions'
+
+    def response_count(self, obj):
+        return obj.responses.count()
+    response_count.short_description = 'Responses'
+
+
+class PollQuestionAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
+    inlines = [PollChoiceInline]
+    list_display = ('question_text', 'poll', 'question_type', 'is_required', 'order', 'created_at')
+    list_filter = ('question_type', 'is_required', 'poll__country', 'poll')
+    search_fields = ('question_text', 'poll__title')
+    list_select_related = ('poll', 'poll__country')
+
+
+class PollResponseAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
+    inlines = [PollAnswerInline]
+    list_display = ('id', 'user', 'poll', 'country', 'submitted_at')
+    list_filter = ('poll', 'poll__country', 'submitted_at')
+    readonly_fields = ('user', 'poll', 'submitted_at')
+    search_fields = ('user__username', 'user__email', 'poll__title')
+    list_select_related = ('user', 'poll', 'poll__country')
+
+    def country(self, obj):
+        return obj.poll.country
+    country.short_description = 'Country'
+
+
+class CountryLuckyDrawConfigAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
+    list_display = ('country', 'poll_count_required', 'prize_display', 'currency_code', 'is_active', 'updated_at')
+    list_filter = ('is_active', 'currency_code', 'country')
+    search_fields = ('country__name', 'country__code', 'currency_code')
+    list_select_related = ('country',)
+
+    def prize_display(self, obj):
+        return obj.get_prize_display()
+    prize_display.short_description = 'Prize Amount'
 
 
 class MilestoneAchievementAdmin(admin.ModelAdmin):
@@ -459,7 +547,7 @@ class SurveyResponseAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     time_spent.short_description = 'Time Spent'
 
 class LuckyDrawEntryAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('user', 'created_at', 'is_winner', 'guessed_number', 'winning_number', 'prize')
+    list_display = ('user', 'created_at', 'is_winner', 'guessed_number', 'winning_number', 'prize', 'surveys_at_play', 'polls_at_play')
     list_filter = ('is_winner', 'created_at')
     search_fields = ('user__username', 'prize')
     readonly_fields = ('created_at',)
@@ -657,6 +745,12 @@ survey_admin_site.register(SurveyCategory, SurveyCategoryAdmin)
 survey_admin_site.register(Survey, SurveyAdmin)
 survey_admin_site.register(Question, QuestionAdmin)
 survey_admin_site.register(Choice, DefaultModelAdmin)
+survey_admin_site.register(Poll, PollAdmin)
+survey_admin_site.register(PollQuestion, PollQuestionAdmin)
+survey_admin_site.register(PollChoice, DefaultModelAdmin)
+survey_admin_site.register(PollResponse, PollResponseAdmin)
+survey_admin_site.register(PollAnswer, DefaultModelAdmin)
+survey_admin_site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
 survey_admin_site.register(SurveyResponse, SurveyResponseAdmin)
 survey_admin_site.register(EmailVerification, EmailVerificationAdmin)
 survey_admin_site.register(Answer, DefaultModelAdmin)
@@ -669,5 +763,11 @@ admin.site.register(Survey, SurveyAdmin)
 admin.site.register(Choice, DefaultModelAdmin)
 admin.site.register(Answer, DefaultModelAdmin)
 admin.site.register(SurveyResponse, SurveyResponseAdmin)
+admin.site.register(Poll, PollAdmin)
+admin.site.register(PollQuestion, PollQuestionAdmin)
+admin.site.register(PollChoice, DefaultModelAdmin)
+admin.site.register(PollResponse, PollResponseAdmin)
+admin.site.register(PollAnswer, DefaultModelAdmin)
+admin.site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
 admin.site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 admin.site.register(MilestoneAchievement, MilestoneAchievementAdmin)

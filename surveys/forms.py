@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
-from .models import Country, Choice, SurveyResponse, Answer, LuckyDrawEntry, UserProfile, Question
+from .models import Country, Choice, SurveyResponse, Answer, LuckyDrawEntry, UserProfile, Question, PollResponse, PollAnswer
 from django.contrib.auth.forms import UserChangeForm
 from django.contrib.auth import get_user_model
 from django.core.files.images import get_image_dimensions
@@ -459,3 +459,99 @@ class SurveyResponseForm(forms.Form):
                 answer.save()
         
         return survey_response
+
+
+class PollResponseForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        self.poll = kwargs.pop('poll', None)
+        self.question_id = kwargs.pop('question_id', None)
+        super().__init__(*args, **kwargs)
+
+        if self.poll and self.question_id:
+            try:
+                question = self.poll.questions.get(id=self.question_id)
+                self.add_question_field(question)
+            except self.poll.questions.model.DoesNotExist:
+                pass
+        elif self.poll:
+            for question in self.poll.questions.all().order_by('order', 'id'):
+                self.add_question_field(question)
+
+    def add_question_field(self, question):
+        field_name = f'poll_question_{question.id}'
+
+        if question.question_type == 'text':
+            self.fields[field_name] = forms.CharField(
+                label=question.question_text,
+                required=question.is_required,
+                widget=forms.Textarea(attrs={
+                    'class': 'form-control',
+                    'rows': 3,
+                    'placeholder': 'Type your answer here...',
+                    'data_question_type': question.question_type
+                })
+            )
+        elif question.question_type == 'multiple_choice':
+            self.fields[field_name] = forms.ModelMultipleChoiceField(
+                label=question.question_text,
+                required=question.is_required,
+                queryset=question.choices.all(),
+                widget=forms.CheckboxSelectMultiple(attrs={
+                    'class': 'form-check-input',
+                    'data_question_type': question.question_type
+                })
+            )
+        elif question.question_type == 'single_choice':
+            self.fields[field_name] = forms.ModelChoiceField(
+                label=question.question_text,
+                required=question.is_required,
+                queryset=question.choices.all(),
+                widget=forms.RadioSelect(attrs={
+                    'class': 'form-check-input',
+                    'data_question_type': question.question_type
+                })
+            )
+        elif question.question_type == 'rating':
+            self.fields[field_name] = forms.IntegerField(
+                label=question.question_text,
+                required=question.is_required,
+                min_value=1,
+                max_value=5,
+                initial=3,
+                widget=forms.NumberInput(attrs={
+                    'class': 'form-range',
+                    'type': 'range',
+                    'min': '1',
+                    'max': '5',
+                    'data_question_type': question.question_type
+                })
+            )
+
+        self.fields[field_name].question = question
+
+    def save(self, user, poll):
+        if not self.is_valid():
+            raise ValueError("Cannot save invalid poll form")
+
+        response = PollResponse.objects.create(user=user, poll=poll)
+
+        for question in poll.questions.all().order_by('order', 'id'):
+            field_name = f'poll_question_{question.id}'
+            answer_value = self.cleaned_data.get(field_name)
+
+            if not answer_value and not question.is_required:
+                continue
+
+            answer = PollAnswer.objects.create(
+                response=response,
+                question=question,
+                text_answer=str(answer_value) if question.question_type == 'text' else None,
+                rating_value=int(answer_value) if question.question_type == 'rating' and answer_value else None
+            )
+
+            if question.question_type == 'multiple_choice' and answer_value:
+                answer.selected_choices.set(answer_value)
+            elif question.question_type == 'single_choice' and answer_value:
+                answer.selected_choices.set([answer_value])
+
+        return response

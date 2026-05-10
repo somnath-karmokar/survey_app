@@ -231,34 +231,36 @@
                     <div class="content_box">
                         <h2 class="head">Participate in polls</h2>
                         <div class="inner_box">
+                            {% for poll in featured_polls %}
                             <div class="single-item">
                                 <div class="inner">
-                                    <figure class="icon_box"><img src="{% static 'images/poll_img1.webp' %}" alt=""></figure>
-                                    <h3><span>01</span><a>Poll 1<i class="fa-solid fa-arrow-right"></i></a></h3>
-                                    <p>Coming soon...</p>
+                                    <figure class="icon_box">
+                                        {% if forloop.counter == 1 %}
+                                            <img src="{% static 'images/poll_img1.webp' %}" alt="{{ poll.title }}">
+                                        {% elif forloop.counter == 2 %}
+                                            <img src="{% static 'images/poll_img2.webp' %}" alt="{{ poll.title }}">
+                                        {% elif forloop.counter == 3 %}
+                                            <img src="{% static 'images/poll_img3.webp' %}" alt="{{ poll.title }}">
+                                        {% else %}
+                                            <img src="{% static 'images/poll_img4.webp' %}" alt="{{ poll.title }}">
+                                        {% endif %}
+                                    </figure>
+                                    <h3>
+                                        <span>{{ forloop.counter|stringformat:"02d" }}</span>
+                                        <a href="{% url 'surveys:poll_detail' poll.id %}">{{ poll.title }}<i class="fa-solid fa-arrow-right"></i></a>
+                                    </h3>
+                                    <p>{{ poll.description|truncatewords:16|default:"Share your opinion in this quick poll." }}</p>
                                 </div>
                             </div>
+                            {% empty %}
                             <div class="single-item">
                                 <div class="inner">
-                                    <figure class="icon_box"><img src="{% static 'images/poll_img2.webp' %}" alt=""></figure>
-                                    <h3><span>02</span><a>Poll 2<i class="fa-solid fa-arrow-right"></i></a></h3>
-                                    <p>Coming soon...</p>
+                                    <figure class="icon_box"><img src="{% static 'images/poll_img1.webp' %}" alt="Polls"></figure>
+                                    <h3><span>01</span><a>Polls<i class="fa-solid fa-arrow-right"></i></a></h3>
+                                    <p>No polls are available for your country right now.</p>
                                 </div>
                             </div>
-                            <div class="single-item">
-                                <div class="inner">
-                                    <figure class="icon_box"><img src="{% static 'images/poll_img3.webp' %}" alt=""></figure>
-                                    <h3><span>03</span><a>Poll 3<i class="fa-solid fa-arrow-right"></i></a></h3>
-                                    <p>Coming soon...</p>
-                                </div>
-                            </div>
-							<div class="single-item">
-                                <div class="inner">
-                                    <figure class="icon_box"><img src="{% static 'images/poll_img4.webp' %}" alt=""></figure>
-                                    <h3><span>04</span><a>Poll 4<i class="fa-solid fa-arrow-right"></i></a></h3>
-                                    <p>Coming soon...</p>
-                                </div>
-                            </div>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
