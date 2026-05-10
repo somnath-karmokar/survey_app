@@ -13,7 +13,9 @@ from .views_frontend import (
     DashboardView,
     send_otp,
     VerifyEmailView,
-    PendingVerificationView
+    PendingVerificationView,
+    poll_detail,
+    poll_question
 )
 from .views_frontend import MySurveysView
 from .views_categories import CategoryListView, CategoryDetailView
@@ -62,4 +64,6 @@ urlpatterns = [
     path('debug/ad/', views.debug_ad, name='debug_ad'),
     path('question-admin-js/', views.question_admin_js, name='question_admin_js'),
     path('my-surveys/', MySurveysView.as_view(), name='my_surveys'),
+    path('polls/<int:poll_id>/', poll_detail, name='poll_detail'),
+    path('polls/<int:poll_id>/q/<int:question_index>/', poll_question, name='poll_question'),
 ]

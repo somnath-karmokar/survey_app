@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.views.generic import View
-from .models import UserSurveyProgress, LuckyDrawEntry
+from .models import UserSurveyProgress, LuckyDrawEntry, PollResponse, CountryLuckyDrawConfig
 from django.db.models import Sum
 import random
 from django.utils import timezone
@@ -14,6 +14,63 @@ from .emails import send_lucky_draw_winner_email, send_lucky_draw_winner_admin_n
 
 
 class LuckyDrawView(View):
+    def get_user_country_config(self, user):
+        profile = getattr(user, 'profile', None)
+        country = getattr(profile, 'country', None)
+        return CountryLuckyDrawConfig.get_for_country(country)
+
+    def get_poll_requirement(self, user):
+        config = self.get_user_country_config(user)
+        if config:
+            return config.poll_count_required
+        return settings.LUCKY_DRAW_CONFIG.get('POLLS_REQUIRED', 5)
+
+    def get_prize_for_user(self, user):
+        config = self.get_user_country_config(user)
+        if config:
+            return config.get_prize_display()
+
+        profile = getattr(user, 'profile', None)
+        country_code = str(getattr(getattr(profile, 'country', None), 'code', '') or '').upper()
+        if country_code in ['US', 'CA']:
+            return '$1 USD'
+        if country_code == 'GB':
+            return '£1 GBP'
+        if country_code == 'NG':
+            return '$0.50 USD'
+        return '$1 USD'
+
+    def get_completion_counts(self, user):
+        total_surveys = user.survey_progress.aggregate(
+            total=Sum('completed_count')
+        )['total'] or 0
+        total_polls = PollResponse.objects.filter(user=user).count()
+        return total_surveys, total_polls
+
+    def get_eligibility_context(self, user):
+        last_entry = user.lucky_draw_entries.order_by('-created_at').first()
+        total_surveys, total_polls = self.get_completion_counts(user)
+        surveys_required = settings.LUCKY_DRAW_CONFIG.get('SURVEYS_REQUIRED', 3)
+        polls_required = self.get_poll_requirement(user)
+
+        if last_entry:
+            surveys_completed = max(0, total_surveys - (last_entry.surveys_at_play or 0))
+            polls_completed = max(0, total_polls - (last_entry.polls_at_play or 0))
+        else:
+            surveys_completed = total_surveys
+            polls_completed = total_polls
+
+        return {
+            'last_entry': last_entry,
+            'total_surveys': total_surveys,
+            'total_polls': total_polls,
+            'surveys_completed': surveys_completed,
+            'polls_completed': polls_completed,
+            'surveys_required': surveys_required,
+            'polls_required': polls_required,
+            'user_eligible': surveys_completed >= surveys_required or polls_completed >= polls_required,
+        }
+
     def get(self, request, *args, **kwargs):
         # Check if this is a request for the lucky number
         if request.path.endswith('/number/'):
@@ -31,8 +88,8 @@ class LuckyDrawView(View):
             created_at__year=current_year
         ).exists()
         
-        # Get the last entry if it exists
-        last_entry = request.user.lucky_draw_entries.order_by('-created_at').first()
+        eligibility = self.get_eligibility_context(request.user)
+        last_entry = eligibility['last_entry']
         
         # Get current month's winning number
         current_winner = LuckyDrawEntry.objects.filter(
@@ -41,28 +98,22 @@ class LuckyDrawView(View):
             is_winner=True
         ).order_by('-created_at').first()
         
-        # Calculate total surveys completed
-        total_surveys = request.user.survey_progress.aggregate(
-            total=Sum('completed_count')
-        )['total'] or 0
-        
-        # Calculate surveys completed since last play
-        if last_entry:
-            surveys_completed = max(0, total_surveys - (last_entry.surveys_at_play or 0))
-        else:
-            surveys_completed = total_surveys
-            
-        # Get required surveys from settings
-        surveys_required = settings.LUCKY_DRAW_CONFIG.get('SURVEYS_REQUIRED', 3)
-        
-        # User is eligible if they've completed the required surveys since last play
-        user_eligible = surveys_completed >= surveys_required
+        total_surveys = eligibility['total_surveys']
+        total_polls = eligibility['total_polls']
+        surveys_completed = eligibility['surveys_completed']
+        polls_completed = eligibility['polls_completed']
+        surveys_required = eligibility['surveys_required']
+        polls_required = eligibility['polls_required']
+        user_eligible = eligibility['user_eligible']
         
         # Debug output
         print("\n=== Lucky Draw Debug Info ===")
         print(f"Total Surveys: {total_surveys}")
+        print(f"Total Polls: {total_polls}")
         print(f"Surveys Since Last Play: {surveys_completed}")
+        print(f"Polls Since Last Play: {polls_completed}")
         print(f"Surveys Required: {surveys_required}")
+        print(f"Polls Required: {polls_required}")
         print(f"User Eligible: {user_eligible}")
         if last_entry:
             print(f"Last Play: {last_entry.created_at}")
@@ -89,11 +140,15 @@ class LuckyDrawView(View):
             },
             'user_eligible': user_eligible,
             'surveys_completed': surveys_completed,
+            'polls_completed': polls_completed,
             'surveys_required': surveys_required,
+            'polls_required': polls_required,
             'current_lucky_number': current_lucky_number,
             'current_winner': current_winner,
             'last_play_date': last_entry.created_at if last_entry else None,
-            'last_result': last_entry
+            'last_result': last_entry,
+            'has_played': bool(last_entry and not user_eligible),
+            'prize_display': self.get_prize_for_user(request.user),
         }
         
         return render(request, 'surveys/lucky_draw.html', context)
@@ -102,23 +157,12 @@ class LuckyDrawView(View):
         if not request.user.is_authenticated:
             return JsonResponse({'error': 'Not authenticated'}, status=401)
         
-        # Check if user has already played this month
-        current_month = timezone.now().month
-        current_year = timezone.now().year
-        has_played = LuckyDrawEntry.objects.filter(
-            user=request.user,
-            created_at__month=current_month,
-            created_at__year=current_year
-        ).exists()
-        
-        if has_played:
-            return JsonResponse({'error': 'You have already played this month. Please complete more surveys to play again next month.'}, status=400)
-        
         # Check if user is eligible to play
         if not self.is_eligible(request.user):
             required_surveys = settings.LUCKY_DRAW_CONFIG.get('SURVEYS_REQUIRED', 3)
+            required_polls = self.get_poll_requirement(request.user)
             return JsonResponse({
-                'error': f'You need to complete {required_surveys} surveys to play the lucky draw.'
+                'error': f'You need to complete {required_surveys} surveys or {required_polls} polls to play the lucky draw.'
             }, status=400)
         
         # Generate a new lucky number
@@ -139,8 +183,9 @@ class LuckyDrawView(View):
         # Check if user is eligible to play
         if not self.is_eligible(request.user):
             required_surveys = settings.LUCKY_DRAW_CONFIG.get('SURVEYS_REQUIRED', 3)
+            required_polls = self.get_poll_requirement(request.user)
             return JsonResponse({
-                'error': f'You need to complete {required_surveys} surveys to play again.'
+                'error': f'You need to complete {required_surveys} surveys or {required_polls} polls to play again.'
             }, status=400)
 
         try:
@@ -152,10 +197,7 @@ class LuckyDrawView(View):
         except (ValueError, TypeError, json.JSONDecodeError) as e:
             return JsonResponse({'error': 'Invalid number'}, status=400)
         
-        # Get total surveys completed
-        total_surveys = request.user.survey_progress.aggregate(
-            total=Sum('completed_count')
-        )['total'] or 0
+        total_surveys, total_polls = self.get_completion_counts(request.user)
         
         # Generate winning number
         winning_number = int(data.get('current_lucky_number')) if data.get('current_lucky_number') else random.randint(
@@ -164,7 +206,7 @@ class LuckyDrawView(View):
         )
         
         is_winner = (number == winning_number)
-        prize =  None
+        prize = self.get_prize_for_user(request.user) if is_winner else None
         
         # Create entry
         entry = LuckyDrawEntry.objects.create(
@@ -173,7 +215,8 @@ class LuckyDrawView(View):
             winning_number=winning_number,
             is_winner=is_winner,
             prize=prize,
-            surveys_at_play=total_surveys
+            surveys_at_play=total_surveys,
+            polls_at_play=total_polls
         )
         
         # Send email notifications if user won
@@ -209,30 +252,32 @@ class LuckyDrawView(View):
         
         # Get the last entry if it exists
         last_entry = user.lucky_draw_entries.order_by('-created_at').first()
-        
-        # Get total surveys completed
-        total_surveys = user.survey_progress.aggregate(
-            total=Sum('completed_count')
-        )['total'] or 0
-        
-        # Get required surveys from settings
-        required_surveys = settings.LUCKY_DRAW_CONFIG.get('SURVEYS_REQUIRED', 3)
+        eligibility = self.get_eligibility_context(user)
+        total_surveys = eligibility['total_surveys']
+        total_polls = eligibility['total_polls']
+        required_surveys = eligibility['surveys_required']
+        required_polls = eligibility['polls_required']
         
         # If user has never played, check if they've completed the required surveys
         if not last_entry:
-            is_eligible = total_surveys >= required_surveys
-            print(f"User has never played. Eligible: {is_eligible} (total_surveys: {total_surveys} >= required: {required_surveys})")
+            is_eligible = eligibility['user_eligible']
+            print(f"User has never played. Eligible: {is_eligible} (surveys: {total_surveys}/{required_surveys}, polls: {total_polls}/{required_polls})")
             return is_eligible
         
         # Calculate surveys completed since last play
-        surveys_since_last_play = total_surveys - (last_entry.surveys_at_play or 0)
-        is_eligible = surveys_since_last_play >= required_surveys
+        surveys_since_last_play = eligibility['surveys_completed']
+        polls_since_last_play = eligibility['polls_completed']
+        is_eligible = eligibility['user_eligible']
         
         print(f"Eligibility check:")
         print(f"- Total surveys: {total_surveys}")
+        print(f"- Total polls: {total_polls}")
         print(f"- Surveys at last play: {last_entry.surveys_at_play}")
+        print(f"- Polls at last play: {last_entry.polls_at_play}")
         print(f"- Surveys since last play: {surveys_since_last_play}")
+        print(f"- Polls since last play: {polls_since_last_play}")
         print(f"- Required surveys: {required_surveys}")
+        print(f"- Required polls: {required_polls}")
         print(f"- Is eligible: {is_eligible}")
         
         return is_eligible

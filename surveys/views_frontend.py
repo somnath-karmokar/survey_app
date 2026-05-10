@@ -1,11 +1,11 @@
-from django.shortcuts import render, redirect, reverse
+from django.shortcuts import render, redirect, reverse, get_object_or_404
 from django.views.generic import TemplateView, CreateView, FormView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, authenticate, get_user_model
 from django.utils import timezone
 from datetime import timedelta
-from .models import Survey, SurveyCategory, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry
+from .models import Survey, SurveyCategory, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry, Poll, PollResponse
 from django.http import JsonResponse, HttpResponseRedirect
 from django.core.mail import send_mail
 from django.conf import settings
@@ -24,10 +24,11 @@ from django.contrib import messages
 from django.urls import reverse_lazy
 from django.contrib.auth.views import LoginView
 from django.http import HttpResponseRedirect
-from .forms import UserRegistrationForm, UserRegisterForm
+from .forms import UserRegistrationForm, UserRegisterForm, PollResponseForm
 
 from django.contrib.auth.views import LoginView as BaseLoginView
 from django.contrib.auth import authenticate, login as auth_login
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse_lazy
 from django.shortcuts import redirect, render
@@ -348,6 +349,23 @@ class HomePageView(TemplateView):
                 categories = categories.filter(country_id=profile.country_id)
 
         context['featured_categories'] = categories.order_by('?')[:6]
+
+        polls = Poll.objects.filter(
+            is_active=True,
+            country__is_active=True,
+            questions__isnull=False,
+        ).select_related('country').prefetch_related('questions').distinct()
+
+        if self.request.user.is_authenticated:
+            profile = getattr(self.request.user, 'profile', None)
+            if profile and profile.country_id:
+                polls = polls.filter(country_id=profile.country_id)
+            else:
+                polls = polls.none()
+
+            context['featured_polls'] = polls.order_by('order', '-created_at')[:4]
+        else:
+            context['featured_polls'] = polls.order_by('?')[:5]
         
         # Get the number of days to show winners from settings
         winners_display_days = getattr(django_settings, 'LUCKY_DRAW_CONFIG', {}).get('WINNERS_DISPLAY_DAYS', 30)
@@ -405,6 +423,124 @@ class HomePageView(TemplateView):
         })
         
         return context
+
+
+def _get_available_poll_or_redirect(request, poll_id):
+    poll = get_object_or_404(
+        Poll.objects.select_related('country').prefetch_related('questions__choices'),
+        id=poll_id,
+        is_active=True,
+        country__is_active=True
+    )
+
+    if not poll.is_available_for_user(request.user):
+        messages.warning(request, 'This poll is not available for your country.')
+        return None, redirect('surveys:home')
+
+    if not poll.questions.exists():
+        messages.warning(request, 'This poll has no questions yet.')
+        return None, redirect('surveys:home')
+
+    return poll, None
+
+
+@login_required(login_url='surveys:login')
+def poll_detail(request, poll_id):
+    poll, redirect_response = _get_available_poll_or_redirect(request, poll_id)
+    if redirect_response:
+        return redirect_response
+
+    completed = PollResponse.objects.filter(user=request.user, poll=poll).exists()
+
+    return render(request, 'surveys/poll_landing.html', {
+        'poll': poll,
+        'completed': completed,
+        'total_questions': poll.questions.count(),
+    })
+
+
+@login_required(login_url='surveys:login')
+def poll_question(request, poll_id, question_index=0):
+    poll, redirect_response = _get_available_poll_or_redirect(request, poll_id)
+    if redirect_response:
+        return redirect_response
+
+    if PollResponse.objects.filter(user=request.user, poll=poll).exists():
+        messages.info(request, 'You have already participated in this poll.')
+        return redirect('surveys:poll_detail', poll_id=poll.id)
+
+    questions = list(poll.questions.all().order_by('order', 'id'))
+    total_questions = len(questions)
+    question_index = max(0, min(int(question_index), total_questions - 1))
+    current_question = questions[question_index]
+    session_key = f'poll_{poll.id}_answers'
+
+    if request.method == 'POST':
+        form = PollResponseForm(request.POST, poll=poll, question_id=current_question.id)
+        if form.is_valid():
+            field_name = f'poll_question_{current_question.id}'
+            answer_value = form.cleaned_data.get(field_name)
+            answers = request.session.get(session_key, {})
+
+            if current_question.question_type == 'multiple_choice':
+                answers[str(current_question.id)] = [str(choice.id) for choice in answer_value]
+            elif current_question.question_type == 'single_choice':
+                answers[str(current_question.id)] = str(answer_value.id) if answer_value else ''
+            else:
+                answers[str(current_question.id)] = answer_value
+
+            request.session[session_key] = answers
+            request.session.save()
+
+            next_index = question_index + 1
+            if next_index < total_questions:
+                return redirect('surveys:poll_question', poll_id=poll.id, question_index=next_index)
+
+            final_form = PollResponseForm(poll=poll, data=_poll_answers_to_post_data(poll, answers))
+            if final_form.is_valid():
+                final_form.save(request.user, poll)
+                if session_key in request.session:
+                    del request.session[session_key]
+                messages.success(request, 'Thank you for participating in the poll!')
+                from .lucky_draw import LuckyDrawView
+                if LuckyDrawView().is_eligible(request.user):
+                    messages.success(request, 'Congratulations! You are now eligible for the lucky draw!')
+                    return redirect('surveys:lucky_draw')
+                return render(request, 'surveys/survey_complete.html', {
+                    'poll': poll,
+                })
+
+            form = final_form
+    else:
+        initial = {}
+        saved_answer = request.session.get(session_key, {}).get(str(current_question.id))
+        if saved_answer is not None:
+            initial[f'poll_question_{current_question.id}'] = saved_answer
+        form = PollResponseForm(poll=poll, question_id=current_question.id, initial=initial)
+
+    return render(request, 'surveys/poll_detail.html', {
+        'poll': poll,
+        'form': form,
+        'current_question': current_question,
+        'question_index': question_index,
+        'total_questions': total_questions,
+        'progress': int(((question_index + 1) / total_questions) * 100),
+        'is_last_question': question_index == total_questions - 1,
+    })
+
+
+def _poll_answers_to_post_data(poll, answers):
+    from django.http import QueryDict
+
+    data = QueryDict('', mutable=True)
+    for question in poll.questions.all().order_by('order', 'id'):
+        field_name = f'poll_question_{question.id}'
+        answer_value = answers.get(str(question.id))
+        if question.question_type == 'multiple_choice':
+            data.setlist(field_name, answer_value or [])
+        elif answer_value is not None:
+            data[field_name] = str(answer_value)
+    return data
 
 class FeaturesPageView(TemplateView):
     template_name = 'frontpage/features.html'

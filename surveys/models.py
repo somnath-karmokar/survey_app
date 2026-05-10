@@ -297,6 +297,127 @@ class Answer(models.Model):
     def __str__(self):
         return f"Answer to '{self.question.question_text[:30]}...' by {self.response.user.username}"
 
+
+class Poll(models.Model):
+    """Country-specific poll displayed on the public home page."""
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='polls')
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', '-created_at']
+
+    def __str__(self):
+        return f"{self.title} ({self.country.name})"
+
+    def is_available_for_user(self, user):
+        if not user.is_authenticated:
+            return True
+
+        profile = getattr(user, 'profile', None)
+        if profile and profile.country_id:
+            return profile.country_id == self.country_id
+
+        return False
+
+
+class PollQuestion(models.Model):
+    QUESTION_TYPES = (
+        ('text', 'Text Answer'),
+        ('single_choice', 'Single Choice'),
+        ('multiple_choice', 'Multiple Choice'),
+        ('rating', 'Rating (1-5)'),
+    )
+    poll = models.ForeignKey(Poll, on_delete=models.CASCADE, related_name='questions')
+    question_text = models.TextField()
+    question_type = models.CharField(max_length=20, choices=QUESTION_TYPES)
+    is_required = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f"{self.question_text[:50]}..."
+
+
+class PollChoice(models.Model):
+    question = models.ForeignKey(PollQuestion, on_delete=models.CASCADE, related_name='choices')
+    choice_text = models.CharField(max_length=200)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return self.choice_text
+
+
+class PollResponse(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='poll_responses')
+    poll = models.ForeignKey(Poll, on_delete=models.CASCADE, related_name='responses')
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+        unique_together = ('user', 'poll')
+
+    def __str__(self):
+        return f"{self.user.username}'s response to {self.poll.title}"
+
+
+class PollAnswer(models.Model):
+    response = models.ForeignKey(PollResponse, on_delete=models.CASCADE, related_name='answers')
+    question = models.ForeignKey(PollQuestion, on_delete=models.CASCADE)
+    text_answer = models.TextField(blank=True, null=True)
+    selected_choices = models.ManyToManyField(PollChoice, blank=True)
+    rating_value = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+
+    def __str__(self):
+        return f"Answer to '{self.question.question_text[:30]}...' by {self.response.user.username}"
+
+
+class CountryLuckyDrawConfig(models.Model):
+    """Country-specific lucky draw reward and poll eligibility settings."""
+    country = models.OneToOneField(Country, on_delete=models.CASCADE, related_name='lucky_draw_config')
+    poll_count_required = models.PositiveIntegerField(default=5)
+    prize_amount = models.DecimalField(max_digits=8, decimal_places=2, default=1)
+    currency_symbol = models.CharField(max_length=5, default='$')
+    currency_code = models.CharField(max_length=10, default='USD')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Country Lucky Draw Config'
+        verbose_name_plural = 'Country Lucky Draw Configs'
+
+    def __str__(self):
+        return f"{self.country.name}: {self.get_prize_display()} every {self.poll_count_required} polls"
+
+    def get_prize_display(self):
+        amount = int(self.prize_amount) if self.prize_amount == self.prize_amount.to_integral() else f"{self.prize_amount:.2f}"
+        return f"{self.currency_symbol}{amount} {self.currency_code}".strip()
+
+    @classmethod
+    def get_for_country(cls, country):
+        if country:
+            config = cls.objects.filter(country=country, is_active=True).first()
+            if config:
+                return config
+        return None
+
+
 class LuckyDrawEntry(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lucky_draw_entries')
     month = models.PositiveSmallIntegerField()
@@ -400,6 +521,7 @@ class LuckyDrawEntry(models.Model):
     winning_number = models.PositiveIntegerField()
     prize = models.CharField(max_length=100, blank=True, null=True)
     surveys_at_play = models.PositiveIntegerField(help_text="Total surveys completed when this entry was created")
+    polls_at_play = models.PositiveIntegerField(default=0, help_text="Total polls completed when this entry was created")
 
     class Meta:
         ordering = ['-created_at']
