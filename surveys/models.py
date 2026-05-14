@@ -10,6 +10,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
+from decimal import Decimal
 
 def category_image_upload_path(instance, filename):
     # File will be uploaded to MEDIA_ROOT/category_images/<category_id>/<filename>
@@ -474,6 +475,7 @@ class UserProfile(models.Model):
     date_of_birth = models.DateField(blank=True, null=True)
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
+    wallet_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     email_verified = models.BooleanField(default=False)
     last_login_ip = models.GenericIPAddressField(blank=True, null=True)
     last_login_at = models.DateTimeField(blank=True, null=True)
@@ -486,6 +488,25 @@ class UserProfile(models.Model):
     @property
     def is_frontend_user(self):
         return self.user_type == 'frontend'
+
+    @property
+    def wallet_currency_code(self):
+        country_code = str(getattr(getattr(self, 'country', None), 'code', '') or '').upper()
+        if country_code == 'GB':
+            return 'GBP'
+        return 'USD'
+
+    @property
+    def wallet_currency_symbol(self):
+        country_code = str(getattr(getattr(self, 'country', None), 'code', '') or '').upper()
+        if country_code == 'GB':
+            return '\u00a3'
+        return '$'
+
+    @property
+    def wallet_display(self):
+        amount = self.wallet_balance or Decimal('0.00')
+        return f"{self.wallet_currency_symbol}{amount:.2f} {self.wallet_currency_code}"
 
     class Meta:
         verbose_name = 'User Profile'
@@ -514,8 +535,38 @@ class UserSurveyProgress(models.Model):
         return f"{self.user.username} - {self.category.name} (Level {self.level}): {self.completed_count}"
 # In models.py, update the LuckyDrawEntry model:
 class LuckyDrawEntry(models.Model):
+    DRAW_TYPE_SURVEY = 'survey'
+    DRAW_TYPE_POLL = 'poll'
+    DRAW_TYPE_CHOICES = [
+        (DRAW_TYPE_SURVEY, 'Survey'),
+        (DRAW_TYPE_POLL, 'Poll'),
+    ]
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='lucky_draw_entries')
     created_at = models.DateTimeField(auto_now_add=True)
+    draw_type = models.CharField(
+        max_length=10,
+        choices=DRAW_TYPE_CHOICES,
+        default=DRAW_TYPE_SURVEY,
+        db_index=True,
+        help_text="Whether this lucky draw play was earned from surveys or polls.",
+    )
+    survey = models.ForeignKey(
+        Survey,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lucky_draw_entries',
+        help_text="Survey that qualified this lucky draw play, when applicable.",
+    )
+    poll = models.ForeignKey(
+        Poll,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lucky_draw_entries',
+        help_text="Poll that qualified this lucky draw play, when applicable.",
+    )
     is_winner = models.BooleanField(default=False)
     guessed_number = models.PositiveIntegerField()
     winning_number = models.PositiveIntegerField()
@@ -526,6 +577,56 @@ class LuckyDrawEntry(models.Model):
     class Meta:
         ordering = ['-created_at']
         verbose_name_plural = 'Lucky Draw Entries'
+
+    def __str__(self):
+        return f"{self.user} - {self.get_draw_type_display()} lucky draw on {self.created_at:%Y-%m-%d}"
+
+    @property
+    def source_object(self):
+        if self.draw_type == self.DRAW_TYPE_POLL:
+            return self.poll
+        return self.survey
+
+
+class WalletTransaction(models.Model):
+    TRANSACTION_TYPE_CREDIT = 'credit'
+    TRANSACTION_TYPE_DEBIT = 'debit'
+    TRANSACTION_TYPE_CHOICES = [
+        (TRANSACTION_TYPE_CREDIT, 'Credit'),
+        (TRANSACTION_TYPE_DEBIT, 'Debit'),
+    ]
+
+    profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='wallet_transactions')
+    transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE_CHOICES)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency_code = models.CharField(max_length=10, default='USD')
+    currency_symbol = models.CharField(max_length=5, default='$')
+    description = models.CharField(max_length=255)
+    lucky_draw_entry = models.OneToOneField(
+        LuckyDrawEntry,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='wallet_transaction',
+    )
+    balance_after = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Wallet Transaction'
+        verbose_name_plural = 'Wallet Transactions'
+
+    def __str__(self):
+        return f"{self.profile.user.username} {self.get_transaction_type_display()} {self.amount_display}"
+
+    @property
+    def amount_display(self):
+        return f"{self.currency_symbol}{self.amount:.2f} {self.currency_code}"
+
+    @property
+    def balance_after_display(self):
+        return f"{self.currency_symbol}{self.balance_after:.2f} {self.currency_code}"
 
 
 class LoginOTP(models.Model):

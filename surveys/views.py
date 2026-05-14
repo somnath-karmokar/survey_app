@@ -315,6 +315,10 @@ def user_profile(request):
     
     # Get or create user profile
     user_profile, created = UserProfile.objects.get_or_create(user=user)
+
+    from .lucky_draw import LuckyDrawView
+    lucky_draw_view = LuckyDrawView()
+    lucky_draw_context = lucky_draw_view.get_eligibility_context(user)
     
     # Sample data - replace with your actual data
     recent_activities = [
@@ -341,6 +345,13 @@ def user_profile(request):
         'points_progress': 45,  # Calculate based on points
         'level_progress': 60,   # Calculate based on level
         'active_page': 'profile',
+        'lucky_draw_eligible': lucky_draw_context['user_eligible'],
+        'survey_draw_eligible': lucky_draw_context['survey_eligible'],
+        'poll_draw_eligible': lucky_draw_context['poll_eligible'],
+        'surveys_completed_for_draw': lucky_draw_context['surveys_completed'],
+        'polls_completed_for_draw': lucky_draw_context['polls_completed'],
+        'surveys_required_for_draw': lucky_draw_context['surveys_required'],
+        'polls_required_for_draw': lucky_draw_context['polls_required'],
     }
     return render(request, 'surveys/profile.html', context)
 

@@ -5,7 +5,7 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, authenticate, get_user_model
 from django.utils import timezone
 from datetime import timedelta
-from .models import Survey, SurveyCategory, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry, Poll, PollResponse
+from .models import Survey, SurveyCategory, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry, Poll, PollResponse, WalletTransaction
 from django.http import JsonResponse, HttpResponseRedirect
 from django.core.mail import send_mail
 from django.conf import settings
@@ -245,10 +245,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         thirty_days_ago = timezone.now() - timedelta(days=30)
         
         # Get user profile
-        try:
-            profile = UserProfile.objects.get(user=user)
-        except UserProfile.DoesNotExist:
-            profile = None
+        profile, _ = UserProfile.objects.get_or_create(user=user)
         
         # Get surveys data
         completed_surveys = SurveyResponse.objects.filter(
@@ -259,7 +256,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         # Get available surveys
         available_surveys = Survey.objects.filter(
             is_active=True,
-            category__country_id=user.profile.country_id if profile and profile.country_id else None
+            category__country_id=profile.country_id if profile and profile.country_id else None
         ).exclude(
             responses__user=user,
             responses__completed_at__isnull=False
@@ -277,7 +274,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         # Get available surveys for the user
         available_surveys_list = Survey.objects.filter(
             is_active=True,
-            category__country_id=user.profile.country_id if profile and profile.country_id else None
+            category__country_id=profile.country_id if profile and profile.country_id else None
         ).exclude(
             responses__user=user,
             responses__completed_at__isnull=False
@@ -307,11 +304,8 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 total_completed=Sum('completed_count')
             )
             level_progress = {p['level']: p['total_completed'] for p in progress_by_level}
-        # Check if user is eligible for lucky draw in any level
-        lucky_draw_eligible = any(
-            count >= getattr(django_settings, 'LUCKY_DRAW_CONFIG', {}).get('SURVEYS_REQUIRED', 3)
-            for level, count in level_progress.items()
-        )
+        from .lucky_draw import LuckyDrawView
+        lucky_draw_eligible = LuckyDrawView().is_eligible(user)
         
         # Add data to context
         context.update({
@@ -324,12 +318,38 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             'recent_responses': recent_responses,
             'total_earnings': total_earnings,
             'recent_surveys': recent_surveys,
+            'wallet_balance_display': profile.wallet_display,
+            'recent_wallet_transactions': profile.wallet_transactions.all()[:3],
             'active_page': 'dashboard',
             'level_progress': level_progress,
             'lucky_draw_eligible': lucky_draw_eligible,
             'LUCKY_DRAW_CONFIG': getattr(django_settings, 'LUCKY_DRAW_CONFIG', {})
         })
         
+        return context
+
+
+class WalletTransactionHistoryView(LoginRequiredMixin, ListView):
+    model = WalletTransaction
+    template_name = 'frontend/wallet_history.html'
+    context_object_name = 'transactions'
+    login_url = 'surveys:login'
+    paginate_by = 20
+
+    def get_queryset(self):
+        profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
+        return profile.wallet_transactions.select_related('lucky_draw_entry')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
+        from .lucky_draw import LuckyDrawView
+        context.update({
+            'profile': profile,
+            'wallet_balance_display': profile.wallet_display,
+            'active_page': 'wallet',
+            'lucky_draw_eligible': LuckyDrawView().is_eligible(self.request.user),
+        })
         return context
 
 class HomePageView(TemplateView):
@@ -503,7 +523,7 @@ def poll_question(request, poll_id, question_index=0):
                     del request.session[session_key]
                 messages.success(request, 'Thank you for participating in the poll!')
                 from .lucky_draw import LuckyDrawView
-                if LuckyDrawView().is_eligible(request.user):
+                if LuckyDrawView().is_eligible(request.user, LuckyDrawEntry.DRAW_TYPE_POLL):
                     messages.success(request, 'Congratulations! You are now eligible for the lucky draw!')
                     return redirect('surveys:lucky_draw')
                 return render(request, 'surveys/survey_complete.html', {

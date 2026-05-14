@@ -95,11 +95,35 @@
                         <h3>Lucky Draw</h3>
                         {% if user_eligible %}
                             <div class="alert alert-success mt-3">
+                                {% if survey_eligible and poll_eligible %}
+                                    <p class="mb-2">You are eligible for both survey and poll lucky draws. Choose one and play; the other remains available separately.</p>
+                                {% elif survey_eligible %}
+                                    <p class="mb-2">You are eligible from completed surveys.</p>
+                                {% elif poll_eligible %}
+                                    <p class="mb-2">You are eligible from completed polls.</p>
+                                {% endif %}
                                 <h5>Lucky Number: {{ current_lucky_number }}</h5>
                                 <p class="mb-0">Prize: {{ prize_display }}</p>
                             </div>
                         {% endif %}
                     </div>
+
+                    {% if user_eligible %}
+                    <div class="btn-group w-100 mb-3" role="group" aria-label="Lucky draw type">
+                        <button type="button"
+                                class="btn {% if selected_draw_type == 'survey' %}btn-primary{% else %}btn-outline-primary{% endif %} draw-type-btn"
+                                data-draw-type="survey"
+                                {% if not survey_eligible %}disabled{% endif %}>
+                            Survey Draw
+                        </button>
+                        <button type="button"
+                                class="btn {% if selected_draw_type == 'poll' %}btn-primary{% else %}btn-outline-primary{% endif %} draw-type-btn"
+                                data-draw-type="poll"
+                                {% if not poll_eligible %}disabled{% endif %}>
+                            Poll Draw
+                        </button>
+                    </div>
+                    {% endif %}
                     
                   
                     
@@ -146,6 +170,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const resultText = document.getElementById('result-text');
     const playAgainBtn = document.getElementById('play-again-btn');
     const luckyNumberSpan = document.getElementById('lucky-number');
+    const drawTypeButtons = document.querySelectorAll('.draw-type-btn');
+    let selectedDrawType = '{{ selected_draw_type|default:"" }}';
     let gameInProgress = true;
     let luckyNumber = null;
     // Shuffle number boxes
@@ -157,10 +183,28 @@ document.addEventListener('DOMContentLoaded', function() {
             numberGrid.insertBefore(boxes[j], boxes[i]);
         }
     }
+    drawTypeButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            if (this.disabled || !gameInProgress) return;
+
+            selectedDrawType = this.dataset.drawType;
+            drawTypeButtons.forEach(btn => {
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-outline-primary');
+            });
+            this.classList.add('btn-primary');
+            this.classList.remove('btn-outline-primary');
+        });
+    });
+
     // Handle number box clicks
     numberBoxes.forEach(box => {
         box.addEventListener('click', async function() {
             if (!gameInProgress) return;
+            if (!selectedDrawType) {
+                alert('Please choose Survey Draw or Poll Draw first.');
+                return;
+            }
             
             const number = parseInt(this.getAttribute('data-number'));
             
@@ -176,7 +220,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         'X-CSRFToken': '{{ csrf_token }}',
                         'X-Requested-With': 'XMLHttpRequest'
                     },
-                    body: JSON.stringify({ number: number, current_lucky_number: {{ current_lucky_number|default:"null" }} })
+                    body: JSON.stringify({
+                        number: number,
+                        current_lucky_number: {{ current_lucky_number|default:"null" }},
+                        draw_type: selectedDrawType
+                    })
                 });
                 
                 const result = await response.json();
@@ -206,8 +254,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     luckyNumberSpan.textContent = result.winning_number;
                 }
                 
-                // Disable play again button since user can only play once
-                playAgainBtn.style.display = 'none';
+                if (result.remaining_draw_types && result.remaining_draw_types.length) {
+                    resultText.innerHTML += '<br>You still have another lucky draw available.';
+                    playAgainBtn.textContent = 'Play Other Draw';
+                    playAgainBtn.classList.remove('d-none');
+                    playAgainBtn.style.display = 'inline-block';
+                } else {
+                    playAgainBtn.style.display = 'none';
+                }
                 
             } catch (error) {
                 console.error('Error:', error);
@@ -219,27 +273,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    button.addEventListener('click', function() {
-        if (this.classList.contains('active')) {
-            // If already selected, deselect it
-            this.classList.remove('active', 'btn-primary', 'btn-outline-primary');
-            this.classList.add('btn-outline-primary');
-            document.getElementById('selected-number').value = '';
-        } else {
-            // Deselect all other buttons
-            document.querySelectorAll('.number-box').forEach(btn => {
-                btn.classList.remove('active', 'btn-primary', 'btn-outline-primary');
-                btn.classList.add('btn-outline-primary');
-            });
-            
-            // Select this button
-            this.classList.add('active', 'btn-primary');
-            this.classList.remove('btn-outline-primary');
-            document.getElementById('selected-number').value = this.dataset.number;
-            
-            // Show the number
-            this.classList.add('show-number');
-        }
+    playAgainBtn.addEventListener('click', function() {
+        window.location.reload();
     });
 });
     

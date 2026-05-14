@@ -15,7 +15,8 @@ from ckeditor.widgets import CKEditorWidget
 from .models import (
     SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer,
     LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement,
-    Poll, PollQuestion, PollChoice, PollResponse, PollAnswer, CountryLuckyDrawConfig
+    Poll, PollQuestion, PollChoice, PollResponse, PollAnswer, CountryLuckyDrawConfig,
+    WalletTransaction
 )
 from django.utils.safestring import mark_safe
 from django.urls import path
@@ -175,6 +176,30 @@ class CountryLuckyDrawConfigAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     def prize_display(self, obj):
         return obj.get_prize_display()
     prize_display.short_description = 'Prize Amount'
+
+
+class WalletTransactionAdmin(admin.ModelAdmin):
+    list_display = ('profile', 'transaction_type', 'amount_display', 'description', 'balance_after_display', 'created_at')
+    list_filter = ('transaction_type', 'currency_code', 'created_at')
+    search_fields = ('profile__user__username', 'profile__user__email', 'description')
+    readonly_fields = (
+        'profile', 'transaction_type', 'amount', 'currency_code',
+        'currency_symbol', 'description', 'lucky_draw_entry',
+        'balance_after', 'created_at'
+    )
+    list_select_related = ('profile', 'profile__user', 'lucky_draw_entry')
+    date_hierarchy = 'created_at'
+
+    def amount_display(self, obj):
+        return obj.amount_display
+    amount_display.short_description = 'Amount'
+
+    def balance_after_display(self, obj):
+        return obj.balance_after_display
+    balance_after_display.short_description = 'Balance After'
+
+    def has_add_permission(self, request):
+        return False
 
 
 class MilestoneAchievementAdmin(admin.ModelAdmin):
@@ -547,12 +572,30 @@ class SurveyResponseAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     time_spent.short_description = 'Time Spent'
 
 class LuckyDrawEntryAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('user', 'created_at', 'is_winner', 'guessed_number', 'winning_number', 'prize', 'surveys_at_play', 'polls_at_play')
-    list_filter = ('is_winner', 'created_at')
-    search_fields = ('user__username', 'prize')
-    readonly_fields = ('created_at',)
+    list_display = (
+        'user', 'draw_type', 'source_title', 'created_at', 'is_winner',
+        'guessed_number', 'winning_number', 'prize',
+        'surveys_at_play', 'polls_at_play'
+    )
+    list_filter = ('draw_type', 'is_winner', 'created_at', 'survey', 'poll')
+    search_fields = (
+        'user__username', 'user__email', 'prize',
+        'survey__name', 'poll__title'
+    )
+    readonly_fields = (
+        'user', 'draw_type', 'survey', 'poll', 'created_at', 'is_winner',
+        'guessed_number', 'winning_number', 'prize',
+        'surveys_at_play', 'polls_at_play'
+    )
+    list_select_related = ('user', 'survey', 'poll')
     list_per_page = 20
     date_hierarchy = 'created_at'
+
+    def source_title(self, obj):
+        if obj.draw_type == LuckyDrawEntry.DRAW_TYPE_POLL:
+            return obj.poll.title if obj.poll else '-'
+        return obj.survey.name if obj.survey else '-'
+    source_title.short_description = 'Poll / Survey'
     
     def has_add_permission(self, request):
         # Disable adding entries through admin since they should be created by the system
@@ -691,7 +734,7 @@ class UserProfileInline(admin.StackedInline):
 
 class CustomUserAdmin(SafeDeleteAdminMixin, BaseUserAdmin):
     inlines = (UserProfileInline,)
-    list_display = ('username', 'email', 'first_name', 'last_name', 'country', 'is_active', 'date_joined')
+    list_display = ('username', 'email', 'first_name', 'last_name', 'country', 'wallet', 'is_active', 'date_joined')
     list_filter = ('is_active', 'groups', 'date_joined', 'profile__country')
     search_fields = ('username', 'first_name', 'last_name', 'email')
     ordering = ('-date_joined',)
@@ -703,6 +746,12 @@ class CustomUserAdmin(SafeDeleteAdminMixin, BaseUserAdmin):
         return None
     country.short_description = 'Country'
     country.admin_order_field = 'profile__country'
+
+    def wallet(self, obj):
+        if hasattr(obj, 'profile') and obj.profile:
+            return obj.profile.wallet_display
+        return '-'
+    wallet.short_description = 'Wallet'
 
     # Only show non-staff users in the admin
     def get_queryset(self, request):
@@ -751,6 +800,7 @@ survey_admin_site.register(PollChoice, DefaultModelAdmin)
 survey_admin_site.register(PollResponse, PollResponseAdmin)
 survey_admin_site.register(PollAnswer, DefaultModelAdmin)
 survey_admin_site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
+survey_admin_site.register(WalletTransaction, WalletTransactionAdmin)
 survey_admin_site.register(SurveyResponse, SurveyResponseAdmin)
 survey_admin_site.register(EmailVerification, EmailVerificationAdmin)
 survey_admin_site.register(Answer, DefaultModelAdmin)
@@ -769,5 +819,6 @@ admin.site.register(PollChoice, DefaultModelAdmin)
 admin.site.register(PollResponse, PollResponseAdmin)
 admin.site.register(PollAnswer, DefaultModelAdmin)
 admin.site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
+admin.site.register(WalletTransaction, WalletTransactionAdmin)
 admin.site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 admin.site.register(MilestoneAchievement, MilestoneAchievementAdmin)

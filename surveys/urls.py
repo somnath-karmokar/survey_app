@@ -14,6 +14,7 @@ from .views_frontend import (
     send_otp,
     VerifyEmailView,
     PendingVerificationView,
+    WalletTransactionHistoryView,
     poll_detail,
     poll_question
 )
@@ -28,6 +29,7 @@ urlpatterns = [
     # Frontend Pages
     path('', HomePageView.as_view(), name='home'),
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
+    path('wallet/', WalletTransactionHistoryView.as_view(), name='wallet_history'),
     path('features/', FeaturesPageView.as_view(), name='features'),
     path('contact/', ContactPageView.as_view(), name='contact'),
     path('faq/', FAQPageView.as_view(), name='faq'),
