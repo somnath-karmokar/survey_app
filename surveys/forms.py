@@ -356,6 +356,8 @@ class EditProfileForm(forms.ModelForm):
         return profile
 
 class SurveyResponseForm(forms.Form):
+    OTHER_CHOICE_VALUE = '__other__'
+
     def __init__(self, *args, **kwargs):
         self.survey = kwargs.pop('survey', None)
         self.question_id = kwargs.pop('question_id', None)
@@ -380,7 +382,8 @@ class SurveyResponseForm(forms.Form):
                 help_text=help_text
             )
         elif question.question_type == 'single_choice':
-            choices = [(c.id, c.choice_text) for c in question.choices.all()]
+            choices = [(str(c.id), c.choice_text) for c in question.choices.all()]
+            choices.append((self.OTHER_CHOICE_VALUE, 'Other'))
             self.fields[field_name] = forms.ChoiceField(
                 label=question.question_text,
                 required=question.is_required,
@@ -388,8 +391,10 @@ class SurveyResponseForm(forms.Form):
                 widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
                 help_text=help_text
             )
+            self.add_other_text_field(question, field_name)
         elif question.question_type == 'multiple_choice':
-            choices = [(c.id, c.choice_text) for c in question.choices.all()]
+            choices = [(str(c.id), c.choice_text) for c in question.choices.all()]
+            choices.append((self.OTHER_CHOICE_VALUE, 'Other'))
             self.fields[field_name] = forms.MultipleChoiceField(
                 label=question.question_text,
                 required=question.is_required,
@@ -397,6 +402,7 @@ class SurveyResponseForm(forms.Form):
                 widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
                 help_text=help_text
             )
+            self.add_other_text_field(question, field_name)
         elif question.question_type == 'rating':
             self.fields[field_name] = forms.IntegerField(
                 label=question.question_text,
@@ -406,6 +412,48 @@ class SurveyResponseForm(forms.Form):
                 widget=forms.NumberInput(attrs={'class': 'form-control', 'type': 'range', 'min': '1', 'max': '5'}),
                 help_text=help_text
             )
+
+        if field_name in self.fields:
+            self.fields[field_name].question = question
+
+    def add_other_text_field(self, question, choice_field_name):
+        other_field_name = f'{choice_field_name}_other'
+        self.fields[other_field_name] = forms.CharField(
+            label='Other',
+            required=False,
+            widget=forms.TextInput(attrs={
+                'class': 'form-control other-answer-input',
+                'placeholder': 'Please specify',
+                'data_other_for': choice_field_name,
+                'data-other-for': choice_field_name,
+                'data_question_type': 'other_text',
+            })
+        )
+        self.fields[other_field_name].question = question
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        for field_name, field in self.fields.items():
+            question = getattr(field, 'question', None)
+            if not question or question.question_type not in ['single_choice', 'multiple_choice']:
+                continue
+            if field_name.endswith('_other'):
+                continue
+
+            answer_value = cleaned_data.get(field_name)
+            other_text = (cleaned_data.get(f'{field_name}_other') or '').strip()
+            other_selected = False
+
+            if question.question_type == 'multiple_choice':
+                other_selected = self.OTHER_CHOICE_VALUE in (answer_value or [])
+            else:
+                other_selected = answer_value == self.OTHER_CHOICE_VALUE
+
+            if other_selected and not other_text:
+                self.add_error(f'{field_name}_other', 'Please specify your other answer.')
+
+        return cleaned_data
 
     def save(self, user, survey, commit=True):
         """Save the survey response and answers"""
@@ -425,8 +473,9 @@ class SurveyResponseForm(forms.Form):
         # Save the answer
         field_name = f'question_{question.id}'
         answer_value = self.cleaned_data.get(field_name)
+        other_text = (self.cleaned_data.get(f'{field_name}_other') or '').strip()
         
-        if answer_value:  # Only save if there's an answer
+        if answer_value or other_text:  # Only save if there's an answer
             # Delete any existing answer for this question
             Answer.objects.filter(
                 response=survey_response,
@@ -446,9 +495,14 @@ class SurveyResponseForm(forms.Form):
             if question.question_type in ['multiple_choice', 'single_choice']:
                 # For choice-based questions, set the selected choices
                 if isinstance(answer_value, (list, tuple)):
-                    answer.selected_choices.set(answer_value)
+                    selected_choice_ids = [value for value in answer_value if value != self.OTHER_CHOICE_VALUE]
+                    answer.selected_choices.set(selected_choice_ids)
                 else:
-                    answer.selected_choices.set([answer_value])
+                    selected_choice_ids = [] if answer_value == self.OTHER_CHOICE_VALUE else [answer_value]
+                    answer.selected_choices.set(selected_choice_ids)
+                if other_text:
+                    answer.text_answer = other_text
+                    answer.save(update_fields=['text_answer'])
             elif question.question_type == 'text':
                 # For text answers
                 answer.text_answer = str(answer_value)

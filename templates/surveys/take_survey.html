@@ -79,6 +79,19 @@
                                                             </div>
                                                         {% endfor %}
                                                     </div>
+                                                {% elif question_type == 'other_text' %}
+                                                    <div class="form-group other-answer-field">
+                                                        <label class="form-label" for="{{ field.id_for_label }}">Other</label>
+                                                        <input
+                                                            type="text"
+                                                            name="{{ field.name }}"
+                                                            id="{{ field.id_for_label }}"
+                                                            class="form-control other-answer-input {% if field.errors %}is-invalid{% endif %}"
+                                                            placeholder="Please specify"
+                                                            data-other-for="{{ field.field.widget.attrs.data_other_for }}"
+                                                            value="{{ field.value|default:'' }}"
+                                                        >
+                                                    </div>
                                                 {% elif question_type == 'rating' %}
                                                     <div class="form-group">
                                                         <input 
@@ -146,6 +159,23 @@
 </style>
 
 <script>
+    function updateOtherAnswerInputs() {
+        document.querySelectorAll('.other-answer-input').forEach(input => {
+            const fieldName = input.dataset.otherFor;
+            const relatedInputs = document.querySelectorAll(`[name="${fieldName}"]`);
+            const otherInput = Array.from(relatedInputs).find(item => item.value === '__other__');
+            const shouldShow = otherInput && otherInput.checked;
+            const wrapper = input.closest('.other-answer-field') || input.parentElement;
+            if (wrapper) {
+                wrapper.style.display = shouldShow ? '' : 'none';
+            }
+            input.disabled = !shouldShow;
+            if (!shouldShow) {
+                input.value = '';
+            }
+        });
+    }
+
     // Client-side form validation
     (function() {
         'use strict';
@@ -159,6 +189,10 @@
                 form.classList.add('was-validated');
             }, false);
         });
+        document.querySelectorAll('.form-check-input').forEach(input => {
+            input.addEventListener('change', updateOtherAnswerInputs);
+        });
+        updateOtherAnswerInputs();
     })();
 </script>
 {% endblock %}
