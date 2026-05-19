@@ -56,6 +56,29 @@
                 padding: 0.75rem 1rem;
             }
         }
+
+        .site-search-form {
+            min-width: 240px;
+            max-width: 320px;
+        }
+
+        .site-search-form .form-control {
+            min-height: 42px;
+            border-radius: 999px 0 0 999px;
+        }
+
+        .site-search-form .btn {
+            min-width: 46px;
+            border-radius: 0 999px 999px 0;
+        }
+
+        @media (max-width: 991px) {
+            .site-search-form {
+                max-width: none;
+                width: 100%;
+                margin: 0.75rem 0;
+            }
+        }
     </style>
     <header class="head_nav" id="sticky-header">
         <nav class="navbar navbar-expand-lg">
@@ -84,6 +107,22 @@
                     </li> -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'contact' %}active{% endif %}" href="{% url 'surveys:contact' %}">Contact Us</a>
+                    </li>
+                    <li class="nav-item">
+                        <form action="{% url 'surveys:search' %}" method="get" class="site-search-form d-flex ms-lg-3">
+                            <input
+                                type="search"
+                                name="q"
+                                value="{{ request.GET.q|default:'' }}"
+                                class="form-control"
+                                placeholder="Search"
+                                aria-label="Search Sudraw"
+                                autocomplete="off"
+                            >
+                            <button class="btn btn-primary" type="submit" aria-label="Search">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </form>
                     </li>
                     {% if user.is_authenticated %}
                     <li class="nav-item">

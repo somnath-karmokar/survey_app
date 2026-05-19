@@ -15,6 +15,18 @@
     {% block extra_css %}{% endblock %}
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1735282576772168"
      crossorigin="anonymous"></script>
+    <style>
+        .navbar-search-form {
+            min-width: 220px;
+        }
+
+        @media (max-width: 991px) {
+            .navbar-search-form {
+                width: 100%;
+                margin: 0.75rem 0;
+            }
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
@@ -24,6 +36,18 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
+                <form action="{% url 'surveys:search' %}" method="get" class="navbar-search-form d-flex me-lg-auto">
+                    <input
+                        type="search"
+                        name="q"
+                        value="{{ request.GET.q|default:'' }}"
+                        class="form-control form-control-sm"
+                        placeholder="Search"
+                        aria-label="Search Sudraw"
+                        autocomplete="off"
+                    >
+                    <button class="btn btn-sm btn-outline-light ms-2" type="submit">Search</button>
+                </form>
                 <ul class="navbar-nav ms-auto">
                     {% if user.is_authenticated %}
                         <li class="nav-item">

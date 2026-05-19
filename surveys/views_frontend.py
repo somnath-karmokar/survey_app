@@ -5,7 +5,10 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, authenticate, get_user_model
 from django.utils import timezone
 from datetime import timedelta
-from .models import Survey, SurveyCategory, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry, Poll, PollResponse, WalletTransaction
+from .models import (
+    Survey, SurveyCategory, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry,
+    Poll, PollResponse, WalletTransaction, Question, PollQuestion
+)
 from django.http import JsonResponse, HttpResponseRedirect
 from django.core.mail import send_mail
 from django.conf import settings
@@ -38,6 +41,185 @@ from django.conf import settings as django_settings
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+class SearchView(TemplateView):
+    template_name = 'surveys/search_results.html'
+    min_query_length = 2
+    result_limit = 12
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        query = self.request.GET.get('q', '').strip()
+        results = []
+
+        if len(query) >= self.min_query_length:
+            if self.request.user.is_authenticated:
+                results = self.get_search_results(query)
+            else:
+                results = self.get_public_search_results(query)
+
+        context.update({
+            'query': query,
+            'results': results,
+            'result_count': len(results),
+            'min_query_length': self.min_query_length,
+            'can_view_results': self.request.user.is_authenticated,
+        })
+        return context
+
+    def get_public_search_results(self, query):
+        results = []
+
+        category_filter = Q(name__icontains=query) | Q(description__icontains=query)
+        categories = SurveyCategory.objects.filter(category_filter).select_related('country')
+        for category in categories.order_by('order', 'name')[:self.result_limit]:
+            results.append({
+                'type': 'Category',
+                'title': category.name,
+                'description': category.description or '',
+                'url': reverse('surveys:category_detail', kwargs={'category_slug': category.slug}),
+            })
+
+        poll_filter = Q(title__icontains=query) | Q(description__icontains=query) | Q(country__name__icontains=query)
+        polls = Poll.objects.filter(poll_filter, is_active=True).select_related('country')
+        for poll in polls.order_by('order', '-created_at').distinct()[:self.result_limit]:
+            results.append({
+                'type': 'Poll',
+                'title': poll.title,
+                'description': poll.description or str(poll.country),
+                'url': reverse('surveys:poll_detail', kwargs={'poll_id': poll.id}),
+            })
+
+        results.extend(self.get_static_page_results(query))
+        return results[:50]
+
+    def get_search_results(self, query):
+        results = []
+        user_country = self.get_user_country()
+
+        category_filter = Q(name__icontains=query) | Q(description__icontains=query)
+        if user_country:
+            categories = SurveyCategory.objects.filter(category_filter, country=user_country)
+        else:
+            categories = SurveyCategory.objects.filter(category_filter)
+
+        for category in categories.select_related('country').order_by('order', 'name')[:self.result_limit]:
+            results.append({
+                'type': 'Category',
+                'title': category.name,
+                'description': category.description or '',
+                'url': reverse('surveys:category_detail', kwargs={'category_slug': category.slug}),
+            })
+
+        survey_filter = Q(name__icontains=query) | Q(description__icontains=query) | Q(category__name__icontains=query)
+        surveys = Survey.objects.filter(survey_filter, is_active=True).select_related('category', 'category__country')
+        if user_country:
+            surveys = surveys.filter(category__country=user_country)
+
+        for survey in surveys.order_by('category__name', 'level', 'name').distinct()[:self.result_limit]:
+            results.append({
+                'type': 'Survey',
+                'title': survey.name,
+                'description': survey.description or f'{survey.category.name} - Level {survey.level}',
+                'url': reverse('surveys:survey_detail', kwargs={'survey_id': survey.id}),
+            })
+
+        question_filter = Q(question_text__icontains=query) | Q(surveys__name__icontains=query)
+        questions = Question.objects.filter(question_filter, surveys__is_active=True).prefetch_related('surveys')
+        if user_country:
+            questions = questions.filter(surveys__category__country=user_country)
+
+        for question in questions.order_by('order', 'id').distinct()[:self.result_limit]:
+            survey = next((item for item in question.surveys.all() if item.is_active), None)
+            if not survey:
+                continue
+            results.append({
+                'type': 'Survey Question',
+                'title': question.question_text,
+                'description': survey.name,
+                'url': reverse('surveys:survey_detail', kwargs={'survey_id': survey.id}),
+            })
+
+        poll_filter = Q(title__icontains=query) | Q(description__icontains=query) | Q(country__name__icontains=query)
+        polls = Poll.objects.filter(poll_filter, is_active=True).select_related('country')
+        if user_country:
+            polls = polls.filter(country=user_country)
+
+        for poll in polls.order_by('order', '-created_at').distinct()[:self.result_limit]:
+            results.append({
+                'type': 'Poll',
+                'title': poll.title,
+                'description': poll.description or str(poll.country),
+                'url': reverse('surveys:poll_detail', kwargs={'poll_id': poll.id}),
+            })
+
+        poll_questions = PollQuestion.objects.filter(
+            Q(question_text__icontains=query) | Q(poll__title__icontains=query),
+            poll__is_active=True,
+        ).select_related('poll', 'poll__country')
+        if user_country:
+            poll_questions = poll_questions.filter(poll__country=user_country)
+
+        for question in poll_questions.order_by('order', 'id').distinct()[:self.result_limit]:
+            results.append({
+                'type': 'Poll Question',
+                'title': question.question_text,
+                'description': question.poll.title,
+                'url': reverse('surveys:poll_detail', kwargs={'poll_id': question.poll_id}),
+            })
+
+        results.extend(self.get_static_page_results(query))
+        return results[:50]
+
+    def get_user_country(self):
+        if not self.request.user.is_authenticated:
+            return None
+
+        profile = getattr(self.request.user, 'profile', None)
+        return getattr(profile, 'country', None)
+
+    def get_static_page_results(self, query):
+        page_results = []
+        normalized_query = query.lower()
+        pages = (
+            {
+                'title': 'Home',
+                'description': 'Sudraw surveys, polls, categories, and rewards.',
+                'url': reverse('surveys:home'),
+                'keywords': 'home sudraw survey surveys polls rewards lucky draw',
+            },
+            {
+                'title': 'FAQ',
+                'description': 'Answers about surveys, polls, rewards, privacy, and account questions.',
+                'url': reverse('surveys:faq'),
+                'keywords': 'faq help questions surveys polls rewards privacy account',
+            },
+            {
+                'title': 'Features',
+                'description': 'Sudraw features and platform information.',
+                'url': reverse('surveys:features'),
+                'keywords': 'features platform survey polls rewards',
+            },
+            {
+                'title': 'Contact Us',
+                'description': 'Contact Sudraw support.',
+                'url': reverse('surveys:contact'),
+                'keywords': 'contact support email help',
+            },
+        )
+
+        for page in pages:
+            haystack = f"{page['title']} {page['description']} {page['keywords']}".lower()
+            if normalized_query in haystack:
+                page_results.append({
+                    'type': 'Page',
+                    'title': page['title'],
+                    'description': page['description'],
+                    'url': page['url'],
+                })
+        return page_results
+
 
 class CustomLoginView(BaseLoginView):
     template_name = 'frontpage/login.html'
