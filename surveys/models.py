@@ -513,6 +513,14 @@ class UserProfile(models.Model):
         verbose_name_plural = 'User Profiles'
 
 
+class UserWallet(UserProfile):
+    class Meta:
+        proxy = True
+        verbose_name = 'User Wallet Detail'
+        verbose_name_plural = 'User Wallet Details'
+        ordering = ['user__username']
+
+
 @receiver(post_save, sender=User)
 def create_or_update_user_profile(sender, instance, created, **kwargs):
     """Create or update the user profile when a User is saved."""
@@ -768,6 +776,7 @@ class EmailVerification(models.Model):
 class MilestoneAchievement(models.Model):
     MILESTONE_TYPE_CHOICES = [
         ('surveys_completed', 'Surveys Completed'),
+        ('polls_completed', 'Polls Completed'),
         ('points_earned', 'Points Earned'),
     ]
 

@@ -519,6 +519,8 @@ def poll_question(request, poll_id, question_index=0):
             final_form = PollResponseForm(poll=poll, data=_poll_answers_to_post_data(poll, answers))
             if final_form.is_valid():
                 final_form.save(request.user, poll)
+                from .milestones import check_and_award_milestones
+                check_and_award_milestones(request.user)
                 if session_key in request.session:
                     del request.session[session_key]
                 messages.success(request, 'Thank you for participating in the poll!')

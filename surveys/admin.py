@@ -16,12 +16,12 @@ from .models import (
     SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer,
     LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement,
     Poll, PollQuestion, PollChoice, PollResponse, PollAnswer, CountryLuckyDrawConfig,
-    WalletTransaction
+    WalletTransaction, UserWallet
 )
 from django.utils.safestring import mark_safe
 from django.urls import path
 from django.http import JsonResponse
-from django.db.models import Q
+from django.db.models import Count, Max, Q
 
 # Custom Admin Site
 class SurveyAdminSite(AdminSite):
@@ -197,6 +197,80 @@ class WalletTransactionAdmin(admin.ModelAdmin):
     def balance_after_display(self, obj):
         return obj.balance_after_display
     balance_after_display.short_description = 'Balance After'
+
+    def has_add_permission(self, request):
+        return False
+
+
+class WalletTransactionInline(admin.TabularInline):
+    model = WalletTransaction
+    fk_name = 'profile'
+    extra = 0
+    can_delete = False
+    show_change_link = True
+    fields = (
+        'created_at', 'transaction_type', 'amount_display',
+        'description', 'balance_after_display', 'lucky_draw_entry'
+    )
+    readonly_fields = fields
+    ordering = ('-created_at',)
+
+    def amount_display(self, obj):
+        return obj.amount_display
+    amount_display.short_description = 'Amount'
+
+    def balance_after_display(self, obj):
+        return obj.balance_after_display
+    balance_after_display.short_description = 'Balance After'
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class UserWalletAdmin(admin.ModelAdmin):
+    inlines = [WalletTransactionInline]
+    list_display = (
+        'user', 'email', 'country', 'wallet_balance_display',
+        'transaction_count', 'last_transaction_at'
+    )
+    list_filter = ('country',)
+    search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
+    readonly_fields = (
+        'user', 'email', 'country', 'phone_number', 'wallet_balance_display',
+        'created_at', 'updated_at'
+    )
+    fields = (
+        'user', 'email', 'country', 'phone_number', 'wallet_balance_display',
+        'created_at', 'updated_at'
+    )
+    list_select_related = ('user', 'country')
+    ordering = ('user__username',)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(
+            transaction_total=Count('wallet_transactions'),
+            last_transaction=Max('wallet_transactions__created_at'),
+        )
+
+    def email(self, obj):
+        return obj.user.email
+    email.short_description = 'Email'
+    email.admin_order_field = 'user__email'
+
+    def wallet_balance_display(self, obj):
+        return obj.wallet_display
+    wallet_balance_display.short_description = 'Wallet Balance'
+    wallet_balance_display.admin_order_field = 'wallet_balance'
+
+    def transaction_count(self, obj):
+        return obj.transaction_total
+    transaction_count.short_description = 'Transactions'
+    transaction_count.admin_order_field = 'transaction_total'
+
+    def last_transaction_at(self, obj):
+        return obj.last_transaction
+    last_transaction_at.short_description = 'Last Transaction'
+    last_transaction_at.admin_order_field = 'last_transaction'
 
     def has_add_permission(self, request):
         return False
@@ -800,6 +874,7 @@ survey_admin_site.register(PollChoice, DefaultModelAdmin)
 survey_admin_site.register(PollResponse, PollResponseAdmin)
 survey_admin_site.register(PollAnswer, DefaultModelAdmin)
 survey_admin_site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
+survey_admin_site.register(UserWallet, UserWalletAdmin)
 survey_admin_site.register(WalletTransaction, WalletTransactionAdmin)
 survey_admin_site.register(SurveyResponse, SurveyResponseAdmin)
 survey_admin_site.register(EmailVerification, EmailVerificationAdmin)
@@ -819,6 +894,7 @@ admin.site.register(PollChoice, DefaultModelAdmin)
 admin.site.register(PollResponse, PollResponseAdmin)
 admin.site.register(PollAnswer, DefaultModelAdmin)
 admin.site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
+admin.site.register(UserWallet, UserWalletAdmin)
 admin.site.register(WalletTransaction, WalletTransactionAdmin)
 admin.site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 admin.site.register(MilestoneAchievement, MilestoneAchievementAdmin)

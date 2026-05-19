@@ -191,7 +191,16 @@ MILESTONE_REWARDS = (
     {
         'milestone_type': 'surveys_completed',
         'threshold': 200,
-        'prize_name': '200 Surveys Achievement Prize',
+        'prize_name': 'Wallet Reward',
+        'repeat_interval': 200,
+        'wallet_reward': True,
+    },
+    {
+        'milestone_type': 'polls_completed',
+        'threshold': 200,
+        'prize_name': 'Wallet Reward',
+        'repeat_interval': 200,
+        'wallet_reward': True,
     },
     {
         'milestone_type': 'points_earned',
