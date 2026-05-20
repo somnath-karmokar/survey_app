@@ -190,8 +190,17 @@ SITE_URL = 'http://localhost:8000'
 MILESTONE_REWARDS = (
     {
         'milestone_type': 'surveys_completed',
-        'threshold': 200,
-        'prize_name': '200 Surveys Achievement Prize',
+        'threshold': 5, #200
+        'prize_name': 'Wallet Reward',
+        'repeat_interval': 5, #200
+        'wallet_reward': True,
+    },
+    {
+        'milestone_type': 'polls_completed',
+        'threshold': 5, #200
+        'prize_name': 'Wallet Reward',
+        'repeat_interval': 5, #200
+        'wallet_reward': True,
     },
     {
         'milestone_type': 'points_earned',
@@ -211,6 +220,7 @@ LOGIN_REDIRECT_URL = 'surveys:survey_list'
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
     os.path.join(BASE_DIR, 'survey_app/static'),
     os.path.join(BASE_DIR, 'survey_app/survey_app/static'),
     os.path.join(BASE_DIR, 'surveys/static'),
@@ -337,6 +347,7 @@ SURVEY_CONFIG = {
 
 LUCKY_DRAW_CONFIG = {
     'SURVEYS_REQUIRED': 2,  # Number of same-level surveys to complete
+    'POLLS_REQUIRED': 2,  # Number of completed polls required to play the lucky draw
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 49,
     'PRIZES': [  # You can customize the prizes

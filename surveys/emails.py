@@ -125,7 +125,7 @@ def send_milestone_achievement_email(user, achievement):
         f"You have reached the {milestone_label.lower()} milestone "
         f"with a total of {achievement.achieved_value}.\n"
         f"Prize awarded: {achievement.prize_name}\n\n"
-        f"Our team will contact you with the next steps.\n\n"
+        f"If this is a wallet reward, it has been added to your wallet.\n\n"
         f"Best regards,\n"
         f"{getattr(settings, 'SITE_NAME', 'Sudraw')} Team"
     )
@@ -167,6 +167,7 @@ def send_milestone_achievement_admin_notification(user, achievement):
         f"Threshold: {achievement.threshold}\n"
         f"Current total: {achievement.achieved_value}\n"
         f"Prize awarded: {achievement.prize_name}\n"
+        f"Wallet rewards are credited automatically.\n"
     )
 
     msg = EmailMultiAlternatives(

@@ -30,6 +30,14 @@
                         </a>
                     </li>
 
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'wallet' %}active{% endif %}"
+                           href="{% url 'surveys:wallet_history' %}">
+                            <i class="fas fa-wallet me-2"></i>
+                            Wallet
+                        </a>
+                    </li>
+
                     {% if lucky_draw_eligible %}
                         <li class="nav-item">
                             <a class="nav-link text-warning" href="{% url 'surveys:lucky_draw' %}">

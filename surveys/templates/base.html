@@ -26,6 +26,17 @@
         .btn-primary:hover {
             background-color: #0b5ed7;
         }
+
+        .navbar-search-form {
+            min-width: 220px;
+        }
+
+        @media (max-width: 991px) {
+            .navbar-search-form {
+                width: 100%;
+                margin: 0.75rem 0;
+            }
+        }
         
     </style>
     {% block extra_css %}{% endblock %}
@@ -49,6 +60,18 @@
                         <a class="nav-link" href="{% url 'surveys:category_list' %}" style="cursor: pointer; position: relative;">Categories</a>
                     </li>
                 </ul>
+                <form action="{% url 'surveys:search' %}" method="get" class="navbar-search-form d-flex me-lg-3">
+                    <input
+                        type="search"
+                        name="q"
+                        value="{{ request.GET.q|default:'' }}"
+                        class="form-control form-control-sm"
+                        placeholder="Search"
+                        aria-label="Search Sudraw"
+                        autocomplete="off"
+                    >
+                    <button class="btn btn-sm btn-outline-light ms-2" type="submit">Search</button>
+                </form>
                 <ul class="navbar-nav">
                     {% if user.is_authenticated %}
                         <li class="nav-item">

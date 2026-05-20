@@ -1,0 +1,105 @@
+{% extends 'frontend/base_dashboard.html' %}
+
+{% block title %}Wallet History - Sudraw{% endblock %}
+
+{% block page_title %}Wallet{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    .wallet-summary {
+        background: linear-gradient(135deg, #12343b 0%, #1f7a8c 100%);
+        border-radius: 8px;
+        color: #fff;
+        padding: 1.5rem;
+    }
+    .wallet-summary .balance {
+        font-size: 2.25rem;
+        font-weight: 700;
+        line-height: 1.1;
+    }
+    .transaction-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #e9f7ef;
+        color: #198754;
+        flex-shrink: 0;
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid">
+    <div class="wallet-summary mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <p class="mb-1 opacity-75">Current Balance</p>
+                <div class="balance">{{ wallet_balance_display }}</div>
+            </div>
+            <i class="fas fa-wallet fa-3x opacity-75"></i>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Transaction History</h5>
+        </div>
+        <div class="card-body">
+            {% if transactions %}
+                <div class="list-group list-group-flush">
+                    {% for transaction in transactions %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <span class="transaction-icon me-3">
+                                        <i class="fas fa-arrow-down"></i>
+                                    </span>
+                                    <div>
+                                        <h6 class="mb-1">{{ transaction.description }}</h6>
+                                        <small class="text-muted">
+                                            {{ transaction.created_at|date:"M d, Y H:i" }}
+                                            {% if transaction.lucky_draw_entry %}
+                                                · {{ transaction.lucky_draw_entry.get_draw_type_display }} draw
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <strong class="text-success">+{{ transaction.amount_display }}</strong>
+                                    <div class="small text-muted">Balance {{ transaction.balance_after_display }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                {% if is_paginated %}
+                    <nav class="mt-4" aria-label="Wallet transaction pages">
+                        <ul class="pagination mb-0">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                                </li>
+                            {% endif %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                            </li>
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <p class="text-muted mb-0">No wallet transactions yet. Winning lucky draws will appear here.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

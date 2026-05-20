@@ -125,7 +125,16 @@ def survey_detail(request, survey_id, question_index=0):
             answers = request.session.get(session_key, {})
             
             # Save current answer to session
-            answers[str(current_question.id)] = form.cleaned_data.get(f'question_{current_question.id}')
+            field_name = f'question_{current_question.id}'
+            answer_value = form.cleaned_data.get(field_name)
+            other_text = (form.cleaned_data.get(f'{field_name}_other') or '').strip()
+            if current_question.question_type in ['single_choice', 'multiple_choice']:
+                answers[str(current_question.id)] = {
+                    'value': answer_value,
+                    'other': other_text,
+                }
+            else:
+                answers[str(current_question.id)] = answer_value
             request.session[session_key] = answers
             
             # Check if we should show an ad based on AD_FREQUENCY setting (after every N questions, but not on first or last question)
@@ -176,8 +185,15 @@ def survey_detail(request, survey_id, question_index=0):
                 )
                 
                 # Save all answers from session
-                for q_id, answer_value in answers.items():
+                for q_id, stored_answer in answers.items():
                     question = Question.objects.get(id=q_id)
+                    other_text = ''
+                    if isinstance(stored_answer, dict):
+                        answer_value = stored_answer.get('value')
+                        other_text = (stored_answer.get('other') or '').strip()
+                    else:
+                        answer_value = stored_answer
+
                     answer = Answer(
                         response=survey_response,
                         question=question
@@ -186,10 +202,19 @@ def survey_detail(request, survey_id, question_index=0):
                     
                     # Handle different question types
                     if question.question_type in ['multiple_choice', 'single_choice']:
+                        other_choice_value = SurveyResponseForm.OTHER_CHOICE_VALUE
                         if isinstance(answer_value, (list, tuple)):
-                            answer.selected_choices.set(answer_value)
+                            selected_choice_ids = [
+                                value for value in answer_value
+                                if str(value) != other_choice_value
+                            ]
+                            answer.selected_choices.set(selected_choice_ids)
                         else:
-                            answer.selected_choices.set([answer_value])
+                            selected_choice_ids = [] if str(answer_value) == other_choice_value else [answer_value]
+                            answer.selected_choices.set(selected_choice_ids)
+                        if other_text:
+                            answer.text_answer = other_text
+                            answer.save(update_fields=['text_answer'])
                     elif question.question_type == 'text':
                         answer.text_answer = str(answer_value)
                         answer.save()
@@ -231,7 +256,11 @@ def survey_detail(request, survey_id, question_index=0):
         initial_data = {}
         previous_answer = request.session.get(session_key, {}).get(str(current_question.id))
         if previous_answer:
-            initial_data[f'question_{current_question.id}'] = previous_answer
+            if isinstance(previous_answer, dict):
+                initial_data[f'question_{current_question.id}'] = previous_answer.get('value')
+                initial_data[f'question_{current_question.id}_other'] = previous_answer.get('other')
+            else:
+                initial_data[f'question_{current_question.id}'] = previous_answer
             
         form = SurveyResponseForm(
             survey=survey,
@@ -421,7 +450,15 @@ def take_survey(request, survey_id, question_id=None):
                 field_name = f'question_{question.id}'
                 
                 if question.question_type == 'multiple_choice':
-                    request.session['survey_answers'][field_name] = request.POST.getlist(field_name, [])
+                    request.session['survey_answers'][field_name] = {
+                        'value': request.POST.getlist(field_name, []),
+                        'other': request.POST.get(f'{field_name}_other', '').strip(),
+                    }
+                elif question.question_type == 'single_choice':
+                    request.session['survey_answers'][field_name] = {
+                        'value': request.POST.get(field_name, ''),
+                        'other': request.POST.get(f'{field_name}_other', '').strip(),
+                    }
                 else:
                     request.session['survey_answers'][field_name] = request.POST.get(field_name, '')
                 
@@ -473,14 +510,23 @@ def take_survey(request, survey_id, question_id=None):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 self.fields = {k: v for k, v in form.fields.items() if k in question_fields}
+                other_field_name = f'question_{current_question.id}_other'
+                if other_field_name in form.fields:
+                    self.fields[other_field_name] = form.fields[other_field_name]
                 
                 # Set initial values from session if available
                 for field_name, field in self.fields.items():
                     if field_name in initial_data:
-                        if isinstance(field, forms.MultipleChoiceField) and isinstance(initial_data[field_name], str):
-                            field.initial = [initial_data[field_name]]  # Convert single value to list for multiple choice
+                        stored_value = initial_data[field_name]
+                        if isinstance(stored_value, dict):
+                            field.initial = stored_value.get('value')
+                            other_field = self.fields.get(f'{field_name}_other')
+                            if other_field:
+                                other_field.initial = stored_value.get('other')
+                        elif isinstance(field, forms.MultipleChoiceField) and isinstance(stored_value, str):
+                            field.initial = [stored_value]  # Convert single value to list for multiple choice
                         else:
-                            field.initial = initial_data[field_name]
+                            field.initial = stored_value
         
         form = SingleQuestionForm(initial=initial_data)
     

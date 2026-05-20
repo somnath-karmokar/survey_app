@@ -246,6 +246,19 @@
                                          aria-valuemax="100"></div>
                                 </div>
                             </div>
+
+                            <div class="info-card">
+                                <i class="fas fa-wallet"></i>
+                                <h5>Wallet</h5>
+                                <p>{{ user_profile.wallet_display }}</p>
+                                <div class="progress">
+                                    <div class="progress-bar" role="progressbar"
+                                         style="width: 100%"
+                                         aria-valuenow="100"
+                                         aria-valuemin="0"
+                                         aria-valuemax="100"></div>
+                                </div>
+                            </div>
                             
                             <div class="info-card">
                                 <i class="fas fa-award"></i>
@@ -327,9 +340,18 @@
                         
                         <!-- Quick Actions -->
                         <div class="d-flex justify-content-between mt-4 pt-3 border-top">
+                            {% if lucky_draw_eligible %}
                             <a href="{% url 'surveys:lucky_draw' %}" class="btn btn-outline-primary">
-                                <i class="fas fa-gift me-2"></i>Try Lucky Draw
+                                <i class="fas fa-gift me-2"></i>
+                                {% if survey_draw_eligible and poll_draw_eligible %}
+                                    Play Lucky Draw
+                                {% elif poll_draw_eligible %}
+                                    Play Poll Lucky Draw
+                                {% else %}
+                                    Play Survey Lucky Draw
+                                {% endif %}
                             </a>
+                            {% endif %}
                             <a href="{% url 'surveys:my_surveys' %}" class="btn btn-outline-secondary">
                                 <i class="fas fa-list me-2"></i>View My Surveys
                             </a>
