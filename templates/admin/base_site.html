@@ -1,0 +1,28 @@
+{% extends "admin/base.html" %}
+{% load i18n static %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Sudraw Admin') }}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/sudraw_admin.css' %}">
+{% endblock %}
+
+{% block stylesheets %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/sudraw_admin.css' %}">
+{% endblock %}
+
+{% block branding %}
+<div id="site-name" class="sudraw-admin-brand">
+    <a href="{% url 'admin:index' %}" aria-label="{{ site_header|default:_('Sudraw Administration') }}">
+        <span class="sudraw-admin-mark">S</span>
+        <span class="sudraw-admin-brand-text">
+            <strong>{{ site_header|default:_('Sudraw Administration') }}</strong>
+            <small>Operations Console</small>
+        </span>
+    </a>
+</div>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}

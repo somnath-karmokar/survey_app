@@ -130,8 +130,8 @@ DATABASES = {
         'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # staging
         # 'HOST': 'dpg-d68kcmh4tr6s73c8aetg-a',
         # 'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com',
-        'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com', # staging
-        # 'HOST': 'dpg-d7vmf33rjlhs73dsk92g-a', #staging
+        # 'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com', # staging
+        'HOST': 'dpg-d7vmf33rjlhs73dsk92g-a', #staging
         'PORT': '5432',
     }
 }
@@ -220,6 +220,7 @@ LOGIN_REDIRECT_URL = 'surveys:survey_list'
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
     os.path.join(BASE_DIR, 'survey_app/static'),
     os.path.join(BASE_DIR, 'survey_app/survey_app/static'),
     os.path.join(BASE_DIR, 'surveys/static'),
