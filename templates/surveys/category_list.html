@@ -186,7 +186,9 @@
             </div>
             {% empty %}
             <div class="col-12 text-center">
-                <div class="alert alert-info">Please register or login to start submitting surveys and polls.</div>
+                <div class="alert alert-info">
+                    Please <a href="{% url 'surveys:signup' %}#Register" class="alert-link">register</a> or <a href="{% url 'surveys:login' %}" class="alert-link">login</a> to start submitting surveys and polls.
+                </div>
             </div>
             {% endfor %}
         </div>
