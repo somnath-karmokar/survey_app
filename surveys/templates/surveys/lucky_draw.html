@@ -134,8 +134,12 @@
                                         data-number="{{ num }}"
                                         style="aspect-ratio: 1/1;"
                                         {% if not user_eligible %}disabled{% endif %}>
-                                    <span class="number-text" style="display: none;">{{ num }}</span>
-                                    <span class="number-placeholder">?</span>
+                                    {% if LUCKY_DRAW_CONFIG.SHOW_NUMBERS_FOR_TESTING %}
+                                        <span class="number-text" style="display: inline-block;">{{ num }}</span>
+                                    {% else %}
+                                        <span class="number-text" style="display: none;">{{ num }}</span>
+                                        <span class="number-placeholder">?</span>
+                                    {% endif %}
                                 </button>
                             </div>
                         {% endfor %}
@@ -243,10 +247,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (result.is_winner) {
                     resultMessage.className = 'alert alert-success';
-                    resultText.innerHTML = `<i class="fas fa-trophy me-2"></i> Congratulations! You won ${result.prize || 'the lucky draw'}!`;
+                    resultText.innerHTML = `<i class="fas fa-trophy me-2"></i> Congratulations! You selected ${number} and won ${result.prize || 'the lucky draw'}!`;
                 } else {
                     resultMessage.className = 'alert alert-danger';
-                    resultText.textContent = `Sorry! The number was ${result.winning_number}. Better luck next time!`;
+                    resultText.textContent = `Sorry! You selected ${number}, but the lucky number was ${result.winning_number}. Better luck next time!`;
+                }
+
+                if (numberGrid) {
+                    numberGrid.classList.add('d-none');
                 }
                 
                 // Update the lucky number display
