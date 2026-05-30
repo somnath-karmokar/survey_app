@@ -8,13 +8,23 @@ from django.conf.urls.static import static
 from surveys.admin import survey_admin_site
 from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
-from django.views.static import serve
+from django.http import HttpResponse
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
 from surveys import api_views
+
+# View to serve ads.txt file
+def ads_txt_view(request):
+    ads_file_path = settings.BASE_DIR / 'static' / 'ads.txt'
+    try:
+        with open(ads_file_path, 'r') as f:
+            content = f.read()
+        return HttpResponse(content, content_type='text/plain')
+    except FileNotFoundError:
+        return HttpResponse('google.com, pub-6294340250765146, DIRECT, f08c47fec0942fa0', content_type='text/plain')
 
 # Password Reset URLs
 password_reset_patterns = [
@@ -45,7 +55,7 @@ router.register(r'api/lucky-draw', api_views.LuckyDrawEntryViewSet, basename='lu
 
 urlpatterns = [
     # Serve ads.txt file for Google AdSense
-    path('ads.txt', serve, {'document_root': settings.BASE_DIR, 'path': 'ads.txt'}),
+    path('ads.txt', ads_txt_view),
     
     # Grappelli URLS
     path('grappelli/', include('grappelli.urls')),
@@ -83,8 +93,3 @@ if settings.DEBUG:
     
     # This will serve static files from STATICFILES_DIRS in development
     urlpatterns += staticfiles_urlpatterns()
-else:
-    # In production, also serve ads.txt file
-    urlpatterns += [
-        path('ads.txt', serve, {'document_root': settings.BASE_DIR, 'path': 'ads.txt'}),
-    ]
