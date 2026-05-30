@@ -8,6 +8,7 @@ from django.conf.urls.static import static
 from surveys.admin import survey_admin_site
 from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
+from django.views.static import serve
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -43,6 +44,9 @@ router.register(r'api/responses', api_views.SurveyResponseViewSet, basename='sur
 router.register(r'api/lucky-draw', api_views.LuckyDrawEntryViewSet, basename='luckydrawentry')
 
 urlpatterns = [
+    # Serve ads.txt file for Google AdSense
+    path('ads.txt', serve, {'document_root': settings.BASE_DIR, 'path': 'ads.txt'}),
+    
     # Grappelli URLS
     path('grappelli/', include('grappelli.urls')),
     
@@ -79,3 +83,8 @@ if settings.DEBUG:
     
     # This will serve static files from STATICFILES_DIRS in development
     urlpatterns += staticfiles_urlpatterns()
+else:
+    # In production, also serve ads.txt file
+    urlpatterns += [
+        path('ads.txt', serve, {'document_root': settings.BASE_DIR, 'path': 'ads.txt'}),
+    ]
