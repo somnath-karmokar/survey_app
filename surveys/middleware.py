@@ -55,6 +55,10 @@ class ExceptionRedirectMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        # Exclude ads.txt from redirect logic (needed for Google AdSense)
+        if request.path == '/ads.txt':
+            return self.get_response(request)
+
         try:
             response = self.get_response(request)
         except (Http404, PermissionDenied):
