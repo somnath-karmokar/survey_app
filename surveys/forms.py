@@ -4,11 +4,114 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
-from .models import Country, Choice, SurveyResponse, Answer, LuckyDrawEntry, UserProfile, Question, PollResponse, PollAnswer
+from .models import (
+    Country, Choice, SurveyResponse, Answer, LuckyDrawEntry, UserProfile,
+    Question, PollResponse, PollAnswer, WalletWithdrawalRequest
+)
 from django.contrib.auth.forms import UserChangeForm
 from django.contrib.auth import get_user_model
 from django.core.files.images import get_image_dimensions
 User = get_user_model()
+
+
+class WalletWithdrawalRequestForm(forms.ModelForm):
+    class Meta:
+        model = WalletWithdrawalRequest
+        fields = (
+            'full_name', 'email', 'amount', 'country', 'payment_method',
+            'paypal_email', 'bank_account_name', 'bank_name', 'bank_account_number',
+            'routing_number', 'sort_code', 'iban', 'nuban_number',
+            'transit_number', 'institution_number', 'gift_card_brand',
+            'gift_card_email', 'notes'
+        )
+        widgets = {
+            'full_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Name on bank/payment account'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Your email address'}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'min': '0.01', 'step': '0.01'}),
+            'country': forms.Select(attrs={'class': 'form-select', 'data-withdraw-country': 'true'}),
+            'payment_method': forms.Select(attrs={'class': 'form-select', 'data-payment-method': 'true'}),
+            'paypal_email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'PayPal email address'}),
+            'bank_account_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Account holder name'}),
+            'bank_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Bank name'}),
+            'bank_account_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Account number'}),
+            'routing_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '9 digit routing number'}),
+            'sort_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '6 digit sort code'}),
+            'iban': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'IBAN'}),
+            'nuban_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '10 digit NUBAN'}),
+            'transit_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '5 digit transit number'}),
+            'institution_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '3 digit institution number'}),
+            'gift_card_brand': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Amazon, Flipkart, etc.'}),
+            'gift_card_email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email for gift card delivery'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Optional notes for admin'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.profile = kwargs.pop('profile')
+        super().__init__(*args, **kwargs)
+        self.fields['country'].queryset = Country.objects.filter(is_active=True).order_by('name')
+        self.fields['country'].empty_label = 'Select country of residence'
+        self.fields['full_name'].initial = self.profile.user.get_full_name() or self.profile.user.username
+        self.fields['email'].initial = self.profile.user.email
+        if self.profile.country_id:
+            self.fields['country'].initial = self.profile.country_id
+
+        for field in self.fields.values():
+            field.widget.attrs.setdefault('class', 'form-control')
+
+    def clean_amount(self):
+        amount = self.cleaned_data.get('amount')
+        wallet_balance = self.profile.wallet_balance or 0
+        if amount and amount > wallet_balance:
+            raise forms.ValidationError('Withdrawal amount cannot be greater than your current wallet balance.')
+        return amount
+
+    def clean(self):
+        cleaned_data = super().clean()
+        payment_method = cleaned_data.get('payment_method')
+        country = cleaned_data.get('country')
+        country_code = str(getattr(country, 'code', '') or '').upper()
+
+        if payment_method == WalletWithdrawalRequest.PAYMENT_METHOD_PAYPAL:
+            if not cleaned_data.get('paypal_email'):
+                self.add_error('paypal_email', 'PayPal email address is required.')
+
+        if payment_method == WalletWithdrawalRequest.PAYMENT_METHOD_BANK:
+            if not cleaned_data.get('bank_account_name'):
+                self.add_error('bank_account_name', 'Account holder name is required.')
+            if not cleaned_data.get('bank_account_number') and country_code not in ('GB', 'NG'):
+                self.add_error('bank_account_number', 'Account number is required.')
+
+            if country_code == 'US' and not cleaned_data.get('routing_number'):
+                self.add_error('routing_number', 'ABA routing number is required for United States bank transfer.')
+            elif country_code == 'GB' and not (cleaned_data.get('sort_code') and cleaned_data.get('bank_account_number')) and not cleaned_data.get('iban'):
+                self.add_error('iban', 'Provide either Sort Code with Account Number, or IBAN for United Kingdom transfer.')
+            elif country_code == 'NG':
+                if not cleaned_data.get('nuban_number'):
+                    self.add_error('nuban_number', 'NUBAN account number is required for Nigeria bank transfer.')
+                if not cleaned_data.get('bank_name'):
+                    self.add_error('bank_name', 'Bank name is required for Nigeria bank transfer.')
+            elif country_code == 'CA':
+                if not cleaned_data.get('transit_number'):
+                    self.add_error('transit_number', 'Transit number is required for Canada EFT transfer.')
+                if not cleaned_data.get('institution_number'):
+                    self.add_error('institution_number', 'Institution number is required for Canada EFT transfer.')
+
+        if payment_method == WalletWithdrawalRequest.PAYMENT_METHOD_GIFT_CARD:
+            if not cleaned_data.get('gift_card_brand'):
+                self.add_error('gift_card_brand', 'Gift card brand is required.')
+            if not cleaned_data.get('gift_card_email'):
+                self.add_error('gift_card_email', 'Gift card delivery email is required.')
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        request = super().save(commit=False)
+        request.profile = self.profile
+        request.currency_code = self.profile.wallet_currency_code
+        request.currency_symbol = self.profile.wallet_currency_symbol
+        if commit:
+            request.save()
+        return request
 
 class BaseAnswerFormSet(BaseFormSet):
     def clean(self):

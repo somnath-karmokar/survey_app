@@ -1,0 +1,459 @@
+{% extends 'frontend/base_dashboard.html' %}
+
+{% block title %}Request Withdrawal - Sudraw{% endblock %}
+
+{% block page_title %}Request Withdrawal{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    .withdraw-shell {
+        max-width: 980px;
+        margin: 0 auto 3rem;
+    }
+
+    .withdraw-summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.25rem;
+        border-radius: 8px;
+        color: #fff;
+        background: linear-gradient(135deg, #12343b 0%, #1f7a8c 70%, #f2643c 100%);
+    }
+
+    .withdraw-summary strong {
+        display: block;
+        font-size: 2rem;
+        line-height: 1.1;
+    }
+
+    .withdraw-card {
+        border: 1px solid #e6eaf0;
+        border-radius: 8px;
+        box-shadow: 0 16px 36px rgba(20, 33, 43, 0.08);
+        overflow: hidden;
+    }
+
+    .withdraw-section {
+        padding: 1.25rem;
+        border-bottom: 1px solid #edf1f5;
+    }
+
+    .withdraw-section:last-child {
+        border-bottom: 0;
+    }
+
+    .withdraw-section-title {
+        margin: 0 0 1rem;
+        font-size: 1rem;
+        font-weight: 800;
+        color: #14212b;
+    }
+
+    .method-fields {
+        display: none;
+    }
+
+    .method-fields.active {
+        display: block;
+    }
+
+    .country-bank-fields {
+        display: none;
+    }
+
+    .country-bank-fields.active {
+        display: block;
+    }
+
+    .help-strip {
+        padding: 0.85rem 1rem;
+        border-radius: 8px;
+        background: #f7fafb;
+        color: #687381;
+        font-size: 0.9rem;
+    }
+
+    .withdraw-card .field-error {
+        display: none;
+        margin-top: 0.35rem;
+        color: #dc3545;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .withdraw-card .form-control.is-invalid,
+    .withdraw-card .form-select.is-invalid {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.12);
+    }
+
+    .withdraw-card .errorlist {
+        margin: 0.35rem 0 0;
+        padding: 0;
+        color: #dc3545;
+        list-style: none;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="withdraw-shell">
+    <div class="withdraw-summary mb-4">
+        <div>
+            <span class="opacity-75">Available Wallet Balance</span>
+            <strong>{{ wallet_balance_display }}</strong>
+        </div>
+        <i class="fas fa-wallet fa-3x opacity-75"></i>
+    </div>
+
+    <form method="post" class="card withdraw-card" id="withdrawal-form" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger m-3 mb-0">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <section class="withdraw-section">
+            <h3 class="withdraw-section-title">User Identification</h3>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="{{ form.full_name.id_for_label }}">Full Name</label>
+                    {{ form.full_name }}
+                    {{ form.full_name.errors }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="{{ form.email.id_for_label }}">Email Address</label>
+                    {{ form.email }}
+                    {{ form.email.errors }}
+                </div>
+            </div>
+        </section>
+
+        <section class="withdraw-section">
+            <h3 class="withdraw-section-title">Withdrawal Details</h3>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Current Wallet Balance</label>
+                    <input type="text" class="form-control" value="{{ wallet_balance_display }}" readonly>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="{{ form.amount.id_for_label }}">Withdrawal Amount</label>
+                    {{ form.amount }}
+                    {{ form.amount.errors }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="{{ form.country.id_for_label }}">Country of Residence</label>
+                    {{ form.country }}
+                    {{ form.country.errors }}
+                </div>
+            </div>
+        </section>
+
+        <section class="withdraw-section">
+            <h3 class="withdraw-section-title">Payment Method</h3>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="{{ form.payment_method.id_for_label }}">Select Payment Method</label>
+                    {{ form.payment_method }}
+                    {{ form.payment_method.errors }}
+                </div>
+            </div>
+
+            <div class="method-fields mt-3" data-method-fields="paypal">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="{{ form.paypal_email.id_for_label }}">PayPal Email Address</label>
+                        {{ form.paypal_email }}
+                        {{ form.paypal_email.errors }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="method-fields mt-3" data-method-fields="bank_transfer">
+                <div class="help-strip mb-3">
+                    Bank transfer fields adjust by country. UK: Sort Code and Account Number, or IBAN. USA: Routing Number and Account Number. Nigeria: NUBAN and Bank Name. Canada: Transit, Institution, and Account Number.
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="{{ form.bank_account_name.id_for_label }}">Account Holder Name</label>
+                        {{ form.bank_account_name }}
+                        {{ form.bank_account_name.errors }}
+                    </div>
+                    <div class="col-md-6 country-bank-fields" data-country-fields="NG">
+                        <label class="form-label" for="{{ form.bank_name.id_for_label }}">Bank Name</label>
+                        {{ form.bank_name }}
+                        {{ form.bank_name.errors }}
+                    </div>
+                    <div class="col-md-6 country-bank-fields" data-country-fields="US CA GB">
+                        <label class="form-label" for="{{ form.bank_account_number.id_for_label }}">Account Number</label>
+                        {{ form.bank_account_number }}
+                        {{ form.bank_account_number.errors }}
+                    </div>
+                    <div class="col-md-6 country-bank-fields" data-country-fields="US">
+                        <label class="form-label" for="{{ form.routing_number.id_for_label }}">ABA Routing Number</label>
+                        {{ form.routing_number }}
+                        {{ form.routing_number.errors }}
+                    </div>
+                    <div class="col-md-6 country-bank-fields" data-country-fields="GB">
+                        <label class="form-label" for="{{ form.sort_code.id_for_label }}">Sort Code</label>
+                        {{ form.sort_code }}
+                        {{ form.sort_code.errors }}
+                    </div>
+                    <div class="col-md-6 country-bank-fields" data-country-fields="GB">
+                        <label class="form-label" for="{{ form.iban.id_for_label }}">IBAN</label>
+                        {{ form.iban }}
+                        {{ form.iban.errors }}
+                    </div>
+                    <div class="col-md-6 country-bank-fields" data-country-fields="NG">
+                        <label class="form-label" for="{{ form.nuban_number.id_for_label }}">NUBAN Account Number</label>
+                        {{ form.nuban_number }}
+                        {{ form.nuban_number.errors }}
+                    </div>
+                    <div class="col-md-6 country-bank-fields" data-country-fields="CA">
+                        <label class="form-label" for="{{ form.transit_number.id_for_label }}">Transit Number</label>
+                        {{ form.transit_number }}
+                        {{ form.transit_number.errors }}
+                    </div>
+                    <div class="col-md-6 country-bank-fields" data-country-fields="CA">
+                        <label class="form-label" for="{{ form.institution_number.id_for_label }}">Institution Number</label>
+                        {{ form.institution_number }}
+                        {{ form.institution_number.errors }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="method-fields mt-3" data-method-fields="gift_card">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="{{ form.gift_card_brand.id_for_label }}">Gift Card Brand</label>
+                        {{ form.gift_card_brand }}
+                        {{ form.gift_card_brand.errors }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="{{ form.gift_card_email.id_for_label }}">Delivery Email</label>
+                        {{ form.gift_card_email }}
+                        {{ form.gift_card_email.errors }}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="withdraw-section">
+            <label class="form-label" for="{{ form.notes.id_for_label }}">Notes</label>
+            {{ form.notes }}
+            {{ form.notes.errors }}
+        </section>
+
+        <div class="withdraw-section d-flex justify-content-between flex-wrap gap-2">
+            <a href="{% url 'surveys:wallet_history' %}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-paper-plane me-2"></i>Submit Request
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{{ country_code_map|json_script:"withdraw-country-code-map" }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('withdrawal-form');
+        const methodSelect = document.querySelector('[data-payment-method]');
+        const countrySelect = document.querySelector('[data-withdraw-country]');
+        const methodGroups = document.querySelectorAll('[data-method-fields]');
+        const countryGroups = document.querySelectorAll('[data-country-fields]');
+        const walletBalance = parseFloat('{{ profile.wallet_balance|default:"0" }}');
+        const countryCodeMapElement = document.getElementById('withdraw-country-code-map');
+        const countryCodeMap = countryCodeMapElement ? JSON.parse(countryCodeMapElement.textContent) : {};
+
+        function selectedCountryCode() {
+            if (!countrySelect || !countrySelect.selectedOptions.length) {
+                return '';
+            }
+            if (countryCodeMap[countrySelect.value]) {
+                return countryCodeMap[countrySelect.value];
+            }
+            const text = countrySelect.selectedOptions[0].textContent || '';
+            const match = text.match(/\(([A-Z]{2})\)/);
+            return match ? match[1] : '';
+        }
+
+        function getField(name) {
+            return form ? form.querySelector('[name="' + name + '"]') : null;
+        }
+
+        function clearFieldError(field) {
+            if (!field) {
+                return;
+            }
+            field.classList.remove('is-invalid');
+            const wrapper = field.closest('.col-md-4, .col-md-6, .withdraw-section');
+            const error = wrapper ? wrapper.querySelector('.field-error[data-for="' + field.name + '"]') : null;
+            if (error) {
+                error.textContent = '';
+                error.style.display = 'none';
+            }
+        }
+
+        function setFieldError(field, message) {
+            if (!field) {
+                return false;
+            }
+            field.classList.add('is-invalid');
+            const wrapper = field.closest('.col-md-4, .col-md-6, .withdraw-section');
+            let error = wrapper ? wrapper.querySelector('.field-error[data-for="' + field.name + '"]') : null;
+            if (!error && wrapper) {
+                error = document.createElement('div');
+                error.className = 'field-error';
+                error.dataset.for = field.name;
+                wrapper.appendChild(error);
+            }
+            if (error) {
+                error.textContent = message;
+                error.style.display = 'block';
+            }
+            return false;
+        }
+
+        function hasValue(field) {
+            return field && field.value.trim() !== '';
+        }
+
+        function requireField(errors, name, message) {
+            const field = getField(name);
+            if (!hasValue(field)) {
+                errors.push(function() {
+                    return setFieldError(field, message);
+                });
+            }
+        }
+
+        function refreshFields() {
+            const method = methodSelect ? methodSelect.value : '';
+            const country = selectedCountryCode();
+
+            methodGroups.forEach(function(group) {
+                group.classList.toggle('active', group.dataset.methodFields === method);
+            });
+
+            countryGroups.forEach(function(group) {
+                const countries = (group.dataset.countryFields || '').split(' ');
+                group.classList.toggle('active', method === 'bank_transfer' && countries.indexOf(country) !== -1);
+            });
+        }
+
+        function validateWithdrawalForm() {
+            const errors = [];
+            const fields = form.querySelectorAll('input, select, textarea');
+            fields.forEach(clearFieldError);
+
+            requireField(errors, 'full_name', 'Full name is required.');
+            requireField(errors, 'email', 'Email address is required.');
+            requireField(errors, 'amount', 'Withdrawal amount is required.');
+            requireField(errors, 'country', 'Country of residence is required.');
+            requireField(errors, 'payment_method', 'Payment method is required.');
+
+            const amountField = getField('amount');
+            const amount = amountField ? parseFloat(amountField.value) : 0;
+            if (amountField && amountField.value && (isNaN(amount) || amount <= 0)) {
+                errors.push(function() {
+                    return setFieldError(amountField, 'Enter an amount greater than 0.');
+                });
+            } else if (amountField && amount > walletBalance) {
+                errors.push(function() {
+                    return setFieldError(amountField, 'Amount cannot be greater than your wallet balance.');
+                });
+            }
+
+            const method = methodSelect ? methodSelect.value : '';
+            const country = selectedCountryCode();
+
+            if (method === 'paypal') {
+                requireField(errors, 'paypal_email', 'PayPal email address is required.');
+            }
+
+            if (method === 'bank_transfer') {
+                requireField(errors, 'bank_account_name', 'Account holder name is required.');
+
+                if (country === 'US') {
+                    requireField(errors, 'routing_number', 'ABA routing number is required.');
+                    requireField(errors, 'bank_account_number', 'Account number is required.');
+                } else if (country === 'GB') {
+                    const hasSortAndAccount = hasValue(getField('sort_code')) && hasValue(getField('bank_account_number'));
+                    const hasIban = hasValue(getField('iban'));
+                    if (!hasSortAndAccount && !hasIban) {
+                        errors.push(function() {
+                            return setFieldError(getField('iban'), 'Provide IBAN, or Sort Code with Account Number.');
+                        });
+                        errors.push(function() {
+                            return setFieldError(getField('sort_code'), 'Provide Sort Code with Account Number, or IBAN.');
+                        });
+                    }
+                } else if (country === 'NG') {
+                    requireField(errors, 'nuban_number', 'NUBAN account number is required.');
+                    requireField(errors, 'bank_name', 'Bank name is required.');
+                } else if (country === 'CA') {
+                    requireField(errors, 'transit_number', 'Transit number is required.');
+                    requireField(errors, 'institution_number', 'Institution number is required.');
+                    requireField(errors, 'bank_account_number', 'Account number is required.');
+                } else {
+                    requireField(errors, 'bank_account_number', 'Account number is required.');
+                }
+            }
+
+            if (method === 'gift_card') {
+                requireField(errors, 'gift_card_brand', 'Gift card brand is required.');
+                requireField(errors, 'gift_card_email', 'Gift card delivery email is required.');
+            }
+
+            if (errors.length) {
+                errors.forEach(function(showError) {
+                    showError();
+                });
+                const firstInvalid = form.querySelector('.is-invalid');
+                if (firstInvalid) {
+                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstInvalid.focus({ preventScroll: true });
+                }
+                return false;
+            }
+
+            return true;
+        }
+
+        if (methodSelect) {
+            methodSelect.addEventListener('change', function() {
+                refreshFields();
+                if (form) {
+                    form.querySelectorAll('.is-invalid').forEach(clearFieldError);
+                }
+            });
+        }
+        if (countrySelect) {
+            countrySelect.addEventListener('change', function() {
+                refreshFields();
+                if (form) {
+                    form.querySelectorAll('.is-invalid').forEach(clearFieldError);
+                }
+            });
+        }
+        if (form) {
+            form.addEventListener('input', function(event) {
+                clearFieldError(event.target);
+            });
+            form.addEventListener('submit', function(event) {
+                if (!validateWithdrawalForm()) {
+                    event.preventDefault();
+                }
+            });
+        }
+        refreshFields();
+    });
+</script>
+{% endblock %}
