@@ -7,7 +7,7 @@ from django.utils import timezone
 from datetime import timedelta
 from .models import (
     Survey, SurveyCategory, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry,
-    Poll, PollResponse, WalletTransaction, Question, PollQuestion
+    Poll, PollResponse, WalletTransaction, WalletWithdrawalRequest, Question, PollQuestion
 )
 from django.http import JsonResponse, HttpResponseRedirect
 from django.core.mail import send_mail
@@ -27,7 +27,7 @@ from django.contrib import messages
 from django.urls import reverse_lazy
 from django.contrib.auth.views import LoginView
 from django.http import HttpResponseRedirect
-from .forms import UserRegistrationForm, UserRegisterForm, PollResponseForm
+from .forms import UserRegistrationForm, UserRegisterForm, PollResponseForm, WalletWithdrawalRequestForm
 
 from django.contrib.auth.views import LoginView as BaseLoginView
 from django.contrib.auth import authenticate, login as auth_login
@@ -529,10 +529,51 @@ class WalletTransactionHistoryView(LoginRequiredMixin, ListView):
         context.update({
             'profile': profile,
             'wallet_balance_display': profile.wallet_display,
+            'withdrawal_requests': profile.withdrawal_requests.select_related('wallet_transaction')[:8],
             'active_page': 'wallet',
             'lucky_draw_eligible': LuckyDrawView().is_eligible(self.request.user),
         })
         return context
+
+
+class WalletWithdrawalRequestView(LoginRequiredMixin, CreateView):
+    model = WalletWithdrawalRequest
+    form_class = WalletWithdrawalRequestForm
+    template_name = 'frontend/wallet_withdrawal_form.html'
+    login_url = 'surveys:login'
+
+    def get_profile(self):
+        profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
+        return profile
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['profile'] = self.get_profile()
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        profile = self.get_profile()
+        from .lucky_draw import LuckyDrawView
+        context.update({
+            'profile': profile,
+            'wallet_balance_display': profile.wallet_display,
+            'country_code_map': {
+                str(country.pk): str(country.code).upper()
+                for country in Country.objects.filter(is_active=True)
+            },
+            'active_page': 'wallet',
+            'lucky_draw_eligible': LuckyDrawView().is_eligible(self.request.user),
+        })
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Your withdrawal request has been submitted for admin approval.')
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('surveys:wallet_history')
+
 
 class HomePageView(TemplateView):
     template_name = 'frontpage/index.html'

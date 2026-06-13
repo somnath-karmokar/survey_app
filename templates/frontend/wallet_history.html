@@ -29,18 +29,79 @@
         color: #198754;
         flex-shrink: 0;
     }
+    .transaction-icon.debit {
+        background: #fff1f0;
+        color: #dc3545;
+    }
+    .withdrawal-status {
+        border-radius: 999px;
+        padding: 0.25rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .withdrawal-status.pending {
+        background: #fff7e6;
+        color: #9a6700;
+    }
+    .withdrawal-status.approved {
+        background: #e9f7ef;
+        color: #146c43;
+    }
+    .withdrawal-status.rejected {
+        background: #fff1f0;
+        color: #b42318;
+    }
 </style>
 {% endblock %}
 
 {% block dashboard_content %}
 <div class="container-fluid">
     <div class="wallet-summary mb-4">
-        <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div>
                 <p class="mb-1 opacity-75">Current Balance</p>
                 <div class="balance">{{ wallet_balance_display }}</div>
             </div>
-            <i class="fas fa-wallet fa-3x opacity-75"></i>
+            <div class="text-end">
+                <i class="fas fa-wallet fa-3x opacity-75 d-block mb-3"></i>
+                <a href="{% url 'surveys:wallet_withdrawal_request' %}" class="btn btn-warning fw-bold">
+                    <i class="fas fa-money-bill-transfer me-2"></i>Request Withdrawal
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Withdrawal Requests</h5>
+        </div>
+        <div class="card-body">
+            {% if withdrawal_requests %}
+                <div class="list-group list-group-flush">
+                    {% for request in withdrawal_requests %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between align-items-start gap-3">
+                                <div>
+                                    <h6 class="mb-1">{{ request.amount_display }} via {{ request.get_payment_method_display }}</h6>
+                                    <small class="text-muted">
+                                        Requested {{ request.created_at|date:"M d, Y H:i" }}
+                                        {% if request.reviewed_at %}
+                                            · Reviewed {{ request.reviewed_at|date:"M d, Y H:i" }}
+                                        {% endif %}
+                                    </small>
+                                    {% if request.admin_note %}
+                                        <div class="small text-muted mt-1">{{ request.admin_note }}</div>
+                                    {% endif %}
+                                </div>
+                                <span class="withdrawal-status {{ request.status }}">{{ request.get_status_display }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted mb-0">No withdrawal requests submitted yet.</p>
+            {% endif %}
         </div>
     </div>
 
@@ -55,8 +116,12 @@
                         <div class="list-group-item px-0">
                             <div class="d-flex align-items-center justify-content-between">
                                 <div class="d-flex align-items-center">
-                                    <span class="transaction-icon me-3">
-                                        <i class="fas fa-arrow-down"></i>
+                                    <span class="transaction-icon {% if transaction.transaction_type == 'debit' %}debit{% endif %} me-3">
+                                        {% if transaction.transaction_type == 'credit' %}
+                                            <i class="fas fa-arrow-down"></i>
+                                        {% else %}
+                                            <i class="fas fa-arrow-up"></i>
+                                        {% endif %}
                                     </span>
                                     <div>
                                         <h6 class="mb-1">{{ transaction.description }}</h6>
@@ -69,7 +134,9 @@
                                     </div>
                                 </div>
                                 <div class="text-end">
-                                    <strong class="text-success">+{{ transaction.amount_display }}</strong>
+                                    <strong class="{% if transaction.transaction_type == 'credit' %}text-success{% else %}text-danger{% endif %}">
+                                        {% if transaction.transaction_type == 'credit' %}+{% else %}-{% endif %}{{ transaction.amount_display }}
+                                    </strong>
                                     <div class="small text-muted">Balance {{ transaction.balance_after_display }}</div>
                                 </div>
                             </div>

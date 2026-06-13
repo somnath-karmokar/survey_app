@@ -16,7 +16,7 @@ from .models import (
     SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer,
     LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement,
     Poll, PollQuestion, PollChoice, PollResponse, PollAnswer, CountryLuckyDrawConfig,
-    WalletTransaction, UserWallet
+    WalletTransaction, UserWallet, WalletWithdrawalRequest
 )
 from django.utils.safestring import mark_safe
 from django.urls import path
@@ -197,6 +197,115 @@ class WalletTransactionAdmin(admin.ModelAdmin):
     def balance_after_display(self, obj):
         return obj.balance_after_display
     balance_after_display.short_description = 'Balance After'
+
+    def has_add_permission(self, request):
+        return False
+
+
+class WalletWithdrawalRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        'profile', 'amount_display', 'payment_method', 'country',
+        'status', 'created_at', 'reviewed_by', 'reviewed_at'
+    )
+    list_filter = ('status', 'payment_method', 'country', 'currency_code', 'created_at')
+    search_fields = (
+        'profile__user__username', 'profile__user__email', 'full_name',
+        'email', 'paypal_email', 'bank_name', 'bank_account_number',
+        'routing_number', 'sort_code', 'iban', 'nuban_number',
+        'gift_card_brand', 'gift_card_email'
+    )
+    readonly_fields = (
+        'profile', 'full_name', 'email', 'amount', 'currency_code',
+        'currency_symbol', 'country', 'payment_method', 'paypal_email',
+        'bank_account_name', 'bank_name', 'bank_account_number',
+        'routing_number', 'sort_code', 'iban', 'nuban_number',
+        'transit_number', 'institution_number', 'gift_card_brand',
+        'gift_card_email', 'notes', 'reviewed_by', 'reviewed_at',
+        'wallet_transaction', 'created_at', 'updated_at'
+    )
+    fieldsets = (
+        ('Request', {
+            'fields': (
+                'profile', 'full_name', 'email', 'amount', 'currency_code',
+                'currency_symbol', 'country', 'payment_method', 'status',
+                'admin_note'
+            )
+        }),
+        ('PayPal Details', {'fields': ('paypal_email',)}),
+        ('Bank Details', {
+            'fields': (
+                'bank_account_name', 'bank_name', 'bank_account_number',
+                'routing_number', 'sort_code', 'iban', 'nuban_number',
+                'transit_number', 'institution_number'
+            )
+        }),
+        ('Gift Card Details', {'fields': ('gift_card_brand', 'gift_card_email')}),
+        ('Review', {'fields': ('reviewed_by', 'reviewed_at', 'wallet_transaction', 'notes')}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at')}),
+    )
+    actions = ('approve_requests', 'reject_requests')
+    list_select_related = ('profile', 'profile__user', 'country', 'reviewed_by', 'wallet_transaction')
+    date_hierarchy = 'created_at'
+
+    def amount_display(self, obj):
+        return obj.amount_display
+    amount_display.short_description = 'Amount'
+
+    def save_model(self, request, obj, form, change):
+        requested_status = obj.status
+        old_status = None
+        if change:
+            old_status = WalletWithdrawalRequest.objects.only('status').get(pk=obj.pk).status
+
+        if change and old_status != WalletWithdrawalRequest.STATUS_PENDING and requested_status != old_status:
+            obj.status = old_status
+            messages.error(request, 'Reviewed withdrawal requests cannot have their status changed.')
+            super().save_model(request, obj, form, change)
+            return
+
+        if change and old_status == WalletWithdrawalRequest.STATUS_PENDING and requested_status in (
+            WalletWithdrawalRequest.STATUS_APPROVED,
+            WalletWithdrawalRequest.STATUS_REJECTED,
+        ):
+            obj.status = old_status
+            super().save_model(request, obj, form, change)
+            obj.refresh_from_db()
+            try:
+                if requested_status == WalletWithdrawalRequest.STATUS_APPROVED:
+                    obj.approve(reviewed_by=request.user)
+                    messages.success(request, 'Withdrawal approved and wallet balance debited.')
+                else:
+                    obj.reject(reviewed_by=request.user)
+                    messages.success(request, 'Withdrawal request rejected.')
+            except Exception as exc:
+                messages.error(request, str(exc))
+            return
+
+        super().save_model(request, obj, form, change)
+
+    def approve_requests(self, request, queryset):
+        approved = 0
+        for withdrawal in queryset.filter(status=WalletWithdrawalRequest.STATUS_PENDING):
+            try:
+                withdrawal.approve(reviewed_by=request.user)
+                approved += 1
+            except Exception as exc:
+                messages.error(request, f'{withdrawal}: {exc}')
+        if approved:
+            messages.success(request, f'{approved} withdrawal request(s) approved.')
+    approve_requests.short_description = 'Approve selected pending withdrawal requests'
+
+    def reject_requests(self, request, queryset):
+        rejected = 0
+        for withdrawal in queryset.filter(status=WalletWithdrawalRequest.STATUS_PENDING):
+            try:
+                withdrawal.reject(reviewed_by=request.user)
+                rejected += 1
+            except Exception as exc:
+                messages.error(request, f'{withdrawal}: {exc}')
+        if rejected:
+            messages.success(request, f'{rejected} withdrawal request(s) rejected.')
+    reject_requests.short_description = 'Reject selected pending withdrawal requests'
 
     def has_add_permission(self, request):
         return False
@@ -876,6 +985,7 @@ survey_admin_site.register(PollAnswer, DefaultModelAdmin)
 survey_admin_site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
 survey_admin_site.register(UserWallet, UserWalletAdmin)
 survey_admin_site.register(WalletTransaction, WalletTransactionAdmin)
+survey_admin_site.register(WalletWithdrawalRequest, WalletWithdrawalRequestAdmin)
 survey_admin_site.register(SurveyResponse, SurveyResponseAdmin)
 survey_admin_site.register(EmailVerification, EmailVerificationAdmin)
 survey_admin_site.register(Answer, DefaultModelAdmin)
@@ -896,5 +1006,6 @@ admin.site.register(PollAnswer, DefaultModelAdmin)
 admin.site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
 admin.site.register(UserWallet, UserWalletAdmin)
 admin.site.register(WalletTransaction, WalletTransactionAdmin)
+admin.site.register(WalletWithdrawalRequest, WalletWithdrawalRequestAdmin)
 admin.site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 admin.site.register(MilestoneAchievement, MilestoneAchievementAdmin)
