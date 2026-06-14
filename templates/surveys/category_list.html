@@ -14,11 +14,18 @@
     .features_area {
         padding: 80px 0;
     }
+    .features_area .row > [class*="col-"] {
+        display: flex;
+        margin-bottom: 30px;
+    }
     .serv_box {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
         background: #fff;
         border-radius: 10px;
         overflow: hidden;
-        margin-bottom: 30px;
         box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         transition: all 0.3s ease;
     }
@@ -40,6 +47,9 @@
         transform: scale(1.1);
     }
     .serv_cont {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
         padding: 25px;
     }
     .serv_icon {
@@ -66,6 +76,7 @@
         color: #333;
     }
     .serv_cont p {
+        flex: 1;
         color: #666;
         margin-bottom: 20px;
         font-size: 15px;
@@ -80,6 +91,7 @@
         border-radius: 5px;
         text-decoration: none;
         text-align: center;
+        margin-top: auto;
         transition: all 0.3s ease;
     }
     .serv_cont a:hover {
