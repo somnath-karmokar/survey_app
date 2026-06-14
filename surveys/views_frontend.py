@@ -38,6 +38,7 @@ from django.shortcuts import redirect, render
 from django.http import HttpResponseRedirect, JsonResponse
 import logging
 from django.conf import settings as django_settings
+from .emails import send_withdrawal_request_admin_notification
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -568,8 +569,13 @@ class WalletWithdrawalRequestView(LoginRequiredMixin, CreateView):
         return context
 
     def form_valid(self, form):
+        response = super().form_valid(form)
+        try:
+            send_withdrawal_request_admin_notification(self.object)
+        except Exception:
+            logger.exception('Failed to send withdrawal request admin email for request %s', self.object.pk)
         messages.success(self.request, 'Your withdrawal request has been submitted for admin approval.')
-        return super().form_valid(form)
+        return response
 
     def get_success_url(self):
         return reverse_lazy('surveys:wallet_history')
