@@ -13,7 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from .models import (
     SurveyCategory, Survey, Question, 
-    Choice, SurveyResponse, Answer, LuckyDrawEntry
+    Choice, SurveyResponse, Answer, LuckyDrawEntry, PollResponse, WalletTransaction
 )
 from .forms import SurveyResponseForm
 import random
@@ -320,19 +320,45 @@ def user_profile(request):
     lucky_draw_view = LuckyDrawView()
     lucky_draw_context = lucky_draw_view.get_eligibility_context(user)
     
-    # Sample data - replace with your actual data
-    recent_activities = [
+    survey_activities = [
         {
-            'title': 'Completed "Consumer Preferences Survey"',
-            'date': timezone.now() - timedelta(hours=2),
+            'title': f'Completed "{response.survey.name}"',
+            'date': timezone.localtime(response.completed_at),
             'icon': 'check-circle'
-        },
-        {
-            'title': 'Earned 50 points',
-            'date': timezone.now() - timedelta(days=1),
-            'icon': 'coins'
         }
+        for response in SurveyResponse.objects.filter(
+            user=user,
+            completed_at__isnull=False
+        ).select_related('survey').order_by('-completed_at')[:5]
     ]
+
+    poll_activities = [
+        {
+            'title': f'Completed poll "{response.poll.title}"',
+            'date': timezone.localtime(response.submitted_at),
+            'icon': 'square-poll-vertical'
+        }
+        for response in PollResponse.objects.filter(
+            user=user
+        ).select_related('poll').order_by('-submitted_at')[:5]
+    ]
+
+    wallet_activities = [
+        {
+            'title': f'{transaction.get_transaction_type_display()} {transaction.amount_display}: {transaction.description}',
+            'date': timezone.localtime(transaction.created_at),
+            'icon': 'wallet'
+        }
+        for transaction in WalletTransaction.objects.filter(
+            profile=user_profile
+        ).order_by('-created_at')[:5]
+    ]
+
+    recent_activities = sorted(
+        survey_activities + poll_activities + wallet_activities,
+        key=lambda activity: activity['date'],
+        reverse=True
+    )[:5]
     
     context = {
         'user': user,
