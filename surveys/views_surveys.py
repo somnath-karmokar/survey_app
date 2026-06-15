@@ -110,6 +110,7 @@ def survey_detail(request, survey_id, question_index=0):
     # Convert question_index to integer and ensure it's within bounds
     question_index = max(0, min(int(question_index), total_questions - 1))
     current_question = questions[question_index]
+    show_ad = False
     
     # Handle form submission
     if request.method == 'POST':
@@ -247,10 +248,10 @@ def survey_detail(request, survey_id, question_index=0):
                 
                 messages.success(request, 'Thank you for completing the survey!')
                 return redirect('surveys:survey_complete', survey_id=survey.id)
+        if not form.is_valid():
+            messages.error(request, 'Please correct the highlighted answer before continuing.')
     else:
         # For GET requests, ads should not be shown (only triggered during POST)
-        show_ad = False
-        
         # For GET requests, check if there's a previous answer in session
         session_key = f'survey_{survey_id}_answers'
         initial_data = {}

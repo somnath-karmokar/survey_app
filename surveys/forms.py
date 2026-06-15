@@ -554,7 +554,7 @@ class SurveyResponseForm(forms.Form):
                 other_selected = answer_value == self.OTHER_CHOICE_VALUE
 
             if other_selected and not other_text:
-                self.add_error(f'{field_name}_other', 'Please specify your other answer.')
+                self.add_error(f'{field_name}_other', 'Please give value for Other.')
 
         return cleaned_data
 
