@@ -1,0 +1,37 @@
+<html>
+<body style="font-family: Arial, sans-serif; color: #212529; line-height: 1.6;">
+    <p>A new wallet withdrawal request has been submitted on {{ site_name }}.</p>
+
+    <p>
+        <strong>User:</strong> {{ user.get_full_name|default:user.username }}<br>
+        <strong>Username:</strong> {{ user.username }}<br>
+        <strong>Email:</strong> {{ withdrawal.email }}<br>
+        <strong>Amount:</strong> {{ withdrawal.amount_display }}<br>
+        <strong>Payment method:</strong> {{ withdrawal.get_payment_method_display }}<br>
+        <strong>Country:</strong> {{ withdrawal.country|default:"Not provided" }}<br>
+        <strong>Requested at:</strong> {{ withdrawal.created_at|date:"M d, Y H:i" }}
+    </p>
+
+    {% if withdrawal.payment_method == withdrawal.PAYMENT_METHOD_PAYPAL %}
+        <p><strong>PayPal email:</strong> {{ withdrawal.paypal_email }}</p>
+    {% elif withdrawal.payment_method == withdrawal.PAYMENT_METHOD_BANK %}
+        <p>
+            <strong>Bank account name:</strong> {{ withdrawal.bank_account_name }}<br>
+            <strong>Bank name:</strong> {{ withdrawal.bank_name|default:"Not provided" }}<br>
+            <strong>{{ withdrawal.local_identifier_name }}:</strong>
+            {{ withdrawal.routing_number|default:withdrawal.sort_code|default:withdrawal.iban|default:withdrawal.nuban_number|default:withdrawal.transit_number|default:"Not provided" }}
+        </p>
+    {% elif withdrawal.payment_method == withdrawal.PAYMENT_METHOD_GIFT_CARD %}
+        <p>
+            <strong>Gift card brand:</strong> {{ withdrawal.gift_card_brand }}<br>
+            <strong>Delivery email:</strong> {{ withdrawal.gift_card_email }}
+        </p>
+    {% endif %}
+
+    {% if withdrawal.notes %}
+        <p><strong>User notes:</strong><br>{{ withdrawal.notes|linebreaksbr }}</p>
+    {% endif %}
+
+    <p>Please review this request in the admin panel.</p>
+</body>
+</html>

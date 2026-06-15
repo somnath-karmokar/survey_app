@@ -737,7 +737,7 @@
                     </div>
                     <p class="sp-info-value">
                         {% if user_profile.date_of_birth %}
-                            {{ user_profile.date_of_birth|date:"F d, Y" }}
+                            {{ user_profile.date_of_birth|date:"Y" }}
                         {% else %}
                             Not provided
                         {% endif %}
@@ -797,7 +797,10 @@
                             </span>
                             <div>
                                 <p class="sp-activity-title">{{ activity.title }}</p>
-                                <div class="sp-time">{{ activity.date|timesince }} ago</div>
+                                <div class="sp-time">
+                                    {{ activity.date|date:"M d, Y, h:i A" }}
+                                    <span class="text-muted">({{ activity.date|timesince }} ago)</span>
+                                </div>
                             </div>
                         </div>
                     {% empty %}

@@ -12,6 +12,9 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
 from decimal import Decimal
+import logging
+
+logger = logging.getLogger(__name__)
 
 def category_image_upload_path(instance, filename):
     # File will be uploaded to MEDIA_ROOT/category_images/<category_id>/<filename>
@@ -723,6 +726,17 @@ class WalletWithdrawalRequest(models.Model):
             'CA': 'EFT Details',
         }.get(self.country_code, 'Bank Identifier')
 
+    def send_status_notification(self, action_label):
+        try:
+            from .emails import send_withdrawal_request_status_email
+            send_withdrawal_request_status_email(self)
+        except Exception:
+            logger.exception(
+                'Failed to send withdrawal %s email for request %s',
+                action_label,
+                self.pk,
+            )
+
     def approve(self, reviewed_by=None):
         if self.status != self.STATUS_PENDING:
             raise ValidationError('Only pending withdrawal requests can be approved.')
@@ -750,6 +764,7 @@ class WalletWithdrawalRequest(models.Model):
             self.reviewed_at = timezone.now()
             self.wallet_transaction = wallet_transaction
             self.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'wallet_transaction', 'updated_at'])
+            transaction.on_commit(lambda: self.send_status_notification('approval'))
 
     def reject(self, reviewed_by=None):
         if self.status != self.STATUS_PENDING:
@@ -758,6 +773,7 @@ class WalletWithdrawalRequest(models.Model):
         self.reviewed_by = reviewed_by
         self.reviewed_at = timezone.now()
         self.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'updated_at'])
+        self.send_status_notification('rejection')
 
 
 class LoginOTP(models.Model):
