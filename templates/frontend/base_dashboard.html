@@ -2,11 +2,11 @@
 {% load static %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
+<div class="container-fluid dashboard-shell">
+    <div class="row dashboard-row">
         <!-- Sidebar -->
         <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-light sidebar">
-            <div class="position-sticky pt-3">
+            <div class="sidebar-inner">
                 <ul class="nav flex-column">
                     <li class="nav-item">
                         <a class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" 
@@ -30,6 +30,14 @@
                         </a>
                     </li>
 
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'wallet' %}active{% endif %}"
+                           href="{% url 'surveys:wallet_history' %}">
+                            <i class="fas fa-wallet me-2"></i>
+                            Wallet
+                        </a>
+                    </li>
+
                     {% if lucky_draw_eligible %}
                         <li class="nav-item">
                             <a class="nav-link text-warning" href="{% url 'surveys:lucky_draw' %}">
@@ -49,7 +57,7 @@
         </nav>
 
         <!-- Main content -->
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+        <main class="col-md-9 col-lg-10 px-md-4 dashboard-main">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">{% block page_title %}{% endblock %}</h1>
             </div>
@@ -63,14 +71,27 @@
 
 {% block extra_css %}
 <style>
+    .dashboard-shell {
+        max-width: 100%;
+    }
+
+    .dashboard-row {
+        align-items: flex-start;
+    }
+
     .sidebar {
-        position: fixed;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        z-index: 100;
-        padding: 48px 0 0;
+        position: relative;
+        min-height: 100%;
+        padding: 0;
         box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+    }
+
+    .sidebar-inner {
+        position: sticky;
+        top: 86px;
+        padding: 1rem 0;
+        max-height: calc(100vh - 104px);
+        overflow-y: auto;
     }
 
     .sidebar .nav-link {
@@ -94,8 +115,22 @@
         text-align: center;
     }
 
-    main {
+    .dashboard-main {
         padding-top: 1.5rem;
+    }
+
+    @media (max-width: 767.98px) {
+        .sidebar {
+            box-shadow: none;
+            border-bottom: 1px solid rgba(0, 0, 0, .1);
+        }
+
+        .sidebar-inner {
+            position: static;
+            max-height: none;
+            overflow: visible;
+            padding: 0.75rem 0;
+        }
     }
 </style>
 {% endblock %}

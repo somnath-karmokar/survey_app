@@ -14,11 +14,18 @@
     .features_area {
         padding: 80px 0;
     }
+    .features_area .row > [class*="col-"] {
+        display: flex;
+        margin-bottom: 30px;
+    }
     .serv_box {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
         background: #fff;
         border-radius: 10px;
         overflow: hidden;
-        margin-bottom: 30px;
         box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         transition: all 0.3s ease;
     }
@@ -40,12 +47,28 @@
         transform: scale(1.1);
     }
     .serv_cont {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
         padding: 25px;
     }
     .serv_icon {
+        position: static;
+        width: auto;
+        height: auto;
+        transform: none;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        display: block;
+        text-align: center;
         font-size: 40px;
         color: #0d6efd;
         margin-bottom: 15px;
+    }
+    .serv_icon i {
+        position: static;
+        transform: none;
     }
     .serv_cont h3 {
         font-size: 22px;
@@ -53,18 +76,22 @@
         color: #333;
     }
     .serv_cont p {
+        flex: 1;
         color: #666;
         margin-bottom: 20px;
         font-size: 15px;
         line-height: 1.6;
     }
     .serv_cont a {
-        display: inline-block;
+        display: block;
+        width: 100%;
         background: #0d6efd;
         color: #fff;
         padding: 8px 20px;
         border-radius: 5px;
         text-decoration: none;
+        text-align: center;
+        margin-top: auto;
         transition: all 0.3s ease;
     }
     .serv_cont a:hover {
@@ -186,7 +213,9 @@
             </div>
             {% empty %}
             <div class="col-12 text-center">
-                <div class="alert alert-info">Please register or login to start submitting surveys and polls.</div>
+                <div class="alert alert-info">
+                    Please <a href="{% url 'surveys:signup' %}#Register" class="alert-link">register</a> or <a href="{% url 'surveys:login' %}" class="alert-link">login</a> to start submitting surveys and polls.
+                </div>
             </div>
             {% endfor %}
         </div>

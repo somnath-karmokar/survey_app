@@ -1,6 +1,6 @@
 {% extends 'surveys/base/base.html' %}
 
-{% block title %}Survey Complete - {{ survey.name }}{% endblock %}
+{% block title %}{% if poll %}Poll Complete - {{ poll.title }}{% else %}Survey Complete - {{ survey.name }}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -14,15 +14,25 @@
                         </div>
                         <h1 class="h3 mb-3">Thank You!</h1>
                         <p class="lead">Your responses have been recorded successfully.</p>
-                        <p>We appreciate you taking the time to complete the "{{ survey.name }}" survey.</p>
+                        {% if poll %}
+                            <p>We appreciate you taking the time to complete the "{{ poll.title }}" poll.</p>
+                        {% else %}
+                            <p>We appreciate you taking the time to complete the "{{ survey.name }}" survey.</p>
+                        {% endif %}
                     </div>
                     <div class="mt-4">
-                        <a href="{% url 'surveys:survey_list' %}" class="btn btn-primary">
-                            <i class="bi bi-list-ul me-2"></i>Back to Surveys
-                        </a>
-                        <a href="{% url 'surveys:category_detail' category_slug=survey.category.slug %}" class="btn btn-outline-secondary ms-2">
-                            <i class="bi bi-arrow-left me-2"></i>Back to Category
-                        </a>
+                        {% if poll %}
+                            <a href="{% url 'surveys:home' %}" class="btn btn-primary">
+                                <i class="bi bi-house me-2"></i>Back to Home
+                            </a>
+                        {% else %}
+                            <a href="{% url 'surveys:survey_list' %}" class="btn btn-primary">
+                                <i class="bi bi-list-ul me-2"></i>Back to Surveys
+                            </a>
+                            <a href="{% url 'surveys:category_detail' category_slug=survey.category.slug %}" class="btn btn-outline-secondary ms-2">
+                                <i class="bi bi-arrow-left me-2"></i>Back to Category
+                            </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

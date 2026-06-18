@@ -1,11 +1,14 @@
-from django.shortcuts import render, redirect, reverse
+from django.shortcuts import render, redirect, reverse, get_object_or_404
 from django.views.generic import TemplateView, CreateView, FormView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, authenticate, get_user_model
 from django.utils import timezone
 from datetime import timedelta
-from .models import Survey, SurveyCategory, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry
+from .models import (
+    Survey, SurveyCategory, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry,
+    Poll, PollResponse, WalletTransaction, WalletWithdrawalRequest, Question, PollQuestion
+)
 from django.http import JsonResponse, HttpResponseRedirect
 from django.core.mail import send_mail
 from django.conf import settings
@@ -24,19 +27,200 @@ from django.contrib import messages
 from django.urls import reverse_lazy
 from django.contrib.auth.views import LoginView
 from django.http import HttpResponseRedirect
-from .forms import UserRegistrationForm, UserRegisterForm
+from .forms import UserRegistrationForm, UserRegisterForm, PollResponseForm, WalletWithdrawalRequestForm
 
 from django.contrib.auth.views import LoginView as BaseLoginView
 from django.contrib.auth import authenticate, login as auth_login
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse_lazy
 from django.shortcuts import redirect, render
 from django.http import HttpResponseRedirect, JsonResponse
 import logging
 from django.conf import settings as django_settings
+from .emails import send_withdrawal_request_admin_notification
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+class SearchView(TemplateView):
+    template_name = 'surveys/search_results.html'
+    min_query_length = 2
+    result_limit = 12
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        query = self.request.GET.get('q', '').strip()
+        results = []
+
+        if len(query) >= self.min_query_length:
+            if self.request.user.is_authenticated:
+                results = self.get_search_results(query)
+            else:
+                results = self.get_public_search_results(query)
+
+        context.update({
+            'query': query,
+            'results': results,
+            'result_count': len(results),
+            'min_query_length': self.min_query_length,
+            'can_view_results': self.request.user.is_authenticated,
+        })
+        return context
+
+    def get_public_search_results(self, query):
+        results = []
+
+        category_filter = Q(name__icontains=query) | Q(description__icontains=query)
+        categories = SurveyCategory.objects.filter(category_filter).select_related('country')
+        for category in categories.order_by('order', 'name')[:self.result_limit]:
+            results.append({
+                'type': 'Category',
+                'title': category.name,
+                'description': category.description or '',
+                'url': reverse('surveys:category_detail', kwargs={'category_slug': category.slug}),
+            })
+
+        poll_filter = Q(title__icontains=query) | Q(description__icontains=query) | Q(country__name__icontains=query)
+        polls = Poll.objects.filter(poll_filter, is_active=True).select_related('country')
+        for poll in polls.order_by('order', '-created_at').distinct()[:self.result_limit]:
+            results.append({
+                'type': 'Poll',
+                'title': poll.title,
+                'description': poll.description or str(poll.country),
+                'url': reverse('surveys:poll_detail', kwargs={'poll_id': poll.id}),
+            })
+
+        results.extend(self.get_static_page_results(query))
+        return results[:50]
+
+    def get_search_results(self, query):
+        results = []
+        user_country = self.get_user_country()
+
+        category_filter = Q(name__icontains=query) | Q(description__icontains=query)
+        if user_country:
+            categories = SurveyCategory.objects.filter(category_filter, country=user_country)
+        else:
+            categories = SurveyCategory.objects.filter(category_filter)
+
+        for category in categories.select_related('country').order_by('order', 'name')[:self.result_limit]:
+            results.append({
+                'type': 'Category',
+                'title': category.name,
+                'description': category.description or '',
+                'url': reverse('surveys:category_detail', kwargs={'category_slug': category.slug}),
+            })
+
+        survey_filter = Q(name__icontains=query) | Q(description__icontains=query) | Q(category__name__icontains=query)
+        surveys = Survey.objects.filter(survey_filter, is_active=True).select_related('category', 'category__country')
+        if user_country:
+            surveys = surveys.filter(category__country=user_country)
+
+        for survey in surveys.order_by('category__name', 'level', 'name').distinct()[:self.result_limit]:
+            results.append({
+                'type': 'Survey',
+                'title': survey.name,
+                'description': survey.description or f'{survey.category.name} - Level {survey.level}',
+                'url': reverse('surveys:survey_detail', kwargs={'survey_id': survey.id}),
+            })
+
+        question_filter = Q(question_text__icontains=query) | Q(surveys__name__icontains=query)
+        questions = Question.objects.filter(question_filter, surveys__is_active=True).prefetch_related('surveys')
+        if user_country:
+            questions = questions.filter(surveys__category__country=user_country)
+
+        for question in questions.order_by('order', 'id').distinct()[:self.result_limit]:
+            survey = next((item for item in question.surveys.all() if item.is_active), None)
+            if not survey:
+                continue
+            results.append({
+                'type': 'Survey Question',
+                'title': question.question_text,
+                'description': survey.name,
+                'url': reverse('surveys:survey_detail', kwargs={'survey_id': survey.id}),
+            })
+
+        poll_filter = Q(title__icontains=query) | Q(description__icontains=query) | Q(country__name__icontains=query)
+        polls = Poll.objects.filter(poll_filter, is_active=True).select_related('country')
+        if user_country:
+            polls = polls.filter(country=user_country)
+
+        for poll in polls.order_by('order', '-created_at').distinct()[:self.result_limit]:
+            results.append({
+                'type': 'Poll',
+                'title': poll.title,
+                'description': poll.description or str(poll.country),
+                'url': reverse('surveys:poll_detail', kwargs={'poll_id': poll.id}),
+            })
+
+        poll_questions = PollQuestion.objects.filter(
+            Q(question_text__icontains=query) | Q(poll__title__icontains=query),
+            poll__is_active=True,
+        ).select_related('poll', 'poll__country')
+        if user_country:
+            poll_questions = poll_questions.filter(poll__country=user_country)
+
+        for question in poll_questions.order_by('order', 'id').distinct()[:self.result_limit]:
+            results.append({
+                'type': 'Poll Question',
+                'title': question.question_text,
+                'description': question.poll.title,
+                'url': reverse('surveys:poll_detail', kwargs={'poll_id': question.poll_id}),
+            })
+
+        results.extend(self.get_static_page_results(query))
+        return results[:50]
+
+    def get_user_country(self):
+        if not self.request.user.is_authenticated:
+            return None
+
+        profile = getattr(self.request.user, 'profile', None)
+        return getattr(profile, 'country', None)
+
+    def get_static_page_results(self, query):
+        page_results = []
+        normalized_query = query.lower()
+        pages = (
+            {
+                'title': 'Home',
+                'description': 'Sudraw surveys, polls, categories, and rewards.',
+                'url': reverse('surveys:home'),
+                'keywords': 'home sudraw survey surveys polls rewards lucky draw',
+            },
+            {
+                'title': 'FAQ',
+                'description': 'Answers about surveys, polls, rewards, privacy, and account questions.',
+                'url': reverse('surveys:faq'),
+                'keywords': 'faq help questions surveys polls rewards privacy account',
+            },
+            {
+                'title': 'Features',
+                'description': 'Sudraw features and platform information.',
+                'url': reverse('surveys:features'),
+                'keywords': 'features platform survey polls rewards',
+            },
+            {
+                'title': 'Contact Us',
+                'description': 'Contact Sudraw support.',
+                'url': reverse('surveys:contact'),
+                'keywords': 'contact support email help',
+            },
+        )
+
+        for page in pages:
+            haystack = f"{page['title']} {page['description']} {page['keywords']}".lower()
+            if normalized_query in haystack:
+                page_results.append({
+                    'type': 'Page',
+                    'title': page['title'],
+                    'description': page['description'],
+                    'url': page['url'],
+                })
+        return page_results
+
 
 class CustomLoginView(BaseLoginView):
     template_name = 'frontpage/login.html'
@@ -244,10 +428,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         thirty_days_ago = timezone.now() - timedelta(days=30)
         
         # Get user profile
-        try:
-            profile = UserProfile.objects.get(user=user)
-        except UserProfile.DoesNotExist:
-            profile = None
+        profile, _ = UserProfile.objects.get_or_create(user=user)
         
         # Get surveys data
         completed_surveys = SurveyResponse.objects.filter(
@@ -258,7 +439,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         # Get available surveys
         available_surveys = Survey.objects.filter(
             is_active=True,
-            category__country_id=user.profile.country_id if profile and profile.country_id else None
+            category__country_id=profile.country_id if profile and profile.country_id else None
         ).exclude(
             responses__user=user,
             responses__completed_at__isnull=False
@@ -276,7 +457,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         # Get available surveys for the user
         available_surveys_list = Survey.objects.filter(
             is_active=True,
-            category__country_id=user.profile.country_id if profile and profile.country_id else None
+            category__country_id=profile.country_id if profile and profile.country_id else None
         ).exclude(
             responses__user=user,
             responses__completed_at__isnull=False
@@ -306,11 +487,8 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 total_completed=Sum('completed_count')
             )
             level_progress = {p['level']: p['total_completed'] for p in progress_by_level}
-        # Check if user is eligible for lucky draw in any level
-        lucky_draw_eligible = any(
-            count >= getattr(django_settings, 'LUCKY_DRAW_CONFIG', {}).get('SURVEYS_REQUIRED', 3)
-            for level, count in level_progress.items()
-        )
+        from .lucky_draw import LuckyDrawView
+        lucky_draw_eligible = LuckyDrawView().is_eligible(user)
         
         # Add data to context
         context.update({
@@ -323,6 +501,8 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             'recent_responses': recent_responses,
             'total_earnings': total_earnings,
             'recent_surveys': recent_surveys,
+            'wallet_balance_display': profile.wallet_display,
+            'recent_wallet_transactions': profile.wallet_transactions.all()[:3],
             'active_page': 'dashboard',
             'level_progress': level_progress,
             'lucky_draw_eligible': lucky_draw_eligible,
@@ -330,6 +510,76 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         })
         
         return context
+
+
+class WalletTransactionHistoryView(LoginRequiredMixin, ListView):
+    model = WalletTransaction
+    template_name = 'frontend/wallet_history.html'
+    context_object_name = 'transactions'
+    login_url = 'surveys:login'
+    paginate_by = 20
+
+    def get_queryset(self):
+        profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
+        return profile.wallet_transactions.select_related('lucky_draw_entry')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
+        from .lucky_draw import LuckyDrawView
+        context.update({
+            'profile': profile,
+            'wallet_balance_display': profile.wallet_display,
+            'withdrawal_requests': profile.withdrawal_requests.select_related('wallet_transaction')[:8],
+            'active_page': 'wallet',
+            'lucky_draw_eligible': LuckyDrawView().is_eligible(self.request.user),
+        })
+        return context
+
+
+class WalletWithdrawalRequestView(LoginRequiredMixin, CreateView):
+    model = WalletWithdrawalRequest
+    form_class = WalletWithdrawalRequestForm
+    template_name = 'frontend/wallet_withdrawal_form.html'
+    login_url = 'surveys:login'
+
+    def get_profile(self):
+        profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
+        return profile
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['profile'] = self.get_profile()
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        profile = self.get_profile()
+        from .lucky_draw import LuckyDrawView
+        context.update({
+            'profile': profile,
+            'wallet_balance_display': profile.wallet_display,
+            'country_code_map': {
+                str(country.pk): str(country.code).upper()
+                for country in Country.objects.filter(is_active=True)
+            },
+            'active_page': 'wallet',
+            'lucky_draw_eligible': LuckyDrawView().is_eligible(self.request.user),
+        })
+        return context
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        try:
+            send_withdrawal_request_admin_notification(self.object)
+        except Exception:
+            logger.exception('Failed to send withdrawal request admin email for request %s', self.object.pk)
+        messages.success(self.request, 'Your withdrawal request has been submitted for admin approval.')
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy('surveys:wallet_history')
+
 
 class HomePageView(TemplateView):
     template_name = 'frontpage/index.html'
@@ -348,6 +598,23 @@ class HomePageView(TemplateView):
                 categories = categories.filter(country_id=profile.country_id)
 
         context['featured_categories'] = categories.order_by('?')[:6]
+
+        polls = Poll.objects.filter(
+            is_active=True,
+            country__is_active=True,
+            questions__isnull=False,
+        ).select_related('country').prefetch_related('questions').distinct()
+
+        if self.request.user.is_authenticated:
+            profile = getattr(self.request.user, 'profile', None)
+            if profile and profile.country_id:
+                polls = polls.filter(country_id=profile.country_id)
+            else:
+                polls = polls.none()
+
+            context['featured_polls'] = polls.order_by('order', '-created_at')[:4]
+        else:
+            context['featured_polls'] = polls.order_by('?')[:5]
         
         # Get the number of days to show winners from settings
         winners_display_days = getattr(django_settings, 'LUCKY_DRAW_CONFIG', {}).get('WINNERS_DISPLAY_DAYS', 30)
@@ -405,6 +672,126 @@ class HomePageView(TemplateView):
         })
         
         return context
+
+
+def _get_available_poll_or_redirect(request, poll_id):
+    poll = get_object_or_404(
+        Poll.objects.select_related('country').prefetch_related('questions__choices'),
+        id=poll_id,
+        is_active=True,
+        country__is_active=True
+    )
+
+    if not poll.is_available_for_user(request.user):
+        messages.warning(request, 'This poll is not available for your country.')
+        return None, redirect('surveys:home')
+
+    if not poll.questions.exists():
+        messages.warning(request, 'This poll has no questions yet.')
+        return None, redirect('surveys:home')
+
+    return poll, None
+
+
+@login_required(login_url='surveys:login')
+def poll_detail(request, poll_id):
+    poll, redirect_response = _get_available_poll_or_redirect(request, poll_id)
+    if redirect_response:
+        return redirect_response
+
+    completed = PollResponse.objects.filter(user=request.user, poll=poll).exists()
+
+    return render(request, 'surveys/poll_landing.html', {
+        'poll': poll,
+        'completed': completed,
+        'total_questions': poll.questions.count(),
+    })
+
+
+@login_required(login_url='surveys:login')
+def poll_question(request, poll_id, question_index=0):
+    poll, redirect_response = _get_available_poll_or_redirect(request, poll_id)
+    if redirect_response:
+        return redirect_response
+
+    if PollResponse.objects.filter(user=request.user, poll=poll).exists():
+        messages.info(request, 'You have already participated in this poll.')
+        return redirect('surveys:poll_detail', poll_id=poll.id)
+
+    questions = list(poll.questions.all().order_by('order', 'id'))
+    total_questions = len(questions)
+    question_index = max(0, min(int(question_index), total_questions - 1))
+    current_question = questions[question_index]
+    session_key = f'poll_{poll.id}_answers'
+
+    if request.method == 'POST':
+        form = PollResponseForm(request.POST, poll=poll, question_id=current_question.id)
+        if form.is_valid():
+            field_name = f'poll_question_{current_question.id}'
+            answer_value = form.cleaned_data.get(field_name)
+            answers = request.session.get(session_key, {})
+
+            if current_question.question_type == 'multiple_choice':
+                answers[str(current_question.id)] = [str(choice.id) for choice in answer_value]
+            elif current_question.question_type == 'single_choice':
+                answers[str(current_question.id)] = str(answer_value.id) if answer_value else ''
+            else:
+                answers[str(current_question.id)] = answer_value
+
+            request.session[session_key] = answers
+            request.session.save()
+
+            next_index = question_index + 1
+            if next_index < total_questions:
+                return redirect('surveys:poll_question', poll_id=poll.id, question_index=next_index)
+
+            final_form = PollResponseForm(poll=poll, data=_poll_answers_to_post_data(poll, answers))
+            if final_form.is_valid():
+                final_form.save(request.user, poll)
+                from .milestones import check_and_award_milestones
+                check_and_award_milestones(request.user)
+                if session_key in request.session:
+                    del request.session[session_key]
+                messages.success(request, 'Thank you for participating in the poll!')
+                from .lucky_draw import LuckyDrawView
+                if LuckyDrawView().is_eligible(request.user, LuckyDrawEntry.DRAW_TYPE_POLL):
+                    messages.success(request, 'Congratulations! You are now eligible for the lucky draw!')
+                    return redirect('surveys:lucky_draw')
+                return render(request, 'surveys/survey_complete.html', {
+                    'poll': poll,
+                })
+
+            form = final_form
+    else:
+        initial = {}
+        saved_answer = request.session.get(session_key, {}).get(str(current_question.id))
+        if saved_answer is not None:
+            initial[f'poll_question_{current_question.id}'] = saved_answer
+        form = PollResponseForm(poll=poll, question_id=current_question.id, initial=initial)
+
+    return render(request, 'surveys/poll_detail.html', {
+        'poll': poll,
+        'form': form,
+        'current_question': current_question,
+        'question_index': question_index,
+        'total_questions': total_questions,
+        'progress': int(((question_index + 1) / total_questions) * 100),
+        'is_last_question': question_index == total_questions - 1,
+    })
+
+
+def _poll_answers_to_post_data(poll, answers):
+    from django.http import QueryDict
+
+    data = QueryDict('', mutable=True)
+    for question in poll.questions.all().order_by('order', 'id'):
+        field_name = f'poll_question_{question.id}'
+        answer_value = answers.get(str(question.id))
+        if question.question_type == 'multiple_choice':
+            data.setlist(field_name, answer_value or [])
+        elif answer_value is not None:
+            data[field_name] = str(answer_value)
+    return data
 
 class FeaturesPageView(TemplateView):
     template_name = 'frontpage/features.html'

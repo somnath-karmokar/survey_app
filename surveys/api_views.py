@@ -1,4 +1,7 @@
-from rest_framework import viewsets, status, permissions
+import random
+
+from django.conf import settings
+from rest_framework import viewsets, status, permissions, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -83,46 +86,38 @@ class LuckyDrawEntryViewSet(viewsets.ModelViewSet):
         return LuckyDrawEntry.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        current_month = timezone.now().month
-        current_year = timezone.now().year
-        
-        # Check if user already has an entry for this month
-        if LuckyDrawEntry.objects.filter(
-            user=self.request.user,
-            month=current_month,
-            year=current_year
-        ).exists():
-            raise serializers.ValidationError("You have already entered the lucky draw this month.")
-        
-        # Check if user has completed all surveys
-        active_surveys = Survey.objects.filter(is_active=True)
-        completed_surveys = SurveyResponse.objects.filter(
-            user=self.request.user,
-            completed_at__month=current_month,
-            completed_at__year=current_year
-        ).values_list('survey_id', flat=True)
-        
-        missing_surveys = active_surveys.exclude(id__in=completed_surveys).exists()
-        if missing_surveys:
-            raise serializers.ValidationError("You must complete all active surveys to enter the lucky draw.")
-        
-        # Check if number is available
-        selected_number = self.request.data.get('selected_number')
-        if not (1 <= int(selected_number) <= 100):
-            raise serializers.ValidationError("Please select a number between 1 and 100.")
-            
-        if LuckyDrawEntry.objects.filter(
-            month=current_month,
-            year=current_year,
-            selected_number=selected_number
-        ).exists():
-            raise serializers.ValidationError("This number is already taken. Please choose another one.")
-        
-        serializer.save(
-            user=self.request.user,
-            month=current_month,
-            year=current_year
+        from .lucky_draw import LuckyDrawView
+
+        lucky_draw = LuckyDrawView()
+        draw_type = serializer.validated_data.get('draw_type') or LuckyDrawEntry.DRAW_TYPE_SURVEY
+        if draw_type not in {LuckyDrawEntry.DRAW_TYPE_SURVEY, LuckyDrawEntry.DRAW_TYPE_POLL}:
+            raise serializers.ValidationError("Invalid lucky draw type.")
+        if not lucky_draw.is_eligible(self.request.user, draw_type):
+            raise serializers.ValidationError("You are not eligible for this lucky draw yet.")
+
+        total_surveys, total_polls = lucky_draw.get_completion_counts(self.request.user)
+        last_entry = lucky_draw.get_last_entry(self.request.user, draw_type)
+        survey = lucky_draw.get_qualifying_survey(self.request.user, last_entry) if draw_type == LuckyDrawEntry.DRAW_TYPE_SURVEY else None
+        poll = lucky_draw.get_qualifying_poll(self.request.user, last_entry) if draw_type == LuckyDrawEntry.DRAW_TYPE_POLL else None
+        guessed_number = serializer.validated_data['guessed_number']
+        winning_number = random.randint(
+            settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_START'],
+            settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_END']
         )
+        is_winner = guessed_number == winning_number
+        entry = serializer.save(
+            user=self.request.user,
+            draw_type=draw_type,
+            survey=survey,
+            poll=poll,
+            winning_number=winning_number,
+            is_winner=is_winner,
+            prize=lucky_draw.get_prize_for_user(self.request.user) if is_winner else None,
+            surveys_at_play=total_surveys,
+            polls_at_play=total_polls,
+        )
+        if is_winner:
+            lucky_draw.credit_winner_wallet(entry)
 
     @action(detail=False, methods=['get'])
     def check_number(self, request):
@@ -134,22 +129,15 @@ class LuckyDrawEntryViewSet(viewsets.ModelViewSet):
             )
         
         number = int(number)
-        if not (1 <= number <= 100):
+        start = settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_START']
+        end = settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_END']
+        if not (start <= number <= end):
             return Response(
-                {'error': 'Number must be between 1 and 100'}, 
+                {'error': f'Number must be between {start} and {end}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        current_month = timezone.now().month
-        current_year = timezone.now().year
-        
-        is_taken = LuckyDrawEntry.objects.filter(
-            month=current_month,
-            year=current_year,
-            selected_number=number
-        ).exists()
-        
         return Response({
-            'available': not is_taken,
+            'available': True,
             'number': number
         })
