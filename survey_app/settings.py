@@ -123,8 +123,8 @@ WSGI_APPLICATION = 'survey_app.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        # 'NAME': 'sudraw_database',
-        'NAME': 'sudraw_database_04ru',
+        'NAME': 'sudraw_database',
+        # 'NAME': 'sudraw_database_04ru', #staging
         'USER': 'sudraw_database_user',
         'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # Change this to your PostgreSQL password
         # 'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # staging
