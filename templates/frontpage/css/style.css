@@ -138,8 +138,8 @@ html{overflow-x: hidden;}
 .inner_banner:after {content: '';position: absolute;top: 0;left: 0;width: 100%;height: 100%;background-color: rgb(08, 11, 27,0.75);z-index: 0;}
 .inner_banner_content {text-align: left;position: relative;z-index: 1;}
 .inner_banner_content h1 {color: #ffffff;font-size: 65px;font-weight: 800;}
-.breadcrumb_box {display: inline-block;background-color: #217e97;padding: 10px 30px;border-radius: 8px;margin-top: 15px;}
-.breadcrumb_box ul {margin: 0;padding: 0;text-decoration: none;list-style: none;display: flex;}
+.breadcrumb_box {display: inline-block;width: fit-content;max-width: 100%;background-color: #217e97;padding: 10px 30px;border-radius: 8px;margin-top: 15px;}
+.breadcrumb_box ul {margin: 0;padding: 0;text-decoration: none;list-style: none;display: inline-flex;flex-wrap: wrap;}
 .breadcrumb_box ul li {font-size: 15px;color: #fff;margin-left: 10px;text-transform: uppercase;font-weight: 500;}
 .breadcrumb_box ul li:first-child {margin-left: 0;}
 .breadcrumb_box ul li a{color: #fff; text-decoration: none;}
@@ -263,7 +263,6 @@ html{overflow-x: hidden;}
     .msn_right{margin-top: 20px;}
 }
 /*===============Responsive Ends===============*/
-
 
 
 

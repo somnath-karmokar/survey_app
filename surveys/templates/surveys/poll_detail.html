@@ -1,0 +1,239 @@
+{% extends 'surveys/base/base.html' %}
+
+{% block title %}{{ poll.title }} - Question {{ question_index|add:1 }} of {{ total_questions }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .progress {
+        height: 10px;
+        margin-bottom: 20px;
+    }
+    .question-card {
+        margin-bottom: 2rem;
+        border-left: 4px solid #0d6efd;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 0.25rem;
+    }
+    .question-required::after {
+        content: " *";
+        color: #dc3545;
+    }
+    .navigation-buttons {
+        margin-top: 2rem;
+        display: flex;
+        justify-content: space-between;
+    }
+    .form-check {
+        margin-bottom: 0.75rem;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        transition: background-color 0.2s;
+    }
+    .form-check:hover {
+        background-color: #f1f1f1;
+    }
+    .form-check-input {
+        margin-top: 0.2rem;
+        margin-right: 0.5rem;
+    }
+    .form-check-label {
+        width: 100%;
+        cursor: pointer;
+        padding: 0.25rem 0;
+    }
+    .form-control {
+        margin-top: 0.5rem;
+    }
+    .invalid-feedback {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.875em;
+        color: #dc3545;
+    }
+    .help-text {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.875em;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-10 col-lg-8">
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'surveys:home' %}">Home</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ poll.title }}</li>
+                </ol>
+            </nav>
+
+            <div class="progress">
+                <div class="progress-bar" role="progressbar"
+                     style="width: {{ progress }}%"
+                     aria-valuenow="{{ progress }}"
+                     aria-valuemin="0"
+                     aria-valuemax="100">
+                    {{ progress }}%
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h1 class="h4 mb-0">{{ poll.title }}</h1>
+                    <p class="mb-0 text-muted">Question {{ question_index|add:1 }} of {{ total_questions }}</p>
+                </div>
+
+                <div class="card-body">
+                    {% if poll.description %}
+                        <p class="text-muted mb-4">{{ poll.description }}</p>
+                    {% endif %}
+
+                    <form method="post" id="poll-form">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {% for error in form.non_field_errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        {% for field in form.visible_fields %}
+                            <div class="question-card">
+                                <div class="question-header">
+                                    <h4 class="question-title{% if current_question.is_required %} question-required{% endif %}">
+                                        <span class="question-number">Q{{ question_index|add:1 }}.</span>
+                                        <span class="question-text">{{ current_question.question_text }}</span>
+                                    </h4>
+                                    {% if field.help_text %}
+                                        <div class="question-help-text">
+                                            <i class="bi bi-info-circle"></i>
+                                            <span>{{ field.help_text }}</span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="question-body">
+                                    {% with question_type=field.field.widget.attrs.data_question_type %}
+                                        {% if question_type == 'text' %}
+                                            <div class="form-group">
+                                                <div class="input-field">
+                                                    <textarea
+                                                        name="{{ field.name }}"
+                                                        id="{{ field.id_for_label }}"
+                                                        class="form-control {% if field.errors %}is-invalid{% endif %}"
+                                                        rows="3"
+                                                        placeholder="Type your answer here..."
+                                                        {% if field.field.required %}required{% endif %}
+                                                    >{% if field.value %}{{ field.value }}{% endif %}</textarea>
+                                                </div>
+                                            </div>
+                                        {% elif question_type == 'single_choice' %}
+                                            {% for choice in field.field.choices %}
+                                                <div class="form-check option-item">
+                                                    <input
+                                                        type="radio"
+                                                        name="{{ field.name }}"
+                                                        value="{{ choice.0 }}"
+                                                        id="id_{{ field.name }}_{{ forloop.counter0 }}"
+                                                        class="form-check-input {% if field.errors %}is-invalid{% endif %}"
+                                                        {% if field.value == choice.0|stringformat:"s" %}checked{% endif %}
+                                                        {% if field.field.required %}required{% endif %}
+                                                    >
+                                                    <label class="form-check-label" for="id_{{ field.name }}_{{ forloop.counter0 }}">
+                                                        {{ choice.1 }}
+                                                    </label>
+                                                </div>
+                                            {% endfor %}
+                                        {% elif question_type == 'multiple_choice' %}
+                                            {% for choice in field.field.choices %}
+                                                <div class="form-check option-item">
+                                                    <input
+                                                        type="checkbox"
+                                                        name="{{ field.name }}"
+                                                        value="{{ choice.0 }}"
+                                                        id="id_{{ field.name }}_{{ forloop.counter0 }}"
+                                                        class="form-check-input {% if field.errors %}is-invalid{% endif %}"
+                                                        {% if choice.0|stringformat:"s" in field.value %}checked{% endif %}
+                                                    >
+                                                    <label class="form-check-label" for="id_{{ field.name }}_{{ forloop.counter0 }}">
+                                                        {{ choice.1 }}
+                                                    </label>
+                                                </div>
+                                            {% endfor %}
+                                        {% elif question_type == 'rating' %}
+                                            <div class="form-group">
+                                                <div class="input-field">
+                                                    <input
+                                                        type="range"
+                                                        name="{{ field.name }}"
+                                                        id="{{ field.id_for_label }}"
+                                                        class="form-range {% if field.errors %}is-invalid{% endif %}"
+                                                        min="1"
+                                                        max="5"
+                                                        value="{{ field.value|default:'3' }}"
+                                                        {% if field.field.required %}required{% endif %}
+                                                    >
+                                                    <div class="range-value text-muted mt-1">{{ field.value|default:'3' }}</div>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endwith %}
+
+                                    {% if field.errors %}
+                                        <div class="invalid-feedback d-flex align-items-center mt-1">
+                                            <i class="bi bi-exclamation-circle me-1"></i>
+                                            <span>{{ field.errors|join:", " }}</span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+
+                        <div class="navigation-buttons">
+                            <div>
+                                {% if question_index > 0 %}
+                                    <a href="{% url 'surveys:poll_question' poll.id question_index|add:-1 %}" class="btn btn-outline-secondary">
+                                        &larr; Previous
+                                    </a>
+                                {% endif %}
+                            </div>
+                            <div>
+                                {% if not is_last_question %}
+                                    <button type="submit" class="btn btn-primary">
+                                        Save &amp; Continue &rarr;
+                                    </button>
+                                {% else %}
+                                    <button type="submit" class="btn btn-success">
+                                        Submit Poll
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('input[type="range"]').forEach(input => {
+        const valueDisplay = input.parentNode.querySelector('.range-value');
+        if (valueDisplay) {
+            input.addEventListener('input', event => {
+                valueDisplay.textContent = event.target.value;
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

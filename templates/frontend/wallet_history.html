@@ -1,0 +1,172 @@
+{% extends 'frontend/base_dashboard.html' %}
+
+{% block title %}Wallet History - Sudraw{% endblock %}
+
+{% block page_title %}Wallet{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    .wallet-summary {
+        background: linear-gradient(135deg, #12343b 0%, #1f7a8c 100%);
+        border-radius: 8px;
+        color: #fff;
+        padding: 1.5rem;
+    }
+    .wallet-summary .balance {
+        font-size: 2.25rem;
+        font-weight: 700;
+        line-height: 1.1;
+    }
+    .transaction-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #e9f7ef;
+        color: #198754;
+        flex-shrink: 0;
+    }
+    .transaction-icon.debit {
+        background: #fff1f0;
+        color: #dc3545;
+    }
+    .withdrawal-status {
+        border-radius: 999px;
+        padding: 0.25rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .withdrawal-status.pending {
+        background: #fff7e6;
+        color: #9a6700;
+    }
+    .withdrawal-status.approved {
+        background: #e9f7ef;
+        color: #146c43;
+    }
+    .withdrawal-status.rejected {
+        background: #fff1f0;
+        color: #b42318;
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid">
+    <div class="wallet-summary mb-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <p class="mb-1 opacity-75">Current Balance</p>
+                <div class="balance">{{ wallet_balance_display }}</div>
+            </div>
+            <div class="text-end">
+                <i class="fas fa-wallet fa-3x opacity-75 d-block mb-3"></i>
+                <a href="{% url 'surveys:wallet_withdrawal_request' %}" class="btn btn-warning fw-bold">
+                    <i class="fas fa-money-bill-transfer me-2"></i>Request Withdrawal
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Withdrawal Requests</h5>
+        </div>
+        <div class="card-body">
+            {% if withdrawal_requests %}
+                <div class="list-group list-group-flush">
+                    {% for request in withdrawal_requests %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between align-items-start gap-3">
+                                <div>
+                                    <h6 class="mb-1">{{ request.amount_display }} via {{ request.get_payment_method_display }}</h6>
+                                    <small class="text-muted">
+                                        Requested {{ request.created_at|date:"M d, Y H:i" }}
+                                        {% if request.reviewed_at %}
+                                            · Reviewed {{ request.reviewed_at|date:"M d, Y H:i" }}
+                                        {% endif %}
+                                    </small>
+                                    {% if request.admin_note %}
+                                        <div class="small text-muted mt-1">{{ request.admin_note }}</div>
+                                    {% endif %}
+                                </div>
+                                <span class="withdrawal-status {{ request.status }}">{{ request.get_status_display }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted mb-0">No withdrawal requests submitted yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Transaction History</h5>
+        </div>
+        <div class="card-body">
+            {% if transactions %}
+                <div class="list-group list-group-flush">
+                    {% for transaction in transactions %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <span class="transaction-icon {% if transaction.transaction_type == 'debit' %}debit{% endif %} me-3">
+                                        {% if transaction.transaction_type == 'credit' %}
+                                            <i class="fas fa-arrow-down"></i>
+                                        {% else %}
+                                            <i class="fas fa-arrow-up"></i>
+                                        {% endif %}
+                                    </span>
+                                    <div>
+                                        <h6 class="mb-1">{{ transaction.description }}</h6>
+                                        <small class="text-muted">
+                                            {{ transaction.created_at|date:"M d, Y H:i" }}
+                                            {% if transaction.lucky_draw_entry %}
+                                                · {{ transaction.lucky_draw_entry.get_draw_type_display }} draw
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <strong class="{% if transaction.transaction_type == 'credit' %}text-success{% else %}text-danger{% endif %}">
+                                        {% if transaction.transaction_type == 'credit' %}+{% else %}-{% endif %}{{ transaction.amount_display }}
+                                    </strong>
+                                    <div class="small text-muted">Balance {{ transaction.balance_after_display }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                {% if is_paginated %}
+                    <nav class="mt-4" aria-label="Wallet transaction pages">
+                        <ul class="pagination mb-0">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                                </li>
+                            {% endif %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                            </li>
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <p class="text-muted mb-0">No wallet transactions yet. Winning lucky draws will appear here.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

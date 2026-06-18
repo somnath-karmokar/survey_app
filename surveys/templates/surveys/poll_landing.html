@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ poll.title }}{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h4 mb-0">{{ poll.title }}</h2>
+                </div>
+                <div class="card-body">
+                    {% if poll.description %}
+                        <p class="text-muted mb-4">{{ poll.description }}</p>
+                    {% endif %}
+
+                    <table class="table">
+                        <tbody>
+                            <tr>
+                                <th>Country</th>
+                                <td>{{ poll.country.name }}</td>
+                            </tr>
+                            <tr>
+                                <th>Questions</th>
+                                <td>{{ total_questions }}</td>
+                            </tr>
+                            <tr>
+                                <th>Status</th>
+                                <td>
+                                    {% if completed %}
+                                        <span class="badge bg-success">Completed</span>
+                                    {% else %}
+                                        <span class="badge bg-primary">Available</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    {% if completed %}
+                        <div class="alert alert-success mb-0">
+                            You have already completed this poll.
+                        </div>
+                    {% else %}
+                        <div class="d-grid gap-2 d-md-flex justify-content-center mt-4">
+                            <a href="{% url 'surveys:poll_question' poll.id 0 %}" class="btn btn-primary">
+                                <i class="fas fa-paper-plane me-2"></i>Start Poll
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

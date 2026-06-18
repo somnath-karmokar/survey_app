@@ -1,8 +1,9 @@
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.utils.text import slugify
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
 from ckeditor.fields import RichTextField
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -10,6 +11,10 @@ from datetime import timedelta
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
+from decimal import Decimal
+import logging
+
+logger = logging.getLogger(__name__)
 
 def category_image_upload_path(instance, filename):
     # File will be uploaded to MEDIA_ROOT/category_images/<category_id>/<filename>
@@ -297,6 +302,127 @@ class Answer(models.Model):
     def __str__(self):
         return f"Answer to '{self.question.question_text[:30]}...' by {self.response.user.username}"
 
+
+class Poll(models.Model):
+    """Country-specific poll displayed on the public home page."""
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='polls')
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', '-created_at']
+
+    def __str__(self):
+        return f"{self.title} ({self.country.name})"
+
+    def is_available_for_user(self, user):
+        if not user.is_authenticated:
+            return True
+
+        profile = getattr(user, 'profile', None)
+        if profile and profile.country_id:
+            return profile.country_id == self.country_id
+
+        return False
+
+
+class PollQuestion(models.Model):
+    QUESTION_TYPES = (
+        ('text', 'Text Answer'),
+        ('single_choice', 'Single Choice'),
+        ('multiple_choice', 'Multiple Choice'),
+        ('rating', 'Rating (1-5)'),
+    )
+    poll = models.ForeignKey(Poll, on_delete=models.CASCADE, related_name='questions')
+    question_text = models.TextField()
+    question_type = models.CharField(max_length=20, choices=QUESTION_TYPES)
+    is_required = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f"{self.question_text[:50]}..."
+
+
+class PollChoice(models.Model):
+    question = models.ForeignKey(PollQuestion, on_delete=models.CASCADE, related_name='choices')
+    choice_text = models.CharField(max_length=200)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return self.choice_text
+
+
+class PollResponse(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='poll_responses')
+    poll = models.ForeignKey(Poll, on_delete=models.CASCADE, related_name='responses')
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+        unique_together = ('user', 'poll')
+
+    def __str__(self):
+        return f"{self.user.username}'s response to {self.poll.title}"
+
+
+class PollAnswer(models.Model):
+    response = models.ForeignKey(PollResponse, on_delete=models.CASCADE, related_name='answers')
+    question = models.ForeignKey(PollQuestion, on_delete=models.CASCADE)
+    text_answer = models.TextField(blank=True, null=True)
+    selected_choices = models.ManyToManyField(PollChoice, blank=True)
+    rating_value = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+
+    def __str__(self):
+        return f"Answer to '{self.question.question_text[:30]}...' by {self.response.user.username}"
+
+
+class CountryLuckyDrawConfig(models.Model):
+    """Country-specific lucky draw reward and poll eligibility settings."""
+    country = models.OneToOneField(Country, on_delete=models.CASCADE, related_name='lucky_draw_config')
+    poll_count_required = models.PositiveIntegerField(default=5)
+    prize_amount = models.DecimalField(max_digits=8, decimal_places=2, default=1)
+    currency_symbol = models.CharField(max_length=5, default='$')
+    currency_code = models.CharField(max_length=10, default='USD')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Country Lucky Draw Config'
+        verbose_name_plural = 'Country Lucky Draw Configs'
+
+    def __str__(self):
+        return f"{self.country.name}: {self.get_prize_display()} every {self.poll_count_required} polls"
+
+    def get_prize_display(self):
+        amount = int(self.prize_amount) if self.prize_amount == self.prize_amount.to_integral() else f"{self.prize_amount:.2f}"
+        return f"{self.currency_symbol}{amount} {self.currency_code}".strip()
+
+    @classmethod
+    def get_for_country(cls, country):
+        if country:
+            config = cls.objects.filter(country=country, is_active=True).first()
+            if config:
+                return config
+        return None
+
+
 class LuckyDrawEntry(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lucky_draw_entries')
     month = models.PositiveSmallIntegerField()
@@ -353,6 +479,7 @@ class UserProfile(models.Model):
     date_of_birth = models.DateField(blank=True, null=True)
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
+    wallet_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     email_verified = models.BooleanField(default=False)
     last_login_ip = models.GenericIPAddressField(blank=True, null=True)
     last_login_at = models.DateTimeField(blank=True, null=True)
@@ -366,9 +493,36 @@ class UserProfile(models.Model):
     def is_frontend_user(self):
         return self.user_type == 'frontend'
 
+    @property
+    def wallet_currency_code(self):
+        country_code = str(getattr(getattr(self, 'country', None), 'code', '') or '').upper()
+        if country_code == 'GB':
+            return 'GBP'
+        return 'USD'
+
+    @property
+    def wallet_currency_symbol(self):
+        country_code = str(getattr(getattr(self, 'country', None), 'code', '') or '').upper()
+        if country_code == 'GB':
+            return '\u00a3'
+        return '$'
+
+    @property
+    def wallet_display(self):
+        amount = self.wallet_balance or Decimal('0.00')
+        return f"{self.wallet_currency_symbol}{amount:.2f} {self.wallet_currency_code}"
+
     class Meta:
         verbose_name = 'User Profile'
         verbose_name_plural = 'User Profiles'
+
+
+class UserWallet(UserProfile):
+    class Meta:
+        proxy = True
+        verbose_name = 'User Wallet Detail'
+        verbose_name_plural = 'User Wallet Details'
+        ordering = ['user__username']
 
 
 @receiver(post_save, sender=User)
@@ -393,17 +547,233 @@ class UserSurveyProgress(models.Model):
         return f"{self.user.username} - {self.category.name} (Level {self.level}): {self.completed_count}"
 # In models.py, update the LuckyDrawEntry model:
 class LuckyDrawEntry(models.Model):
+    DRAW_TYPE_SURVEY = 'survey'
+    DRAW_TYPE_POLL = 'poll'
+    DRAW_TYPE_CHOICES = [
+        (DRAW_TYPE_SURVEY, 'Survey'),
+        (DRAW_TYPE_POLL, 'Poll'),
+    ]
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='lucky_draw_entries')
     created_at = models.DateTimeField(auto_now_add=True)
+    draw_type = models.CharField(
+        max_length=10,
+        choices=DRAW_TYPE_CHOICES,
+        default=DRAW_TYPE_SURVEY,
+        db_index=True,
+        help_text="Whether this lucky draw play was earned from surveys or polls.",
+    )
+    survey = models.ForeignKey(
+        Survey,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lucky_draw_entries',
+        help_text="Survey that qualified this lucky draw play, when applicable.",
+    )
+    poll = models.ForeignKey(
+        Poll,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lucky_draw_entries',
+        help_text="Poll that qualified this lucky draw play, when applicable.",
+    )
     is_winner = models.BooleanField(default=False)
     guessed_number = models.PositiveIntegerField()
     winning_number = models.PositiveIntegerField()
     prize = models.CharField(max_length=100, blank=True, null=True)
     surveys_at_play = models.PositiveIntegerField(help_text="Total surveys completed when this entry was created")
+    polls_at_play = models.PositiveIntegerField(default=0, help_text="Total polls completed when this entry was created")
 
     class Meta:
         ordering = ['-created_at']
         verbose_name_plural = 'Lucky Draw Entries'
+
+    def __str__(self):
+        return f"{self.user} - {self.get_draw_type_display()} lucky draw on {self.created_at:%Y-%m-%d}"
+
+    @property
+    def source_object(self):
+        if self.draw_type == self.DRAW_TYPE_POLL:
+            return self.poll
+        return self.survey
+
+
+class WalletTransaction(models.Model):
+    TRANSACTION_TYPE_CREDIT = 'credit'
+    TRANSACTION_TYPE_DEBIT = 'debit'
+    TRANSACTION_TYPE_CHOICES = [
+        (TRANSACTION_TYPE_CREDIT, 'Credit'),
+        (TRANSACTION_TYPE_DEBIT, 'Debit'),
+    ]
+
+    profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='wallet_transactions')
+    transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE_CHOICES)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency_code = models.CharField(max_length=10, default='USD')
+    currency_symbol = models.CharField(max_length=5, default='$')
+    description = models.CharField(max_length=255)
+    lucky_draw_entry = models.OneToOneField(
+        LuckyDrawEntry,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='wallet_transaction',
+    )
+    balance_after = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Wallet Transaction'
+        verbose_name_plural = 'Wallet Transactions'
+
+    def __str__(self):
+        return f"{self.profile.user.username} {self.get_transaction_type_display()} {self.amount_display}"
+
+    @property
+    def amount_display(self):
+        return f"{self.currency_symbol}{self.amount:.2f} {self.currency_code}"
+
+    @property
+    def balance_after_display(self):
+        return f"{self.currency_symbol}{self.balance_after:.2f} {self.currency_code}"
+
+
+class WalletWithdrawalRequest(models.Model):
+    STATUS_PENDING = 'pending'
+    STATUS_APPROVED = 'approved'
+    STATUS_REJECTED = 'rejected'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_APPROVED, 'Approved'),
+        (STATUS_REJECTED, 'Rejected'),
+    ]
+
+    PAYMENT_METHOD_PAYPAL = 'paypal'
+    PAYMENT_METHOD_BANK = 'bank_transfer'
+    PAYMENT_METHOD_GIFT_CARD = 'gift_card'
+    PAYMENT_METHOD_CHOICES = [
+        (PAYMENT_METHOD_PAYPAL, 'PayPal'),
+        (PAYMENT_METHOD_BANK, 'Direct Bank Transfer'),
+        (PAYMENT_METHOD_GIFT_CARD, 'Gift Card'),
+    ]
+
+    profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='withdrawal_requests')
+    full_name = models.CharField(max_length=160, help_text='Name as it appears on the payment account.')
+    email = models.EmailField()
+    amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
+    currency_code = models.CharField(max_length=10, default='USD')
+    currency_symbol = models.CharField(max_length=5, default='$')
+    country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True, blank=True)
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
+    paypal_email = models.EmailField(blank=True)
+    bank_account_name = models.CharField(max_length=160, blank=True)
+    bank_name = models.CharField(max_length=160, blank=True)
+    bank_account_number = models.CharField(max_length=64, blank=True)
+    routing_number = models.CharField(max_length=32, blank=True)
+    sort_code = models.CharField(max_length=32, blank=True)
+    iban = models.CharField(max_length=64, blank=True)
+    nuban_number = models.CharField(max_length=32, blank=True, verbose_name='NUBAN account number')
+    transit_number = models.CharField(max_length=32, blank=True)
+    institution_number = models.CharField(max_length=32, blank=True)
+    gift_card_brand = models.CharField(max_length=80, blank=True)
+    gift_card_email = models.EmailField(blank=True)
+    notes = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    admin_note = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_withdrawal_requests',
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    wallet_transaction = models.OneToOneField(
+        WalletTransaction,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='withdrawal_request',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Wallet Withdrawal Request'
+        verbose_name_plural = 'Wallet Withdrawal Requests'
+
+    def __str__(self):
+        return f"{self.profile.user.username} withdrawal {self.amount_display} ({self.get_status_display()})"
+
+    @property
+    def amount_display(self):
+        return f"{self.currency_symbol}{self.amount:.2f} {self.currency_code}"
+
+    @property
+    def country_code(self):
+        return str(getattr(getattr(self, 'country', None), 'code', '') or '').upper()
+
+    @property
+    def local_identifier_name(self):
+        return {
+            'GB': 'Sort Code / IBAN',
+            'US': 'Routing Number',
+            'NG': 'NUBAN',
+            'CA': 'EFT Details',
+        }.get(self.country_code, 'Bank Identifier')
+
+    def send_status_notification(self, action_label):
+        try:
+            from .emails import send_withdrawal_request_status_email
+            send_withdrawal_request_status_email(self)
+        except Exception:
+            logger.exception(
+                'Failed to send withdrawal %s email for request %s',
+                action_label,
+                self.pk,
+            )
+
+    def approve(self, reviewed_by=None):
+        if self.status != self.STATUS_PENDING:
+            raise ValidationError('Only pending withdrawal requests can be approved.')
+
+        with transaction.atomic():
+            profile = UserProfile.objects.select_for_update().get(pk=self.profile_id)
+            if profile.wallet_balance < self.amount:
+                raise ValidationError('Insufficient wallet balance for this withdrawal.')
+
+            profile.wallet_balance = profile.wallet_balance - self.amount
+            profile.save(update_fields=['wallet_balance', 'updated_at'])
+
+            wallet_transaction = WalletTransaction.objects.create(
+                profile=profile,
+                transaction_type=WalletTransaction.TRANSACTION_TYPE_DEBIT,
+                amount=self.amount,
+                currency_code=self.currency_code,
+                currency_symbol=self.currency_symbol,
+                description=f"Withdrawal approved via {self.get_payment_method_display()}",
+                balance_after=profile.wallet_balance,
+            )
+
+            self.status = self.STATUS_APPROVED
+            self.reviewed_by = reviewed_by
+            self.reviewed_at = timezone.now()
+            self.wallet_transaction = wallet_transaction
+            self.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'wallet_transaction', 'updated_at'])
+            transaction.on_commit(lambda: self.send_status_notification('approval'))
+
+    def reject(self, reviewed_by=None):
+        if self.status != self.STATUS_PENDING:
+            raise ValidationError('Only pending withdrawal requests can be rejected.')
+        self.status = self.STATUS_REJECTED
+        self.reviewed_by = reviewed_by
+        self.reviewed_at = timezone.now()
+        self.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'updated_at'])
+        self.send_status_notification('rejection')
 
 
 class LoginOTP(models.Model):
@@ -545,6 +915,7 @@ class EmailVerification(models.Model):
 class MilestoneAchievement(models.Model):
     MILESTONE_TYPE_CHOICES = [
         ('surveys_completed', 'Surveys Completed'),
+        ('polls_completed', 'Polls Completed'),
         ('points_earned', 'Points Earned'),
     ]
 

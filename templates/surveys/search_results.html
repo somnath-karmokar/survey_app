@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="search-results-section py-5">
+    <div class="container">
+        <div class="row justify-content-center mb-4">
+            <div class="col-lg-8">
+                <form action="{% url 'surveys:search' %}" method="get" class="search-page-form">
+                    <label for="search-page-input" class="form-label fw-semibold">Search Sudraw</label>
+                    <div class="input-group input-group-lg">
+                        <input
+                            id="search-page-input"
+                            type="search"
+                            name="q"
+                            value="{{ query }}"
+                            class="form-control"
+                            placeholder="Search surveys, polls, categories, questions..."
+                            minlength="{{ min_query_length }}"
+                            autocomplete="off"
+                        >
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-search me-2"></i>Search
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-9">
+                {% if query and not can_view_results %}
+                    <div class="alert alert-info d-flex justify-content-between align-items-center gap-3">
+                        <span>Login to search more</span>
+                        <a href="{% url 'surveys:login' %}?next={% url 'surveys:search' %}?q={{ query|urlencode }}" class="btn btn-primary">
+                            Log In
+                        </a>
+                    </div>
+                {% endif %}
+
+                {% if query and query|length < min_query_length %}
+                    <div class="alert alert-info">
+                        Please enter at least {{ min_query_length }} characters to search.
+                    </div>
+                {% elif query %}
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h1 class="h3 mb-0">Search results</h1>
+                        <span class="text-muted">{{ result_count }} result{{ result_count|pluralize }}</span>
+                    </div>
+
+                    {% if results %}
+                        <div class="list-group shadow-sm">
+                            {% for result in results %}
+                                <a href="{{ result.url }}" class="list-group-item list-group-item-action py-3">
+                                    <div class="d-flex justify-content-between gap-3">
+                                        <h2 class="h5 mb-1">{{ result.title|striptags|truncatechars:120 }}</h2>
+                                        <span class="badge bg-primary align-self-start">{{ result.type }}</span>
+                                    </div>
+                                    {% if result.description %}
+                                        <p class="mb-0 text-muted">{{ result.description|striptags|truncatechars:180 }}</p>
+                                    {% endif %}
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-light border">
+                            No results found for <strong>{{ query }}</strong>.
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        Enter a word or phrase above to search across Sudraw.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -2,6 +2,18 @@ from django.template.loader import render_to_string
 from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
 
+
+def _send_html_email(subject, body, template_name, context, recipients):
+    msg = EmailMultiAlternatives(
+        subject=subject,
+        body=body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=recipients,
+    )
+    html_content = render_to_string(template_name, context)
+    msg.attach_alternative(html_content, "text/html")
+    msg.send()
+
 def send_survey_completion_email(user, survey):
     """Send email notification when a user completes a survey"""
     subject = f'Survey Completed: {survey.name}'
@@ -125,7 +137,7 @@ def send_milestone_achievement_email(user, achievement):
         f"You have reached the {milestone_label.lower()} milestone "
         f"with a total of {achievement.achieved_value}.\n"
         f"Prize awarded: {achievement.prize_name}\n\n"
-        f"Our team will contact you with the next steps.\n\n"
+        f"If this is a wallet reward, it has been added to your wallet.\n\n"
         f"Best regards,\n"
         f"{getattr(settings, 'SITE_NAME', 'Sudraw')} Team"
     )
@@ -167,6 +179,7 @@ def send_milestone_achievement_admin_notification(user, achievement):
         f"Threshold: {achievement.threshold}\n"
         f"Current total: {achievement.achieved_value}\n"
         f"Prize awarded: {achievement.prize_name}\n"
+        f"Wallet rewards are credited automatically.\n"
     )
 
     msg = EmailMultiAlternatives(
@@ -177,3 +190,76 @@ def send_milestone_achievement_admin_notification(user, achievement):
     )
     msg.attach_alternative(html_content, "text/html")
     msg.send()
+
+
+def send_withdrawal_request_admin_notification(withdrawal):
+    """Send admin notification when a user submits a withdrawal request."""
+    user = withdrawal.profile.user
+    admin_email = getattr(settings, 'ADMIN_EMAIL', settings.DEFAULT_FROM_EMAIL)
+    subject = f'New Withdrawal Request: {withdrawal.amount_display}'
+
+    context = {
+        'withdrawal': withdrawal,
+        'user': user,
+        'site_name': getattr(settings, 'SITE_NAME', 'Sudraw'),
+        'site_url': getattr(settings, 'SITE_URL', ''),
+        'admin_email': admin_email,
+    }
+
+    body = (
+        f"New withdrawal request\n\n"
+        f"User: {user.get_full_name() or user.username}\n"
+        f"Email: {withdrawal.email or user.email}\n"
+        f"Amount: {withdrawal.amount_display}\n"
+        f"Payment method: {withdrawal.get_payment_method_display()}\n"
+        f"Status: {withdrawal.get_status_display()}\n"
+    )
+
+    _send_html_email(
+        subject,
+        body,
+        'emails/wallet_withdrawal_request_admin.html',
+        context,
+        [admin_email],
+    )
+
+
+def send_withdrawal_request_status_email(withdrawal):
+    """Send user notification when a withdrawal request is approved or rejected."""
+    user = withdrawal.profile.user
+    status_label = withdrawal.get_status_display()
+    subject = f'Your Withdrawal Request Has Been {status_label}'
+
+    context = {
+        'withdrawal': withdrawal,
+        'user': user,
+        'status_label': status_label,
+        'site_name': getattr(settings, 'SITE_NAME', 'Sudraw'),
+        'site_url': getattr(settings, 'SITE_URL', ''),
+    }
+
+    if withdrawal.status == withdrawal.STATUS_APPROVED:
+        status_message = (
+            f"Your withdrawal request for {withdrawal.amount_display} "
+            f"has been approved."
+        )
+    else:
+        status_message = (
+            f"Your withdrawal request for {withdrawal.amount_display} "
+            f"has been rejected."
+        )
+
+    body = (
+        f"Hello {user.first_name or user.username},\n\n"
+        f"{status_message}\n"
+        f"Payment method: {withdrawal.get_payment_method_display()}\n"
+    )
+
+    recipient = withdrawal.email or user.email
+    _send_html_email(
+        subject,
+        body,
+        'emails/wallet_withdrawal_status.html',
+        context,
+        [recipient],
+    )

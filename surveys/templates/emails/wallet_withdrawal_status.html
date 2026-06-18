@@ -1,0 +1,34 @@
+<html>
+<body style="font-family: Arial, sans-serif; color: #212529; line-height: 1.6;">
+    <p>Hello {{ user.first_name|default:user.username }},</p>
+
+    {% if withdrawal.status == withdrawal.STATUS_APPROVED %}
+        <p>
+            Your wallet withdrawal request has been <strong>approved</strong>.
+            The approved amount is <strong>{{ withdrawal.amount_display }}</strong>.
+        </p>
+
+        <p>
+            Payment method: {{ withdrawal.get_payment_method_display }}<br>
+            Reviewed at: {{ withdrawal.reviewed_at|date:"M d, Y H:i" }}
+        </p>
+    {% else %}
+        <p>
+            Your wallet withdrawal request for
+            <strong>{{ withdrawal.amount_display }}</strong> has been
+            <strong>rejected</strong>.
+        </p>
+
+        <p>
+            Payment method: {{ withdrawal.get_payment_method_display }}<br>
+            Reviewed at: {{ withdrawal.reviewed_at|date:"M d, Y H:i" }}
+        </p>
+
+        {% if withdrawal.admin_note %}
+            <p><strong>Admin note:</strong><br>{{ withdrawal.admin_note|linebreaksbr }}</p>
+        {% endif %}
+    {% endif %}
+
+    <p>Thank you for being part of {{ site_name }}.</p>
+</body>
+</html>

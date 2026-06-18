@@ -59,6 +59,9 @@
         font-size: 0.875em;
         color: #6c757d;
     }
+    .other-answer-field {
+        margin-top: 0.75rem;
+    }
 </style>
 {% endblock %}
 
@@ -123,7 +126,7 @@
                                             {% endif %}
                                         </div>
                                     {% else %}
-                                        <div class="form-group">
+                                        <div class="form-group{% if field.field.widget.attrs.data_other_for %} other-answer-field{% endif %}">
                                             <label class="form-label" for="{{ field.id_for_label }}">
                                                 {{ field.label }}
                                                 {% if field.help_text %}
@@ -214,6 +217,28 @@
             }
         }
     });
+
+    function updateOtherAnswerInputs() {
+        document.querySelectorAll('.other-answer-input').forEach(input => {
+            const fieldName = input.dataset.otherFor;
+            const relatedInputs = document.querySelectorAll(`[name="${fieldName}"]`);
+            const otherInput = Array.from(relatedInputs).find(item => item.value === '{{ form.OTHER_CHOICE_VALUE|default:"__other__" }}' || item.value === '__other__');
+            const shouldShow = otherInput && otherInput.checked;
+            const wrapper = input.closest('.other-answer-field') || input.parentElement;
+            if (wrapper) {
+                wrapper.style.display = shouldShow ? '' : 'none';
+            }
+            input.disabled = !shouldShow;
+            if (!shouldShow) {
+                input.value = '';
+            }
+        });
+    }
+
+    document.querySelectorAll('.form-check-input, input[type="radio"], input[type="checkbox"]').forEach(input => {
+        input.addEventListener('change', updateOtherAnswerInputs);
+    });
+    updateOtherAnswerInputs();
 });
 
 // Track the number of questions answered

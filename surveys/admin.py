@@ -12,11 +12,16 @@ from django import forms
 from django.db import models
 from django.forms import CheckboxSelectMultiple
 from ckeditor.widgets import CKEditorWidget
-from .models import SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer, LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement
+from .models import (
+    SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer,
+    LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement,
+    Poll, PollQuestion, PollChoice, PollResponse, PollAnswer, CountryLuckyDrawConfig,
+    WalletTransaction, UserWallet, WalletWithdrawalRequest
+)
 from django.utils.safestring import mark_safe
 from django.urls import path
 from django.http import JsonResponse
-from django.db.models import Q
+from django.db.models import Count, Max, Q
 
 # Custom Admin Site
 class SurveyAdminSite(AdminSite):
@@ -87,6 +92,297 @@ class ChoiceInline(admin.TabularInline):
     extra = 1
     fields = ('choice_text',)  # Removed 'order' since the field doesn't exist
     show_change_link = True
+
+
+class PollChoiceInline(admin.TabularInline):
+    model = PollChoice
+    extra = 1
+    fields = ('choice_text', 'order')
+
+
+class PollQuestionInline(admin.TabularInline):
+    model = PollQuestion
+    extra = 1
+    fields = ('question_text', 'question_type', 'is_required', 'order')
+    show_change_link = True
+
+
+class PollAnswerInline(admin.TabularInline):
+    model = PollAnswer
+    extra = 0
+    readonly_fields = ('question', 'get_answer_display')
+    fields = ('question', 'get_answer_display')
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def get_answer_display(self, obj):
+        if obj.question.question_type == 'text':
+            return obj.text_answer
+        if obj.question.question_type == 'rating':
+            return obj.rating_value
+        return ", ".join(choice.choice_text for choice in obj.selected_choices.all())
+    get_answer_display.short_description = 'Answer'
+
+
+class PollAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
+    inlines = [PollQuestionInline]
+    list_display = ('title', 'country', 'question_count', 'response_count', 'is_active', 'order', 'created_at')
+    list_filter = ('country', 'is_active', 'created_at')
+    search_fields = ('title', 'description', 'country__name')
+    list_select_related = ('country',)
+    fields = ('title', 'description', 'country', 'is_active', 'order')
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('country').prefetch_related('questions', 'responses')
+
+    def question_count(self, obj):
+        return obj.questions.count()
+    question_count.short_description = 'Questions'
+
+    def response_count(self, obj):
+        return obj.responses.count()
+    response_count.short_description = 'Responses'
+
+
+class PollQuestionAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
+    inlines = [PollChoiceInline]
+    list_display = ('question_text', 'poll', 'question_type', 'is_required', 'order', 'created_at')
+    list_filter = ('question_type', 'is_required', 'poll__country', 'poll')
+    search_fields = ('question_text', 'poll__title')
+    list_select_related = ('poll', 'poll__country')
+
+
+class PollResponseAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
+    inlines = [PollAnswerInline]
+    list_display = ('id', 'user', 'poll', 'country', 'submitted_at')
+    list_filter = ('poll', 'poll__country', 'submitted_at')
+    readonly_fields = ('user', 'poll', 'submitted_at')
+    search_fields = ('user__username', 'user__email', 'poll__title')
+    list_select_related = ('user', 'poll', 'poll__country')
+
+    def country(self, obj):
+        return obj.poll.country
+    country.short_description = 'Country'
+
+
+class CountryLuckyDrawConfigAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
+    list_display = ('country', 'poll_count_required', 'prize_display', 'currency_code', 'is_active', 'updated_at')
+    list_filter = ('is_active', 'currency_code', 'country')
+    search_fields = ('country__name', 'country__code', 'currency_code')
+    list_select_related = ('country',)
+
+    def prize_display(self, obj):
+        return obj.get_prize_display()
+    prize_display.short_description = 'Prize Amount'
+
+
+class WalletTransactionAdmin(admin.ModelAdmin):
+    list_display = ('profile', 'transaction_type', 'amount_display', 'description', 'balance_after_display', 'created_at')
+    list_filter = ('transaction_type', 'currency_code', 'created_at')
+    search_fields = ('profile__user__username', 'profile__user__email', 'description')
+    readonly_fields = (
+        'profile', 'transaction_type', 'amount', 'currency_code',
+        'currency_symbol', 'description', 'lucky_draw_entry',
+        'balance_after', 'created_at'
+    )
+    list_select_related = ('profile', 'profile__user', 'lucky_draw_entry')
+    date_hierarchy = 'created_at'
+
+    def amount_display(self, obj):
+        return obj.amount_display
+    amount_display.short_description = 'Amount'
+
+    def balance_after_display(self, obj):
+        return obj.balance_after_display
+    balance_after_display.short_description = 'Balance After'
+
+    def has_add_permission(self, request):
+        return False
+
+
+class WalletWithdrawalRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        'profile', 'amount_display', 'payment_method', 'country',
+        'status', 'created_at', 'reviewed_by', 'reviewed_at'
+    )
+    list_filter = ('status', 'payment_method', 'country', 'currency_code', 'created_at')
+    search_fields = (
+        'profile__user__username', 'profile__user__email', 'full_name',
+        'email', 'paypal_email', 'bank_name', 'bank_account_number',
+        'routing_number', 'sort_code', 'iban', 'nuban_number',
+        'gift_card_brand', 'gift_card_email'
+    )
+    readonly_fields = (
+        'profile', 'full_name', 'email', 'amount', 'currency_code',
+        'currency_symbol', 'country', 'payment_method', 'paypal_email',
+        'bank_account_name', 'bank_name', 'bank_account_number',
+        'routing_number', 'sort_code', 'iban', 'nuban_number',
+        'transit_number', 'institution_number', 'gift_card_brand',
+        'gift_card_email', 'notes', 'reviewed_by', 'reviewed_at',
+        'wallet_transaction', 'created_at', 'updated_at'
+    )
+    fieldsets = (
+        ('Request', {
+            'fields': (
+                'profile', 'full_name', 'email', 'amount', 'currency_code',
+                'currency_symbol', 'country', 'payment_method', 'status',
+                'admin_note'
+            )
+        }),
+        ('PayPal Details', {'fields': ('paypal_email',)}),
+        ('Bank Details', {
+            'fields': (
+                'bank_account_name', 'bank_name', 'bank_account_number',
+                'routing_number', 'sort_code', 'iban', 'nuban_number',
+                'transit_number', 'institution_number'
+            )
+        }),
+        ('Gift Card Details', {'fields': ('gift_card_brand', 'gift_card_email')}),
+        ('Review', {'fields': ('reviewed_by', 'reviewed_at', 'wallet_transaction', 'notes')}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at')}),
+    )
+    actions = ('approve_requests', 'reject_requests')
+    list_select_related = ('profile', 'profile__user', 'country', 'reviewed_by', 'wallet_transaction')
+    date_hierarchy = 'created_at'
+
+    def amount_display(self, obj):
+        return obj.amount_display
+    amount_display.short_description = 'Amount'
+
+    def save_model(self, request, obj, form, change):
+        requested_status = obj.status
+        old_status = None
+        if change:
+            old_status = WalletWithdrawalRequest.objects.only('status').get(pk=obj.pk).status
+
+        if change and old_status != WalletWithdrawalRequest.STATUS_PENDING and requested_status != old_status:
+            obj.status = old_status
+            messages.error(request, 'Reviewed withdrawal requests cannot have their status changed.')
+            super().save_model(request, obj, form, change)
+            return
+
+        if change and old_status == WalletWithdrawalRequest.STATUS_PENDING and requested_status in (
+            WalletWithdrawalRequest.STATUS_APPROVED,
+            WalletWithdrawalRequest.STATUS_REJECTED,
+        ):
+            obj.status = old_status
+            super().save_model(request, obj, form, change)
+            obj.refresh_from_db()
+            try:
+                if requested_status == WalletWithdrawalRequest.STATUS_APPROVED:
+                    obj.approve(reviewed_by=request.user)
+                    messages.success(request, 'Withdrawal approved and wallet balance debited.')
+                else:
+                    obj.reject(reviewed_by=request.user)
+                    messages.success(request, 'Withdrawal request rejected.')
+            except Exception as exc:
+                messages.error(request, str(exc))
+            return
+
+        super().save_model(request, obj, form, change)
+
+    def approve_requests(self, request, queryset):
+        approved = 0
+        for withdrawal in queryset.filter(status=WalletWithdrawalRequest.STATUS_PENDING):
+            try:
+                withdrawal.approve(reviewed_by=request.user)
+                approved += 1
+            except Exception as exc:
+                messages.error(request, f'{withdrawal}: {exc}')
+        if approved:
+            messages.success(request, f'{approved} withdrawal request(s) approved.')
+    approve_requests.short_description = 'Approve selected pending withdrawal requests'
+
+    def reject_requests(self, request, queryset):
+        rejected = 0
+        for withdrawal in queryset.filter(status=WalletWithdrawalRequest.STATUS_PENDING):
+            try:
+                withdrawal.reject(reviewed_by=request.user)
+                rejected += 1
+            except Exception as exc:
+                messages.error(request, f'{withdrawal}: {exc}')
+        if rejected:
+            messages.success(request, f'{rejected} withdrawal request(s) rejected.')
+    reject_requests.short_description = 'Reject selected pending withdrawal requests'
+
+    def has_add_permission(self, request):
+        return False
+
+
+class WalletTransactionInline(admin.TabularInline):
+    model = WalletTransaction
+    fk_name = 'profile'
+    extra = 0
+    can_delete = False
+    show_change_link = True
+    fields = (
+        'created_at', 'transaction_type', 'amount_display',
+        'description', 'balance_after_display', 'lucky_draw_entry'
+    )
+    readonly_fields = fields
+    ordering = ('-created_at',)
+
+    def amount_display(self, obj):
+        return obj.amount_display
+    amount_display.short_description = 'Amount'
+
+    def balance_after_display(self, obj):
+        return obj.balance_after_display
+    balance_after_display.short_description = 'Balance After'
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class UserWalletAdmin(admin.ModelAdmin):
+    inlines = [WalletTransactionInline]
+    list_display = (
+        'user', 'email', 'country', 'wallet_balance_display',
+        'transaction_count', 'last_transaction_at'
+    )
+    list_filter = ('country',)
+    search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
+    readonly_fields = (
+        'user', 'email', 'country', 'phone_number', 'wallet_balance_display',
+        'created_at', 'updated_at'
+    )
+    fields = (
+        'user', 'email', 'country', 'phone_number', 'wallet_balance_display',
+        'created_at', 'updated_at'
+    )
+    list_select_related = ('user', 'country')
+    ordering = ('user__username',)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(
+            transaction_total=Count('wallet_transactions'),
+            last_transaction=Max('wallet_transactions__created_at'),
+        )
+
+    def email(self, obj):
+        return obj.user.email
+    email.short_description = 'Email'
+    email.admin_order_field = 'user__email'
+
+    def wallet_balance_display(self, obj):
+        return obj.wallet_display
+    wallet_balance_display.short_description = 'Wallet Balance'
+    wallet_balance_display.admin_order_field = 'wallet_balance'
+
+    def transaction_count(self, obj):
+        return obj.transaction_total
+    transaction_count.short_description = 'Transactions'
+    transaction_count.admin_order_field = 'transaction_total'
+
+    def last_transaction_at(self, obj):
+        return obj.last_transaction
+    last_transaction_at.short_description = 'Last Transaction'
+    last_transaction_at.admin_order_field = 'last_transaction'
+
+    def has_add_permission(self, request):
+        return False
 
 
 class MilestoneAchievementAdmin(admin.ModelAdmin):
@@ -459,12 +755,30 @@ class SurveyResponseAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     time_spent.short_description = 'Time Spent'
 
 class LuckyDrawEntryAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('user', 'created_at', 'is_winner', 'guessed_number', 'winning_number', 'prize')
-    list_filter = ('is_winner', 'created_at')
-    search_fields = ('user__username', 'prize')
-    readonly_fields = ('created_at',)
+    list_display = (
+        'user', 'draw_type', 'source_title', 'created_at', 'is_winner',
+        'guessed_number', 'winning_number', 'prize',
+        'surveys_at_play', 'polls_at_play'
+    )
+    list_filter = ('draw_type', 'is_winner', 'created_at', 'survey', 'poll')
+    search_fields = (
+        'user__username', 'user__email', 'prize',
+        'survey__name', 'poll__title'
+    )
+    readonly_fields = (
+        'user', 'draw_type', 'survey', 'poll', 'created_at', 'is_winner',
+        'guessed_number', 'winning_number', 'prize',
+        'surveys_at_play', 'polls_at_play'
+    )
+    list_select_related = ('user', 'survey', 'poll')
     list_per_page = 20
     date_hierarchy = 'created_at'
+
+    def source_title(self, obj):
+        if obj.draw_type == LuckyDrawEntry.DRAW_TYPE_POLL:
+            return obj.poll.title if obj.poll else '-'
+        return obj.survey.name if obj.survey else '-'
+    source_title.short_description = 'Poll / Survey'
     
     def has_add_permission(self, request):
         # Disable adding entries through admin since they should be created by the system
@@ -603,7 +917,7 @@ class UserProfileInline(admin.StackedInline):
 
 class CustomUserAdmin(SafeDeleteAdminMixin, BaseUserAdmin):
     inlines = (UserProfileInline,)
-    list_display = ('username', 'email', 'first_name', 'last_name', 'country', 'is_active', 'date_joined')
+    list_display = ('username', 'email', 'first_name', 'last_name', 'country', 'wallet', 'is_active', 'date_joined')
     list_filter = ('is_active', 'groups', 'date_joined', 'profile__country')
     search_fields = ('username', 'first_name', 'last_name', 'email')
     ordering = ('-date_joined',)
@@ -615,6 +929,12 @@ class CustomUserAdmin(SafeDeleteAdminMixin, BaseUserAdmin):
         return None
     country.short_description = 'Country'
     country.admin_order_field = 'profile__country'
+
+    def wallet(self, obj):
+        if hasattr(obj, 'profile') and obj.profile:
+            return obj.profile.wallet_display
+        return '-'
+    wallet.short_description = 'Wallet'
 
     # Only show non-staff users in the admin
     def get_queryset(self, request):
@@ -657,6 +977,15 @@ survey_admin_site.register(SurveyCategory, SurveyCategoryAdmin)
 survey_admin_site.register(Survey, SurveyAdmin)
 survey_admin_site.register(Question, QuestionAdmin)
 survey_admin_site.register(Choice, DefaultModelAdmin)
+survey_admin_site.register(Poll, PollAdmin)
+survey_admin_site.register(PollQuestion, PollQuestionAdmin)
+survey_admin_site.register(PollChoice, DefaultModelAdmin)
+survey_admin_site.register(PollResponse, PollResponseAdmin)
+survey_admin_site.register(PollAnswer, DefaultModelAdmin)
+survey_admin_site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
+survey_admin_site.register(UserWallet, UserWalletAdmin)
+survey_admin_site.register(WalletTransaction, WalletTransactionAdmin)
+survey_admin_site.register(WalletWithdrawalRequest, WalletWithdrawalRequestAdmin)
 survey_admin_site.register(SurveyResponse, SurveyResponseAdmin)
 survey_admin_site.register(EmailVerification, EmailVerificationAdmin)
 survey_admin_site.register(Answer, DefaultModelAdmin)
@@ -669,5 +998,14 @@ admin.site.register(Survey, SurveyAdmin)
 admin.site.register(Choice, DefaultModelAdmin)
 admin.site.register(Answer, DefaultModelAdmin)
 admin.site.register(SurveyResponse, SurveyResponseAdmin)
+admin.site.register(Poll, PollAdmin)
+admin.site.register(PollQuestion, PollQuestionAdmin)
+admin.site.register(PollChoice, DefaultModelAdmin)
+admin.site.register(PollResponse, PollResponseAdmin)
+admin.site.register(PollAnswer, DefaultModelAdmin)
+admin.site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
+admin.site.register(UserWallet, UserWalletAdmin)
+admin.site.register(WalletTransaction, WalletTransactionAdmin)
+admin.site.register(WalletWithdrawalRequest, WalletWithdrawalRequestAdmin)
 admin.site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 admin.site.register(MilestoneAchievement, MilestoneAchievementAdmin)

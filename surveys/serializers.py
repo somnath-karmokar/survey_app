@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.conf import settings
 from .models import (
     SurveyCategory, Survey, Question, 
     Choice, SurveyResponse, Answer, LuckyDrawEntry
@@ -118,10 +119,19 @@ class SurveyResponseSerializer(serializers.ModelSerializer):
 class LuckyDrawEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = LuckyDrawEntry
-        fields = ('id', 'month', 'year', 'selected_number', 'created_at', 'is_winner')
-        read_only_fields = ('id', 'month', 'year', 'created_at', 'is_winner')
-    
-    def validate_selected_number(self, value):
-        if not (1 <= value <= 100):
-            raise serializers.ValidationError("Selected number must be between 1 and 100.")
+        fields = (
+            'id', 'draw_type', 'survey', 'poll', 'guessed_number',
+            'winning_number', 'prize', 'surveys_at_play', 'polls_at_play',
+            'created_at', 'is_winner'
+        )
+        read_only_fields = (
+            'id', 'survey', 'poll', 'winning_number', 'prize',
+            'surveys_at_play', 'polls_at_play', 'created_at', 'is_winner'
+        )
+
+    def validate_guessed_number(self, value):
+        start = settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_START']
+        end = settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_END']
+        if not (start <= value <= end):
+            raise serializers.ValidationError(f"Lucky draw number must be between {start} and {end}.")
         return value
