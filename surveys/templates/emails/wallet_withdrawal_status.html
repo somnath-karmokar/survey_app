@@ -1,34 +1,208 @@
-<html>
-<body style="font-family: Arial, sans-serif; color: #212529; line-height: 1.6;">
-    <p>Hello {{ user.first_name|default:user.username }},</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Withdrawal Request {{ withdrawal.get_status_display }}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6fb;font-family:Arial,Helvetica,sans-serif;color:#212529;">
 
-    {% if withdrawal.status == withdrawal.STATUS_APPROVED %}
-        <p>
-            Your wallet withdrawal request has been <strong>approved</strong>.
-            The approved amount is <strong>{{ withdrawal.amount_display }}</strong>.
-        </p>
+  <!-- Outer wrapper -->
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f6fb;padding:32px 0;">
+    <tr>
+      <td align="center">
 
-        <p>
-            Payment method: {{ withdrawal.get_payment_method_display }}<br>
-            Reviewed at: {{ withdrawal.reviewed_at|date:"M d, Y H:i" }}
-        </p>
-    {% else %}
-        <p>
-            Your wallet withdrawal request for
-            <strong>{{ withdrawal.amount_display }}</strong> has been
-            <strong>rejected</strong>.
-        </p>
+        <!-- Card -->
+        <table width="600" cellpadding="0" cellspacing="0" border="0"
+               style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;
+                      box-shadow:0 4px 20px rgba(0,0,0,0.08);overflow:hidden;">
 
-        <p>
-            Payment method: {{ withdrawal.get_payment_method_display }}<br>
-            Reviewed at: {{ withdrawal.reviewed_at|date:"M d, Y H:i" }}
-        </p>
+          <!-- ── Header band ── -->
+          {% if withdrawal.status == withdrawal.STATUS_APPROVED %}
+          <tr>
+            <td style="background:linear-gradient(135deg,#1cb15a 0%,#20c997 100%);
+                       padding:32px 40px;text-align:center;">
+              <p style="margin:0 0 10px;font-size:42px;line-height:1;">✅</p>
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.02em;">
+                Withdrawal Approved
+              </h1>
+              <p style="margin:6px 0 0;color:rgba(255,255,255,0.88);font-size:14px;">
+                Your funds are on their way
+              </p>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td style="background:linear-gradient(135deg,#e74c3c 0%,#c0392b 100%);
+                       padding:32px 40px;text-align:center;">
+              <p style="margin:0 0 10px;font-size:42px;line-height:1;">❌</p>
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.02em;">
+                Withdrawal Rejected
+              </h1>
+              <p style="margin:6px 0 0;color:rgba(255,255,255,0.88);font-size:14px;">
+                Please review the details below
+              </p>
+            </td>
+          </tr>
+          {% endif %}
 
-        {% if withdrawal.admin_note %}
-            <p><strong>Admin note:</strong><br>{{ withdrawal.admin_note|linebreaksbr }}</p>
-        {% endif %}
-    {% endif %}
+          <!-- ── Greeting ── -->
+          <tr>
+            <td style="padding:32px 40px 0;">
+              <p style="margin:0;font-size:16px;color:#333;">
+                Hello <strong>{{ user.first_name|default:user.username }}</strong>,
+              </p>
+              <p style="margin:12px 0 0;font-size:15px;color:#555;line-height:1.6;">
+                {% if withdrawal.status == withdrawal.STATUS_APPROVED %}
+                  Great news! Your withdrawal request has been reviewed and
+                  <strong style="color:#1cb15a;">approved</strong>. The amount will be
+                  sent to you via your chosen payment method.
+                {% else %}
+                  Unfortunately, your withdrawal request has been
+                  <strong style="color:#e74c3c;">rejected</strong>.
+                  {% if withdrawal.admin_note %}
+                    Please see the reason provided below.
+                  {% else %}
+                    Please contact support if you have any questions.
+                  {% endif %}
+                {% endif %}
+              </p>
+            </td>
+          </tr>
 
-    <p>Thank you for being part of {{ site_name }}.</p>
+          <!-- ── Details table ── -->
+          <tr>
+            <td style="padding:24px 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                     style="background:#f8f9fb;border-radius:8px;border:1px solid #e9ecef;
+                            font-size:14px;">
+                <tr>
+                  <td style="padding:14px 20px;border-bottom:1px solid #e9ecef;
+                             color:#888;width:45%;font-weight:600;text-transform:uppercase;
+                             font-size:12px;letter-spacing:0.05em;">
+                    Amount
+                  </td>
+                  <td style="padding:14px 20px;border-bottom:1px solid #e9ecef;
+                             color:#212529;font-weight:700;font-size:16px;">
+                    {{ withdrawal.amount_display }}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 20px;border-bottom:1px solid #e9ecef;
+                             color:#888;font-weight:600;text-transform:uppercase;font-size:12px;
+                             letter-spacing:0.05em;">
+                    Payment Method
+                  </td>
+                  <td style="padding:14px 20px;border-bottom:1px solid #e9ecef;color:#212529;">
+                    {{ withdrawal.get_payment_method_display }}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 20px;border-bottom:1px solid #e9ecef;
+                             color:#888;font-weight:600;text-transform:uppercase;font-size:12px;
+                             letter-spacing:0.05em;">
+                    Status
+                  </td>
+                  <td style="padding:14px 20px;border-bottom:1px solid #e9ecef;">
+                    {% if withdrawal.status == withdrawal.STATUS_APPROVED %}
+                      <span style="background:#d4edda;color:#155724;padding:3px 10px;
+                                   border-radius:20px;font-size:13px;font-weight:600;">
+                        Approved
+                      </span>
+                    {% else %}
+                      <span style="background:#f8d7da;color:#721c24;padding:3px 10px;
+                                   border-radius:20px;font-size:13px;font-weight:600;">
+                        Rejected
+                      </span>
+                    {% endif %}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 20px;color:#888;font-weight:600;
+                             text-transform:uppercase;font-size:12px;letter-spacing:0.05em;">
+                    Decision Date
+                  </td>
+                  <td style="padding:14px 20px;color:#212529;">
+                    {{ withdrawal.reviewed_at|date:"F j, Y \a\t H:i" }} UTC
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ── Admin note (rejection only) ── -->
+          {% if withdrawal.status != withdrawal.STATUS_APPROVED and withdrawal.admin_note %}
+          <tr>
+            <td style="padding:0 40px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                     style="background:#fff3cd;border-left:4px solid #ffc107;
+                            border-radius:4px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p style="margin:0 0 6px;font-size:13px;font-weight:700;
+                               text-transform:uppercase;color:#856404;letter-spacing:0.04em;">
+                      Reason for Rejection
+                    </p>
+                    <p style="margin:0;font-size:14px;color:#533f03;line-height:1.6;">
+                      {{ withdrawal.admin_note|linebreaksbr }}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          {% endif %}
+
+          <!-- ── CTA ── -->
+          <tr>
+            <td style="padding:0 40px 32px;text-align:center;">
+              {% if withdrawal.status == withdrawal.STATUS_APPROVED %}
+                <p style="margin:0 0 18px;font-size:14px;color:#666;line-height:1.6;">
+                  You can view this transaction in your wallet history on the platform.
+                </p>
+              {% else %}
+                <p style="margin:0 0 18px;font-size:14px;color:#666;line-height:1.6;">
+                  You can submit a new request from your wallet page once you are ready.
+                  If you believe this is a mistake, please contact our support team.
+                </p>
+              {% endif %}
+              {% if site_url %}
+              <a href="{{ site_url }}/wallet/history/"
+                 style="display:inline-block;background:#0d6efd;color:#ffffff;
+                        text-decoration:none;padding:12px 28px;border-radius:8px;
+                        font-weight:600;font-size:14px;">
+                View Wallet History
+              </a>
+              {% endif %}
+            </td>
+          </tr>
+
+          <!-- ── Divider ── -->
+          <tr>
+            <td style="padding:0 40px;">
+              <hr style="border:none;border-top:1px solid #e9ecef;margin:0;">
+            </td>
+          </tr>
+
+          <!-- ── Footer ── -->
+          <tr>
+            <td style="padding:24px 40px;text-align:center;">
+              <p style="margin:0 0 6px;font-size:13px;color:#aaa;">
+                This email was sent by <strong>{{ site_name }}</strong>.
+                Please do not reply directly to this email.
+              </p>
+              <p style="margin:0;font-size:12px;color:#ccc;">
+                &copy; {{ withdrawal.reviewed_at|date:"Y" }} {{ site_name }}. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /Card -->
+
+      </td>
+    </tr>
+  </table>
+
 </body>
 </html>

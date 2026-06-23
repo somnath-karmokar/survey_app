@@ -160,11 +160,19 @@
                         <button id="play-again-btn" class="btn btn-primary mt-2 d-none">Play Again</button>
                     </div>
 
-                    <div id="continue-prompt" class="d-none text-center mt-3 p-3 border rounded bg-light">
-                        <p class="mb-2 text-muted">Want to keep going and earn more draw entries?</p>
-                        <a href="{% url 'surveys:category_list' %}" class="btn btn-outline-primary">
-                            <i class="fas fa-layer-group me-2"></i>Continue in Categories
-                        </a>
+                    <!-- Post-draw next-step prompt (shown by JS after result) -->
+                    <div id="continue-prompt" class="d-none mt-4">
+                        <hr class="mb-4">
+                        <div class="text-center">
+                            <p id="continue-heading" class="fw-semibold mb-1" style="font-size:1.05rem;"></p>
+                            <p class="text-muted mb-3" style="font-size:0.9rem;">
+                                Every survey you complete brings you one step closer to your next draw entry.
+                            </p>
+                            <a href="{% url 'surveys:category_list' %}"
+                               class="btn btn-primary px-4">
+                                <i class="fas fa-th-large me-2"></i>Go to Survey Categories
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -278,9 +286,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     playAgainBtn.style.display = 'none';
                 }
 
-                // Show the "continue in categories" prompt after every draw
+                // Show the next-step prompt with context-aware heading
                 const continuePrompt = document.getElementById('continue-prompt');
-                if (continuePrompt) {
+                const continueHeading = document.getElementById('continue-heading');
+                if (continuePrompt && continueHeading) {
+                    continueHeading.textContent = result.is_winner
+                        ? '🎉 Well done! Ready to earn another draw entry?'
+                        : '💪 Don\'t give up — complete more surveys to play again!';
                     continuePrompt.classList.remove('d-none');
                 }
                 
