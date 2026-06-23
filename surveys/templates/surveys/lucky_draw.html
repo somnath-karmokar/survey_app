@@ -159,6 +159,13 @@
                         <p id="result-text"></p>
                         <button id="play-again-btn" class="btn btn-primary mt-2 d-none">Play Again</button>
                     </div>
+
+                    <div id="continue-prompt" class="d-none text-center mt-3 p-3 border rounded bg-light">
+                        <p class="mb-2 text-muted">Want to keep going and earn more draw entries?</p>
+                        <a href="{% url 'surveys:category_list' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-layer-group me-2"></i>Continue in Categories
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -269,6 +276,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     playAgainBtn.style.display = 'inline-block';
                 } else {
                     playAgainBtn.style.display = 'none';
+                }
+
+                // Show the "continue in categories" prompt after every draw
+                const continuePrompt = document.getElementById('continue-prompt');
+                if (continuePrompt) {
+                    continuePrompt.classList.remove('d-none');
                 }
                 
             } catch (error) {

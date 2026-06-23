@@ -62,6 +62,17 @@
     .other-answer-field {
         margin-top: 0.75rem;
     }
+    .question-text,
+    .question-title,
+    .form-check-label {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+    }
+    .question-card {
+        -webkit-touch-callout: none;
+    }
 </style>
 {% endblock %}
 
@@ -240,6 +251,25 @@
     });
     updateOtherAnswerInputs();
 });
+
+// Prevent copying/scraping of question content
+(function() {
+    document.querySelectorAll('.question-card').forEach(function(el) {
+        el.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+    });
+    document.addEventListener('copy', function(e) {
+        var sel = window.getSelection();
+        if (!sel || !sel.anchorNode) return;
+        var node = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentNode : sel.anchorNode;
+        if (node.closest && node.closest('.question-card')) {
+            e.preventDefault();
+            e.clipboardData && e.clipboardData.setData('text/plain', '');
+        }
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key.toLowerCase() === 'u') { e.preventDefault(); }
+    });
+})();
 
 // Track the number of questions answered
 let questionsAnswered = 0;

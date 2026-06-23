@@ -57,6 +57,17 @@
         font-size: 0.875em;
         color: #6c757d;
     }
+    .question-text,
+    .question-title,
+    .form-check-label {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+    }
+    .question-card {
+        -webkit-touch-callout: none;
+    }
 </style>
 {% endblock %}
 
@@ -225,6 +236,24 @@
 
 {% block extra_js %}
 <script>
+(function() {
+    document.querySelectorAll('.question-card').forEach(function(el) {
+        el.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+    });
+    document.addEventListener('copy', function(e) {
+        var sel = window.getSelection();
+        if (!sel || !sel.anchorNode) return;
+        var node = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentNode : sel.anchorNode;
+        if (node.closest && node.closest('.question-card')) {
+            e.preventDefault();
+            e.clipboardData && e.clipboardData.setData('text/plain', '');
+        }
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key.toLowerCase() === 'u') { e.preventDefault(); }
+    });
+})();
+
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('input[type="range"]').forEach(input => {
         const valueDisplay = input.parentNode.querySelector('.range-value');
