@@ -47,6 +47,7 @@ class WalletWithdrawalRequestForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         self.profile = kwargs.pop('profile')
+        self.is_first_withdrawal = kwargs.pop('is_first_withdrawal', False)
         super().__init__(*args, **kwargs)
         self.fields['country'].queryset = Country.objects.filter(is_active=True).order_by('name')
         self.fields['country'].empty_label = 'Select country of residence'
@@ -54,6 +55,12 @@ class WalletWithdrawalRequestForm(forms.ModelForm):
         self.fields['email'].initial = self.profile.user.email
         if self.profile.country_id:
             self.fields['country'].initial = self.profile.country_id
+
+        if self.is_first_withdrawal:
+            self.fields['payment_method'].choices = [
+                (WalletWithdrawalRequest.PAYMENT_METHOD_BANK, 'Direct Bank Transfer'),
+            ]
+            self.fields['payment_method'].initial = WalletWithdrawalRequest.PAYMENT_METHOD_BANK
 
         for field in self.fields.values():
             field.widget.attrs.setdefault('class', 'form-control')
@@ -68,6 +75,10 @@ class WalletWithdrawalRequestForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         payment_method = cleaned_data.get('payment_method')
+
+        if self.is_first_withdrawal and payment_method != WalletWithdrawalRequest.PAYMENT_METHOD_BANK:
+            self.add_error('payment_method', 'Your first withdrawal must be via bank transfer.')
+
         country = cleaned_data.get('country')
         country_code = str(getattr(country, 'code', '') or '').upper()
 

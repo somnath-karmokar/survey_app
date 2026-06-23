@@ -562,12 +562,17 @@ class WalletWithdrawalRequestView(LoginRequiredMixin, CreateView):
         return super().dispatch(request, *args, **kwargs)
 
     def get_profile(self):
-        profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
-        return profile
+        if not hasattr(self, '_profile'):
+            self._profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
+        return self._profile
+
+    def _is_first_withdrawal(self):
+        return not WalletWithdrawalRequest.objects.filter(profile=self.get_profile()).exists()
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['profile'] = self.get_profile()
+        kwargs['is_first_withdrawal'] = self._is_first_withdrawal()
         return kwargs
 
     def get_context_data(self, **kwargs):
@@ -577,6 +582,7 @@ class WalletWithdrawalRequestView(LoginRequiredMixin, CreateView):
         context.update({
             'profile': profile,
             'wallet_balance_display': profile.wallet_display,
+            'is_first_withdrawal': self._is_first_withdrawal(),
             'country_code_map': {
                 str(country.pk): str(country.code).upper()
                 for country in Country.objects.filter(is_active=True)
