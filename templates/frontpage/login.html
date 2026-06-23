@@ -5,438 +5,189 @@
 
 {% block extra_css %}
 <style>
-    /* Enhanced Login Form Styles */
-    .login-header {
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-        color: white;
-        padding: 2rem;
-        border-radius: 15px 15px 0 0;
-        margin: -1rem -1rem 2rem -1rem;
+    /* ── Page background ────────────────────────── */
+    .auth-bg {
+        background: #f0f4fb;
+        padding: 3rem 0 4rem;
+        min-height: 55vh;
     }
-    
-    .login-header h3 {
-        margin-bottom: 0.5rem;
-        font-weight: 700;
-    }
-    
-    .otp-input-group {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-    }
-    
-    .otp-input-group .form-control {
-        flex: 1;
-        font-size: 1.5rem;
-        text-align: center;
-        letter-spacing: 0.5rem;
-        font-weight: 600;
-        font-family: 'Courier New', monospace;
-    }
-    
-    .otp-input-group .btn {
-        white-space: nowrap;
-    }
-    
-    .email-section, .otp-section {
-        background: white;
-        border-radius: 12px;
-        padding: 2rem;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        border: 1px solid #e9ecef;
-        transition: all 0.3s ease;
-    }
-    
-    .email-section:hover, .otp-section:hover {
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        transform: translateY(-2px);
-    }
-    
-    .btn-success {
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        padding: 0.75rem 2rem;
-        transition: all 0.3s ease;
-        position: relative;
+
+    /* ── Card shell ─────────────────────────────── */
+    .auth-card {
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.10);
         overflow: hidden;
     }
-    
-    .btn-success:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+
+    /* ── Gradient header bands ──────────────────── */
+    .auth-header {
+        padding: 2rem 2rem 1.75rem;
+        text-align: center;
     }
-    
-    .btn-success::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-        transition: left 0.5s;
-    }
-    
-    .btn-success:hover::before {
-        left: 100%;
-    }
-    
-    /* Loading state for OTP buttons */
-    .btn.loading {
-        pointer-events: none;
-        opacity: 0.7;
-    }
-    
-    .btn.loading::after {
-        content: '';
-        position: absolute;
-        width: 16px;
-        height: 16px;
-        margin: auto;
-        border: 2px solid transparent;
-        border-top-color: #ffffff;
+    .auth-header.login-band   { background: linear-gradient(135deg, #1a73e8 0%, #0d6efd 100%); }
+    .auth-header.register-band { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .auth-header.forgot-band  { background: linear-gradient(135deg, #f09819 0%, #edde5d 100%); }
+
+    .auth-header .hdr-icon {
+        width: 58px; height: 58px;
+        background: rgba(255, 255, 255, 0.22);
         border-radius: 50%;
-        animation: spin 1s linear infinite;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        right: 0;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 1rem;
+        font-size: 1.5rem;
+        color: #fff;
     }
-    .registration-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 2rem;
-        border-radius: 15px 15px 0 0;
-        margin: -1rem -1rem 2rem -1rem;
+    .auth-header h2 { color: #fff; font-weight: 700; font-size: 1.45rem; margin-bottom: 0.3rem; }
+    .auth-header p  { color: rgba(255, 255, 255, 0.88); margin: 0; font-size: 0.9rem; }
+
+    /* ── Form body ──────────────────────────────── */
+    .auth-body { padding: 2rem 2.25rem 2.25rem; }
+
+    /* ── Inputs ─────────────────────────────────── */
+    .form-label {
+        font-weight: 600; font-size: 0.825rem;
+        color: #444; margin-bottom: 0.3rem; letter-spacing: 0.01em;
     }
-    
-    .registration-header h3 {
-        margin-bottom: 0.5rem;
-        font-weight: 700;
-    }
-    
-    .form-section {
-        background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        border: 1px solid #e9ecef;
-        transition: all 0.3s ease;
-    }
-    
-    .form-section:hover {
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        transform: translateY(-2px);
-    }
-    
-    .section-header {
-        margin-bottom: 1.5rem;
-        padding-bottom: 0.75rem;
-        border-bottom: 2px solid #f8f9fa;
-    }
-    
-    .section-icon {
-        transition: all 0.3s ease;
-    }
-    
-    .section-header:hover .section-icon {
-        transform: scale(1.1);
-    }
-    
-    /* Enhanced Form Controls */
-    .form-floating {
-        margin-bottom: 1rem;
-    }
-    
     .form-control, .form-select {
-        border: 2px solid #e9ecef;
-        border-radius: 8px;
-        transition: all 0.3s ease;
+        border: 1.5px solid #dde3ed;
+        border-radius: 9px;
+        padding: 0.65rem 0.9rem;
         font-size: 0.95rem;
+        background: #f8fafc;
+        transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
     }
-    
     .form-control:focus, .form-select:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-        transform: translateY(-1px);
-    }
-    
-    .form-floating label {
-        color: #6c757d;
-        font-weight: 500;
-    }
-    
-    .form-floating .form-control:focus ~ label,
-    .form-floating .form-control:not(:placeholder-shown) ~ label {
-        color: #667eea;
-    }
-    
-    /* Enhanced Terms and Conditions */
-    .terms-container {
-        border: 2px solid #e9ecef;
-        transition: all 0.3s ease;
-    }
-    
-    .terms-container:hover {
-        border-color: #667eea;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.1);
-    }
-    
-    .custom-checkbox {
-        position: relative;
-        padding-left: 2.5rem;
-        margin-bottom: 1rem;
-        min-height: 2rem;
-    }
-    
-    .custom-checkbox .form-check-input {
-        width: 1.25rem;
-        height: 1.25rem;
-        margin-top: 0.125rem;
-        margin-left: -2.5rem;
-        border: 2px solid #667eea;
-        border-radius: 0.25rem;
-        transition: all 0.3s ease;
-        cursor: pointer;
-        position: absolute;
-        z-index: 1;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        appearance: none;
-        background-color: #ffffff;
-        background-image: none;
-    }
-    
-    .custom-checkbox .form-check-input:checked {
-        background-color: #667eea;
-        border-color: #667eea;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l7-7'/%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: center;
-        background-size: 0.75rem;
-        transform: scale(1.05);
-    }
-    
-    .custom-checkbox .form-check-input:focus {
-        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-        border-color: #667eea;
+        border-color: #0d6efd;
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.10);
         outline: none;
     }
-    
-    .custom-checkbox .form-check-input:hover:not(:checked) {
-        border-color: #5a6fd8;
-        background-color: #f8f9ff;
+    .form-text { font-size: 0.8rem; color: #888; margin-top: 0.3rem; }
+
+    /* ── OTP input ──────────────────────────────── */
+    .otp-input-group { display: flex; gap: 0.5rem; align-items: stretch; }
+    .otp-input-group .form-control {
+        font-size: 1.5rem; text-align: center;
+        letter-spacing: 0.45rem; font-weight: 700;
+        font-family: 'Courier New', monospace; flex: 1;
     }
-    
-    .custom-checkbox .form-check-input:indeterminate {
-        background-color: #667eea;
-        border-color: #667eea;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M5 10h10'/%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: center;
-        background-size: 0.75rem;
+    .otp-input-group .btn { white-space: nowrap; flex-shrink: 0; }
+
+    /* ── Section headings in Register ──────────── */
+    .section-heading {
+        display: flex; align-items: center; gap: 0.6rem;
+        font-size: 0.875rem; font-weight: 700; color: #333;
+        margin-bottom: 1rem; padding-bottom: 0.55rem;
+        border-bottom: 2px solid #f0f2f8;
     }
-    
-    .custom-checkbox .form-check-label {
-        padding-left: 0.5rem;
-        cursor: pointer;
-        user-select: none;
-        line-height: 1.5;
-        display: flex;
-        align-items: flex-start;
-        flex-wrap: wrap;
+    .section-dot {
+        width: 26px; height: 26px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.7rem; color: #fff; font-weight: 700;
+        flex-shrink: 0;
     }
-    
-    .terms-links {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.25rem;
+    .dot-blue  { background: #0d6efd; }
+    .dot-green { background: #28a745; }
+    .dot-teal  { background: #0dcaf0; }
+
+    /* ── Primary action buttons ─────────────────── */
+    .btn-login {
+        background: linear-gradient(135deg, #1a73e8, #0d6efd);
+        color: #fff; border: none; border-radius: 9px;
+        font-weight: 600; padding: 0.72rem 1.5rem;
+        width: 100%; font-size: 0.97rem; cursor: pointer;
+        transition: opacity 0.2s, transform 0.15s;
+        position: relative; overflow: hidden;
     }
-    
-    .terms-links a {
-        transition: all 0.3s ease;
-        position: relative;
-        text-decoration: none;
-        color: #667eea !important;
-        font-weight: 600;
+    .btn-login:hover { opacity: 0.9; transform: translateY(-1px); color: #fff; }
+
+    .btn-verify {
+        background: linear-gradient(135deg, #1cb15a, #20c997);
+        color: #fff; border: none; border-radius: 9px;
+        font-weight: 600; padding: 0.72rem 1.5rem;
+        width: 100%; font-size: 0.97rem; cursor: pointer;
+        transition: opacity 0.2s, transform 0.15s;
+        position: relative; overflow: hidden;
     }
-    
-    .terms-links a::after {
+    .btn-verify:hover { opacity: 0.9; transform: translateY(-1px); color: #fff; }
+
+    .btn-register {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff; border: none; border-radius: 9px;
+        font-weight: 600; padding: 0.72rem 1.5rem;
+        width: 100%; font-size: 0.97rem; cursor: pointer;
+        transition: opacity 0.2s, transform 0.15s;
+        position: relative; overflow: hidden;
+    }
+    .btn-register:hover { opacity: 0.9; transform: translateY(-1px); color: #fff; }
+
+    /* Loading spinner (added via JS .loading class) */
+    .loading { pointer-events: none; opacity: 0.7; }
+    .loading::after {
         content: '';
         position: absolute;
-        width: 0;
-        height: 2px;
-        bottom: -2px;
-        left: 0;
-        background-color: #667eea;
-        transition: width 0.3s ease;
-    }
-    
-    .terms-links a:hover::after {
-        width: 100%;
-    }
-    
-    .terms-links a:hover {
-        color: #5a6fd8 !important;
-        text-decoration: none;
-    }
-    
-    /* Fix invalid feedback positioning */
-    .custom-checkbox .invalid-feedback {
-        display: none;
-        background-color: #f8d7da;
-        border: 1px solid #f5c6cb;
-        border-radius: 6px;
-        padding: 0.75rem;
-        margin-top: 0.5rem;
-        margin-left: -2.5rem;
-        font-size: 0.875rem;
-        animation: slideDown 0.3s ease;
-        width: calc(100% + 2.5rem);
-    }
-    
-    .custom-checkbox .form-check-input.is-invalid ~ .invalid-feedback {
-        display: block;
-    }
-    
-    .custom-checkbox .form-check-input.is-invalid {
-        border-color: #dc3545;
-        background-color: #f8d7da;
-    }
-    
-    .custom-checkbox .form-check-input.is-invalid:focus {
-        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
-    }
-    
-    /* Enhanced Submit Button */
-    .btn-primary {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        padding: 0.75rem 2rem;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .btn-primary::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-        transition: left 0.5s;
-    }
-    
-    .btn-primary:hover::before {
-        left: 100%;
-    }
-    
-    .btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
-    }
-    
-    .btn-primary:active {
-        transform: translateY(0);
-    }
-    
-    /* Loading State */
-    .btn-primary.loading {
-        pointer-events: none;
-        opacity: 0.7;
-    }
-    
-    .btn-primary.loading::after {
-        content: '';
-        position: absolute;
-        width: 20px;
-        height: 20px;
-        margin: auto;
+        width: 18px; height: 18px;
         border: 2px solid transparent;
-        border-top-color: #ffffff;
+        border-top-color: #fff;
         border-radius: 50%;
-        animation: spin 1s linear infinite;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        right: 0;
+        animation: spin 0.8s linear infinite;
+        top: 50%; left: 50%;
+        margin: -9px 0 0 -9px;
     }
-    
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+
+    /* ── Terms box ──────────────────────────────── */
+    .terms-box {
+        background: #f7f8ff;
+        border: 1.5px solid #dde3ed;
+        border-radius: 10px;
+        padding: 1.2rem 1.4rem;
     }
-    
-    /* Enhanced Error Messages */
-    .invalid-feedback {
-        display: none;
-        background-color: #f8d7da;
-        border: 1px solid #f5c6cb;
-        border-radius: 6px;
-        padding: 0.75rem;
-        margin-top: 0.5rem;
-        font-size: 0.875rem;
-        animation: slideDown 0.3s ease;
+    .custom-checkbox .form-check-input {
+        width: 1.15rem; height: 1.15rem;
+        border: 2px solid #667eea; border-radius: 4px;
+        cursor: pointer; -webkit-appearance: none; appearance: none;
+        background: #fff; transition: all 0.2s; margin-top: 3px;
     }
-    
-    .is-invalid ~ .invalid-feedback {
-        display: block;
+    .custom-checkbox .form-check-input:checked {
+        background-color: #667eea; border-color: #667eea;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l7-7'/%3e%3c/svg%3e");
+        background-repeat: no-repeat; background-position: center; background-size: 0.75rem;
     }
-    
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+    .custom-checkbox .form-check-input:focus {
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2); outline: none;
     }
-    
-    /* Success Animation */
-    .success-message {
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-        color: white;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        animation: slideInRight 0.5s ease;
+    .custom-checkbox .form-check-input.is-invalid { border-color: #dc3545; }
+    .terms-links a { color: #667eea; font-weight: 600; text-decoration: none; }
+    .terms-links a:hover { text-decoration: underline; }
+
+    /* ── Validation feedback ────────────────────── */
+    .invalid-feedback { display: none; color: #dc3545; font-size: 0.8rem; margin-top: 0.25rem; }
+    .is-invalid ~ .invalid-feedback,
+    .form-check-input.is-invalid ~ .invalid-feedback { display: block; }
+
+    /* ── Switch link row ────────────────────────── */
+    .auth-switch { text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: #888; }
+    .auth-switch a { color: #0d6efd; font-weight: 600; text-decoration: none; }
+    .auth-switch a:hover { text-decoration: underline; }
+
+    /* ── Divider ─────────────────────────────────── */
+    .auth-divider {
+        display: flex; align-items: center; gap: 0.75rem;
+        color: #bbb; font-size: 0.8rem; margin: 1.25rem 0;
     }
-    
-    @keyframes slideInRight {
-        from {
-            opacity: 0;
-            transform: translateX(50px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
+    .auth-divider::before, .auth-divider::after {
+        content: ''; flex: 1; height: 1px; background: #e9ecef;
     }
-    
-    /* Responsive Design */
-    @media (max-width: 768px) {
-        .registration-header {
-            padding: 1.5rem 1rem;
-            margin: -1rem -1rem 1.5rem -1rem;
-        }
-        
-        .form-section {
-            padding: 1rem;
-        }
-        
-        .section-icon {
-            width: 28px !important;
-            height: 28px !important;
-        }
+
+    /* ── Animation ──────────────────────────────── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .tab { transition: opacity 0.25s ease; }
+
+    /* ── Responsive ─────────────────────────────── */
+    @media (max-width: 576px) {
+        .auth-body { padding: 1.25rem 1.25rem 1.5rem; }
+        .auth-header { padding: 1.5rem 1.25rem; }
     }
 </style>
 {% endblock %}
@@ -462,297 +213,288 @@
     </div>
 </section>
 
-<section class="contact_area">
+<div class="auth-bg">
     <div class="container">
-        <div class="row">
-            <div class="col-md-6 offset-md-3">
+        <div class="row justify-content-center">
+            <div class="col-xl-7 col-lg-8 col-md-10">
                 <div class="tabs-box">
                     <div class="tabs-content tab_cont">
-                        <!-- Login Form -->
+
+                        <!-- ══════════════ LOGIN ══════════════ -->
                         <div class="form_area log_form tab active-tab" id="LogIn">
-                            <div class="login-header text-center mb-4">
-                                <h3 class="fw-bold text-primary">Welcome Back</h3>
-                                <p class="text-muted">Enter your email to receive a login code</p>
-                            </div>
-                            
-                            <form method="post" action="{% url 'surveys:login' %}" class="login-form">
-                                {% csrf_token %}
-                                {% if form.non_field_errors %}
-                                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                        {% for error in form.non_field_errors %}
-                                            {{ error }}
-                                        {% endfor %}
-                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                                    </div>
-                                {% endif %}
-                                
-                                <!-- Email Input Section -->
-                                <div class="email-section" id="emailSection">
-                                    <div class="mb-3">
-                                        <label for="login_email" class="form-label">Email Address</label>
-                                        <input type="email" name="email" class="form-control" id="login_email" placeholder="Enter your email address" required>
-                                        {% if form.username.errors %}
-                                            <div class="text-danger">{{ form.username.errors|join:", " }}</div>
+                            <div class="auth-card">
+                                <div class="auth-header login-band">
+                                    <div class="hdr-icon"><i class="fas fa-sign-in-alt"></i></div>
+                                    <h2>Welcome Back</h2>
+                                    <p>Enter your email to receive a secure login code</p>
+                                </div>
+
+                                <div class="auth-body">
+                                    <form method="post" action="{% url 'surveys:login' %}" class="login-form">
+                                        {% csrf_token %}
+
+                                        {% if form.non_field_errors %}
+                                            <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+                                                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                            </div>
                                         {% endif %}
-                                        <small class="form-text text-muted">We'll send a 6-digit code to this email</small>
-                                    </div>
-                                    <button type="button" class="btn btn-primary w-100" id="sendCodeBtn">
-                                        <i class="fas fa-paper-plane me-2"></i>Send Login Code
-                                    </button>
-                                </div>
-                                
-                                <!-- OTP Input Section (Initially Hidden) -->
-                                <!-- <div class="otp-section d-none" id="otpSection"></div> -->
-                                <div class="otp-section" id="otpSection">
-                                    <div class="mb-3">
-                                        <label for="otp_code" class="form-label">Enter 6-Digit Code</label>
-                                        <div class="otp-input-group">
-                                            <input type="text" name="otp_code" class="form-control" id="otp_code" placeholder="000000" maxlength="6" pattern="[0-9]{6}" required>
-                                            <button type="button" class="btn btn-outline-secondary" id="resendCodeBtn">
-                                                <i class="fas fa-redo me-1"></i>Resend
+
+                                        <!-- Email section -->
+                                        <div id="emailSection">
+                                            <div class="mb-3">
+                                                <label for="login_email" class="form-label">Email Address</label>
+                                                <input type="email" name="email" class="form-control" id="login_email"
+                                                       placeholder="you@example.com" required>
+                                                {% if form.username.errors %}
+                                                    <div class="text-danger small mt-1">{{ form.username.errors|join:", " }}</div>
+                                                {% endif %}
+                                                <div class="form-text">We'll send a 6-digit code to this address.</div>
+                                            </div>
+                                            <button type="button" class="btn btn-login" id="sendCodeBtn">
+                                                <i class="fas fa-paper-plane me-2"></i>Send Login Code
                                             </button>
                                         </div>
-                                        <small class="form-text text-muted">
-                                            Code sent to <span id="sentEmail"></span>. Valid for 10 minutes.
-                                        </small>
+
+                                        <!-- OTP section -->
+                                        <div id="otpSection" class="mt-3">
+                                            <div class="mb-3">
+                                                <label for="otp_code" class="form-label">6-Digit Code</label>
+                                                <div class="otp-input-group">
+                                                    <input type="text" name="otp_code" class="form-control" id="otp_code"
+                                                           placeholder="000000" maxlength="6" pattern="[0-9]{6}" required>
+                                                    <button type="button" class="btn btn-outline-secondary" id="resendCodeBtn">
+                                                        <i class="fas fa-redo me-1"></i>Resend
+                                                    </button>
+                                                </div>
+                                                <div class="form-text">
+                                                    Code sent to <strong><span id="sentEmail"></span></strong>. Valid for 10 minutes.
+                                                </div>
+                                            </div>
+                                            <input type="hidden" name="email" id="hidden_email">
+                                            <button type="submit" class="btn btn-verify mb-2" id="verifyCodeBtn">
+                                                <i class="fas fa-check me-2"></i>Verify &amp; Login
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary w-100" id="backToEmailBtn">
+                                                <i class="fas fa-arrow-left me-1"></i>Use a Different Email
+                                            </button>
+                                        </div>
+                                    </form>
+
+                                    <div class="auth-switch">
+                                        Don't have an account?
+                                        <a href="#" class="tab-btn" data-tab="#Register">Create one here</a>
                                     </div>
-                                    <input type="hidden" name="email" id="hidden_email">
-                                    <button type="submit" class="btn btn-success w-100" id="verifyCodeBtn">
-                                        <i class="fas fa-check me-2"></i>Verify & Login
-                                    </button>
-                                    <button type="button" class="btn btn-outline-secondary w-100 mt-2" id="backToEmailBtn">
-                                        <i class="fas fa-arrow-left me-2"></i>Use Different Email
-                                    </button>
                                 </div>
-                            </form>
-                            
-                            <div class="text-center mt-4">
-                                <p class="mb-0 text-muted">Don't have an account? 
-                                    <a href="#" class="text-primary text-decoration-none fw-semibold tab-btn" data-tab="#Register">
-                                        Sign Up Here
-                                    </a>
-                                </p>
                             </div>
                         </div>
 
-                        <!-- Forgot Password Form -->
+                        <!-- ══════════════ FORGOT PASSWORD ══════════════ -->
                         <div class="form_area log_form tab" id="Forgot" style="display: none;">
-                            <form method="post" action="{% url 'password_reset' %}" class="row">
-                                {% csrf_token %}
-                                <div class="col-md-12">
-                                    <p>Enter your email address and we'll send you a link to reset your password.</p>
+                            <div class="auth-card">
+                                <div class="auth-header forgot-band">
+                                    <div class="hdr-icon"><i class="fas fa-lock"></i></div>
+                                    <h2>Reset Password</h2>
+                                    <p>We'll send a reset link straight to your inbox</p>
                                 </div>
-                                <div class="col-md-12">
-                                    <input type="email" name="email" class="form-control" placeholder="Enter your email" required>
+                                <div class="auth-body">
+                                    <form method="post" action="{% url 'password_reset' %}">
+                                        {% csrf_token %}
+                                        <div class="mb-3">
+                                            <label class="form-label">Email Address</label>
+                                            <input type="email" name="email" class="form-control"
+                                                   placeholder="you@example.com" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-login">
+                                            <i class="fas fa-paper-plane me-2"></i>Send Reset Link
+                                        </button>
+                                    </form>
+                                    <div class="auth-switch">
+                                        Remember your password?
+                                        <a href="#" class="tab-btn" data-tab="#LogIn">Sign In</a>
+                                    </div>
                                 </div>
-                                <div class="col-md-12">
-                                    <button type="submit" class="form_btn">Send Reset Link</button>
-                                </div>
-                                <h5 class="tab-btn" data-tab="#LogIn">Remember your password? <span>Log In</span></h5>
-                            </form>
+                            </div>
                         </div>
 
-                        <!-- Registration Form -->
+                        <!-- ══════════════ REGISTER ══════════════ -->
                         <div class="form_area log_form tab" id="Register" style="display: none;">
-                            <div class="registration-header text-center mb-4">
-                                <h3 class="fw-bold text-primary">Create Your Account</h3>
-                                <p class="text-muted">Join our community and start earning rewards</p>
+                            <div class="auth-card">
+                                <div class="auth-header register-band">
+                                    <div class="hdr-icon"><i class="fas fa-user-plus"></i></div>
+                                    <h2>Create Your Account</h2>
+                                    <p>Join our community and start earning rewards</p>
+                                </div>
+
+                                <div class="auth-body">
+                                    <form method="post" action="{% url 'surveys:signup' %}" id="signup-form">
+                                        {% csrf_token %}
+
+                                        {% if signup_form.non_field_errors %}
+                                            <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+                                                {% for error in signup_form.non_field_errors %}{{ error }}{% endfor %}
+                                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                            </div>
+                                        {% endif %}
+
+                                        <!-- Personal Information -->
+                                        <div class="mb-4">
+                                            <div class="section-heading">
+                                                <span class="section-dot dot-blue"><i class="fas fa-user" style="font-size:0.6rem;"></i></span>
+                                                Personal Information
+                                            </div>
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label for="id_first_name" class="form-label">First Name <span class="text-danger">*</span></label>
+                                                    <input type="text" name="first_name" class="form-control" id="id_first_name"
+                                                           placeholder="First name" required>
+                                                    {% if signup_form.first_name.errors %}
+                                                        <div class="text-danger small mt-1">{{ signup_form.first_name.errors|join:", " }}</div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="id_last_name" class="form-label">Last Name <span class="text-danger">*</span></label>
+                                                    <input type="text" name="last_name" class="form-control" id="id_last_name"
+                                                           placeholder="Last name" required>
+                                                    {% if signup_form.last_name.errors %}
+                                                        <div class="text-danger small mt-1">{{ signup_form.last_name.errors|join:", " }}</div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="col-12">
+                                                    <label for="id_middle_name" class="form-label">Middle Name <span class="text-muted fw-normal">(optional)</span></label>
+                                                    <input type="text" name="middle_name" class="form-control" id="id_middle_name"
+                                                           placeholder="Middle name">
+                                                    {% if signup_form.middle_name.errors %}
+                                                        <div class="text-danger small mt-1">{{ signup_form.middle_name.errors|join:", " }}</div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Account Information -->
+                                        <div class="mb-4">
+                                            <div class="section-heading">
+                                                <span class="section-dot dot-green"><i class="fas fa-envelope" style="font-size:0.6rem;"></i></span>
+                                                Account Information
+                                            </div>
+                                            <div class="row g-3">
+                                                <div class="col-md-7">
+                                                    <label for="id_email" class="form-label">Email Address <span class="text-danger">*</span></label>
+                                                    <input type="email" name="email" class="form-control" id="id_email"
+                                                           placeholder="you@example.com" required>
+                                                    {% if signup_form.email.errors %}
+                                                        <div class="text-danger small mt-1">{{ signup_form.email.errors|join:", " }}</div>
+                                                    {% else %}
+                                                        <div class="form-text">This will be your username for login.</div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <label for="id_year_of_birth" class="form-label">Year of Birth</label>
+                                                    <input type="number" name="year_of_birth" class="form-control" id="id_year_of_birth"
+                                                           placeholder="e.g. 1990" min="1900" max="{{ max_year }}" data-max-year="{{ max_year }}">
+                                                    {% if signup_form.year_of_birth.errors %}
+                                                        <div class="text-danger small mt-1">{{ signup_form.year_of_birth.errors|join:", " }}</div>
+                                                    {% else %}
+                                                        <div class="form-text">Must be at least 16 years old (max {{ max_year }}).</div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Location -->
+                                        <div class="mb-4">
+                                            <div class="section-heading">
+                                                <span class="section-dot dot-teal"><i class="fas fa-map-marker-alt" style="font-size:0.6rem;"></i></span>
+                                                Location
+                                            </div>
+                                            <div class="row g-3">
+                                                <div class="col-md-5">
+                                                    <label for="id_city" class="form-label">City <span class="text-danger">*</span></label>
+                                                    <input type="text" name="city" class="form-control" id="id_city"
+                                                           placeholder="Your city" required>
+                                                    {% if signup_form.city.errors %}
+                                                        <div class="text-danger small mt-1">{{ signup_form.city.errors|join:", " }}</div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label for="id_state" class="form-label">State / Province</label>
+                                                    <input type="text" name="state" class="form-control" id="id_state"
+                                                           placeholder="State">
+                                                    {% if signup_form.state.errors %}
+                                                        <div class="text-danger small mt-1">{{ signup_form.state.errors|join:", " }}</div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label for="id_country" class="form-label">Country <span class="text-danger">*</span></label>
+                                                    <select name="country" class="form-select" id="id_country" required>
+                                                        <option value="" disabled selected>Select country</option>
+                                                        {% for country in countries %}
+                                                            <option value="{{ country.id }}">{{ country.name }}</option>
+                                                        {% empty %}
+                                                            <option value="" disabled>No countries available</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                    {% if signup_form.country.errors %}
+                                                        <div class="text-danger small mt-1">{{ signup_form.country.errors|join:", " }}</div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Terms & Conditions -->
+                                        <div class="mb-4">
+                                            <div class="terms-box">
+                                                <div class="form-check custom-checkbox mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="termsCheck" required>
+                                                    <label class="form-check-label ms-2" for="termsCheck">
+                                                        I agree to the
+                                                        <span class="terms-links">
+                                                            <a href="#" onclick="openTermsPopup(); return false;">Terms of Service</a>
+                                                            and
+                                                            <a href="#" onclick="openPrivacyPopup(); return false;">Privacy Policy</a>
+                                                        </span>
+                                                    </label>
+                                                    <div class="invalid-feedback">
+                                                        <i class="fas fa-exclamation-circle me-1"></i>
+                                                        You must agree to the terms and conditions to continue.
+                                                    </div>
+                                                </div>
+
+                                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                        data-bs-toggle="collapse" data-bs-target="#termsSummary">
+                                                    <i class="fas fa-info-circle me-1"></i>Quick T&amp;C Summary
+                                                </button>
+                                                <div class="collapse mt-2" id="termsSummary">
+                                                    <div class="card card-body py-2">
+                                                        <ul class="small mb-0">
+                                                            <li>We will add half of your total withdrawal if you're using the winning to support any verifiable charity.</li>
+                                                            <li>We will not if we can't verify your chosen charity or course.</li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Submit -->
+                                        <button type="submit" class="btn btn-register" id="register-btn">
+                                            <i class="fas fa-user-plus me-2"></i>Create Account
+                                        </button>
+                                    </form>
+
+                                    <div class="auth-switch">
+                                        Already have an account?
+                                        <a href="#" class="tab-btn" data-tab="#LogIn">Sign In here</a>
+                                    </div>
+                                </div>
                             </div>
-                            
-                            <form method="post" action="{% url 'surveys:signup' %}" id="signup-form">
-                                {% csrf_token %}
-                                {% if signup_form.non_field_errors %}
-                                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                        {% for error in signup_form.non_field_errors %}
-                                            {{ error }}
-                                        {% endfor %}
-                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                                    </div>
-                                {% endif %}
-                                
-                                <!-- Personal Information Section -->
-                                <div class="form-section mb-4">
-                                    <div class="section-header d-flex align-items-center mb-3">
-                                        <div class="section-icon bg-primary text-white rounded-circle me-2" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-                                            <i class="fas fa-user"></i>
-                                        </div>
-                                        <h5 class="mb-0 fw-semibold">Personal Information</h5>
-                                    </div>
-                                    
-                                    <div class="row g-3">
-                                        <div class="col-md-4">
-                                            <div class="form-floating">
-                                                <input type="text" name="first_name" class="form-control" id="id_first_name" placeholder="First name" required>
-                                                <label for="id_first_name">First Name *</label>
-                                                {% if signup_form.first_name.errors %}
-                                                    <div class="text-danger small mt-1">{{ signup_form.first_name.errors|join:", " }}</div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="form-floating">
-                                                <input type="text" name="middle_name" class="form-control" id="id_middle_name" placeholder="Middle name">
-                                                <label for="id_middle_name">Middle Name</label>
-                                                {% if signup_form.middle_name.errors %}
-                                                    <div class="text-danger small mt-1">{{ signup_form.middle_name.errors|join:", " }}</div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="form-floating">
-                                                <input type="text" name="last_name" class="form-control" id="id_last_name" placeholder="Last name" required>
-                                                <label for="id_last_name">Last Name *</label>
-                                                {% if signup_form.last_name.errors %}
-                                                    <div class="text-danger small mt-1">{{ signup_form.last_name.errors|join:", " }}</div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Account Information Section -->
-                                <div class="form-section mb-4">
-                                    <div class="section-header d-flex align-items-center mb-3">
-                                        <div class="section-icon bg-success text-white rounded-circle me-2" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-                                            <i class="fas fa-envelope"></i>
-                                        </div>
-                                        <h5 class="mb-0 fw-semibold">Account Information</h5>
-                                    </div>
-                                    
-                                    <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <div class="form-floating">
-                                                <input type="email" name="email" class="form-control" id="id_email" placeholder="Enter Email Address" required>
-                                                <label for="id_email">Email Address *</label>
-                                                {% if signup_form.email.errors %}
-                                                    <div class="text-danger small mt-1">{{ signup_form.email.errors|join:", " }}</div>
-                                                {% else %}
-                                                    <small class="form-text text-muted">This will be your username for login</small>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-floating">
-                                                <input type="number" name="year_of_birth" class="form-control" id="id_year_of_birth" placeholder="e.g., 1990" min="1900" max="{{ max_year }}" data-max-year="{{ max_year }}">
-                                                <label for="id_year_of_birth">Year of Birth</label>
-                                                <small class="form-text text-muted">You must be at least 16 years old to register (max year: {{ max_year }})</small>
-                                                {% if signup_form.year_of_birth.errors %}
-                                                    <div class="text-danger small mt-1">{{ signup_form.year_of_birth.errors|join:", " }}</div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Location Information Section -->
-                                <div class="form-section mb-4">
-                                    <div class="section-header d-flex align-items-center mb-3">
-                                        <div class="section-icon bg-info text-white rounded-circle me-2" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-                                            <i class="fas fa-map-marker-alt"></i>
-                                        </div>
-                                        <h5 class="mb-0 fw-semibold">Location Information</h5>
-                                    </div>
-                                    
-                                    <div class="row g-3">
-                                        <div class="col-md-4">
-                                            <div class="form-floating">
-                                                <input type="text" name="city" class="form-control" id="id_city" placeholder="City" required>
-                                                <label for="id_city">City <span class="text-danger">*</span></label>
-                                                {% if signup_form.city.errors %}
-                                                    <div class="text-danger small mt-1">{{ signup_form.city.errors|join:", " }}</div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="form-floating">
-                                                <input type="text" name="state" class="form-control" id="id_state" placeholder="State">
-                                                <label for="id_state">State/Province</label>
-                                                {% if signup_form.state.errors %}
-                                                    <div class="text-danger small mt-1">{{ signup_form.state.errors|join:", " }}</div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="form-floating">
-                                                <select name="country" class="form-select" id="id_country" required>
-                                                    <option value="" disabled selected>Select Country</option>
-                                                    {% for country in countries %}
-                                                        <option value="{{ country.id }}">{{ country.name }}</option>
-                                                    {% empty %}
-                                                        <option value="" disabled>No countries available</option>
-                                                    {% endfor %}
-                                                </select>
-                                                <label for="id_country">Country <span class="text-danger">*</span></label>
-                                                {% if signup_form.country.errors %}
-                                                    <div class="text-danger small mt-1">{{ signup_form.country.errors|join:", " }}</div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Terms and Conditions -->
-                                <div class="form-section mb-4">
-                                    <div class="terms-container bg-light rounded-3 p-4">
-                                        <div class="form-check custom-checkbox mb-3">
-                                            <input class="form-check-input" type="checkbox" id="termsCheck" required>
-                                            <label class="form-check-label d-flex align-items-start" for="termsCheck">
-                                                <span class="me-2">I agree to the</span>
-                                                <div class="terms-links d-flex flex-wrap align-items-center">
-                                                    <a href="#" class="text-primary text-decoration-none fw-semibold me-2" onclick="openTermsPopup(); return false;">
-                                                        Terms of Service
-                                                    </a>
-                                                    <span class="me-2">and</span>
-                                                    <a href="#" class="text-primary text-decoration-none fw-semibold" onclick="openPrivacyPopup(); return false;">
-                                                        Privacy Policy
-                                                    </a>
-                                                </div>
-                                            </label>
-                                            <div class="invalid-feedback mt-2">
-                                                <i class="fas fa-exclamation-circle me-1"></i>
-                                                You must agree to the terms and conditions to continue.
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="mt-3">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#termsSummary">
-                                                <i class="fas fa-info-circle me-1"></i>Quick T&C
-                                            </button>
-                                            <div class="collapse mt-2" id="termsSummary">
-                                                <div class="card card-body">
-                                                    <h6>Key Points:</h6>
-                                                    <ul class="small mb-0">
-                                                        <li>We will add half of your total withdrawal if you're using the winning to support any verifiable charity.</li>
-                                                        <li>We will not if we can’t verify your chosen charity or course.</li>
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Submit Button -->
-                                <div class="form-section">
-                                    <button type="submit" class="btn btn-primary btn-lg w-100" id="register-btn">
-                                        <i class="fas fa-user-plus me-2"></i>Create Account
-                                    </button>
-                                    
-                                    <div class="text-center mt-3">
-                                        <p class="mb-0 text-muted">Already have an account? 
-                                            <a href="#" class="text-primary text-decoration-none fw-semibold tab-btn" data-tab="#LogIn">
-                                                Sign In Here
-                                            </a>
-                                        </p>
-                                    </div>
-                                </div>
-                            </form>
                         </div>
-                    </div>
-                </div>
+
+                    </div><!-- /tabs-content -->
+                </div><!-- /tabs-box -->
             </div>
         </div>
     </div>
-</section>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -772,30 +514,30 @@
         function showFieldError(form, fieldName, message) {
             const input = form.find(`[name="${fieldName}"]`);
             input.addClass('is-invalid');
-            
+
             // Add error message after the input
             const errorDiv = $(`<div class="invalid-feedback">${message}</div>`);
             input.after(errorDiv);
             errorDiv.show();
         }
-        
+
         // Notification system
         function showNotification(message, type = 'info', duration = 5000) {
             console.log('showNotification called:', message, type, duration); // Debug
-            const alertClass = type === 'error' ? 'alert-danger' : 
+            const alertClass = type === 'error' ? 'alert-danger' :
                               type === 'success' ? 'alert-success' : 'alert-info';
-            
+
             const notification = $(`
-                <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+                <div class="alert ${alertClass} alert-dismissible fade show position-fixed"
                      style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
                     ${message}
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             `);
-            
+
             $('body').append(notification);
             console.log('Notification added to DOM'); // Debug
-            
+
             // Auto remove after specified duration
             if (duration > 0) {
                 setTimeout(() => {
@@ -806,13 +548,13 @@
         if (sendCodeBtn) {
             sendCodeBtn.addEventListener('click', function() {
                 const email = loginEmail.value.trim();
-                
+
                 if (!email) {
                     showNotification('Please enter your email address', 'error');
                     loginEmail.focus();
                     return;
                 }
-                
+
                 // Validate email format
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailRegex.test(email)) {
@@ -820,12 +562,12 @@
                     loginEmail.focus();
                     return;
                 }
-                
+
                 // Show loading state
                 sendCodeBtn.disabled = true;
                 sendCodeBtn.classList.add('loading');
                 sendCodeBtn.innerHTML = '';
-                
+
                 // Send OTP request
                 fetch('{% url "surveys:send_otp" %}', {
                     method: 'POST',
@@ -844,14 +586,14 @@
                         // otpSection.classList.remove('d-none');
                         sentEmail.textContent = email;
                         hiddenEmail.value = email;
-                        
+
                         // Focus on OTP input
                         setTimeout(() => {
                             otpCode.focus();
                         }, 100);
-                        
+
                         showNotification(data.message, 'success');
-                        
+
                         // Start countdown for resend button
                         startResendCountdown();
                     } else {
@@ -869,21 +611,21 @@
                 });
             });
         }
-        
+
         if (resendCodeBtn) {
             resendCodeBtn.addEventListener('click', function() {
                 const email = hiddenEmail.value;
-                
+
                 if (!email) {
                     showNotification('Email address not found', 'error');
                     return;
                 }
-                
+
                 // Show loading state
                 resendCodeBtn.disabled = true;
                 resendCodeBtn.classList.add('loading');
                 resendCodeBtn.innerHTML = '';
-                
+
                 // Send OTP request
                 fetch('{% url "surveys:send_otp" %}', {
                     method: 'POST',
@@ -901,7 +643,7 @@
                         // Clear OTP input and focus
                         otpCode.value = '';
                         otpCode.focus();
-                        
+
                         // Start countdown for resend button
                         startResendCountdown();
                     } else {
@@ -919,32 +661,32 @@
                 });
             });
         }
-        
+
         if (backToEmailBtn) {
             backToEmailBtn.addEventListener('click', function() {
                 // Show email section, hide OTP section
                 // otpSection.classList.add('d-none');
                 emailSection.classList.remove('d-none');
-                
+
                 // Clear OTP input
                 otpCode.value = '';
-                
+
                 // Focus on email input
                 loginEmail.focus();
             });
         }
-        
+
         // Auto-format OTP input (only numbers, max 6 digits)
         if (otpCode) {
             otpCode.addEventListener('input', function(e) {
                 // Remove non-numeric characters
                 this.value = this.value.replace(/[^0-9]/g, '');
-                
+
                 // Limit to 6 digits
                 if (this.value.length > 6) {
                     this.value = this.value.slice(0, 6);
                 }
-                
+
                 // Auto-submit when 6 digits are entered
                 if (this.value.length === 6) {
                     const verifyBtn = document.getElementById('verifyCodeBtn');
@@ -953,14 +695,14 @@
                     }
                 }
             });
-            
+
             // Prevent paste of non-numeric content
             otpCode.addEventListener('paste', function(e) {
                 e.preventDefault();
                 const pastedData = e.clipboardData.getData('text');
                 const numericData = pastedData.replace(/[^0-9]/g, '').slice(0, 6);
                 this.value = numericData;
-                
+
                 // Auto-submit if 6 digits
                 if (numericData.length === 6) {
                     const verifyBtn = document.getElementById('verifyCodeBtn');
@@ -970,13 +712,13 @@
                 }
             });
         }
-        
+
         // Resend countdown function
         let resendCountdown;
         function startResendCountdown() {
             let countdown = 60; // 60 seconds
             resendCodeBtn.disabled = true;
-            
+
             resendCountdown = setInterval(() => {
                 if (countdown <= 0) {
                     clearInterval(resendCountdown);
@@ -988,13 +730,13 @@
                 }
             }, 1000);
         }
-        
+
         // Handle login form submission with OTP
         const loginForm = document.querySelector('.login-form');
         if (loginForm) {
             loginForm.addEventListener('submit', function(e) {
                 e.preventDefault();
-                
+
                 const email = document.getElementById('login_email').value;
                 const otp = document.getElementById('otp_code').value;
                 // alert(otp)
@@ -1003,25 +745,25 @@
                     showNotification('Please enter both email and OTP code', 'error');
                     return;
                 }
-                
+
                 if (otp.length !== 6) {
                     showNotification('OTP code must be 6 digits', 'error');
                     otpCode.focus();
                     return;
                 }
-                
+
                 // Show loading state
                 const verifyBtn = document.getElementById('verifyCodeBtn');
                 verifyBtn.disabled = true;
                 verifyBtn.classList.add('loading');
                 verifyBtn.innerHTML = '';
-                
+
                 // Create form data for authentication
                 const formData = new FormData();
                 formData.append('email', email);
                 formData.append('otp_code', otp);
                 formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-                
+
                 // Submit login request
                 fetch(this.action, {
                     method: 'POST',
@@ -1061,12 +803,12 @@
         }
     document.addEventListener('DOMContentLoaded', function() {
         const tabBtns = document.querySelectorAll('.tab-btn');
-        
+
         tabBtns.forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
                 const targetTab = this.getAttribute('data-tab');
-                
+
                 // Hide all tabs with fade effect
                 document.querySelectorAll('.tab').forEach(tab => {
                     tab.style.opacity = '0';
@@ -1075,7 +817,7 @@
                         tab.classList.remove('active-tab');
                     }, 300);
                 });
-                
+
                 // Show target tab with fade effect
                 setTimeout(() => {
                     const targetElement = document.querySelector(targetTab);
@@ -1087,16 +829,16 @@
                         }, 50);
                     }
                 }, 350);
-                
+
                 // Update URL hash
                 if (targetTab) {
                     history.pushState(null, null, targetTab);
                 }
-                
+
                 // Scroll to form with smooth animation
                 if (targetTab === '#Register' || targetTab === '#LogIn' || targetTab === '#Forgot') {
                     setTimeout(() => {
-                        document.querySelector('.tabs-box').scrollIntoView({ 
+                        document.querySelector('.tabs-box').scrollIntoView({
                             behavior: 'smooth',
                             block: 'start'
                         });
@@ -1115,7 +857,7 @@
                     tab.style.display = 'none';
                     tab.classList.remove('active-tab');
                 });
-                
+
                 // Show the target tab
                 targetTab.style.display = 'block';
                 targetTab.classList.add('active-tab');
@@ -1130,71 +872,71 @@
                 console.log('Registration form submitted'); // Debug
                 e.preventDefault();
                 e.stopPropagation(); // Ensure form doesn't submit normally
-                
+
                 const form = $(this);
                 const submitBtn = form.find('button[type="submit"]');
                 const originalBtnText = submitBtn.html();
-                
+
                 console.log('Form data being submitted:', form.serialize()); // Debug
-                
+
                 // Disable submit button and show loading
                 submitBtn.prop('disabled', true).addClass('loading').html('');
-                
+
                 // Clear previous errors
                 $('.alert-danger').remove();
                 $('.is-invalid').removeClass('is-invalid');
                 $('.invalid-feedback').hide();
-                
+
                 // Validate terms checkbox
                 const termsCheckbox = $('#termsCheck')[0];
                 if (!termsCheckbox.checked) {
                     termsCheckbox.classList.add('is-invalid');
                     submitBtn.prop('disabled', false).removeClass('loading').html(originalBtnText);
                     showNotification('Please accept the terms and conditions', 'error');
-                    
+
                     // Show the invalid feedback
                     $(termsCheckbox).addClass('is-invalid');
                     $(termsCheckbox).nextAll('.invalid-feedback').first().show();
-                    
+
                     // Scroll to checkbox
                     $('html, body').animate({
-                        scrollTop: $(termsCheckbox).closest('.form-section').offset().top - 100
+                        scrollTop: $(termsCheckbox).closest('.terms-box').offset().top - 100
                     }, 500);
-                    
+
                     return false;
                 }
-                
+
                 // Enhanced client-side validation
                 let hasErrors = false;
                 const firstName = form.find('input[name="first_name"]').val().trim();
                 const lastName = form.find('input[name="last_name"]').val().trim();
                 const email = form.find('input[name="email"]').val().trim();
                 const yearOfBirth = form.find('input[name="year_of_birth"]').val();
-                
+
                 // Name validation with better feedback
                 if (firstName.length < 2 || firstName.length > 30) {
                     showFieldError(form, 'first_name', 'First name must be between 2 and 30 characters.');
                     hasErrors = true;
                 }
-                
+
                 if (lastName.length < 2 || lastName.length > 30) {
                     showFieldError(form, 'last_name', 'Last name must be between 2 and 30 characters.');
                     hasErrors = true;
                 }
-                
+
                 // Email validation with better feedback
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailRegex.test(email)) {
                     showFieldError(form, 'email', 'Enter a valid email address.');
                     hasErrors = true;
                 }
-                
+
                 // Year of birth validation
                 if (yearOfBirth) {
                     const year = parseInt(yearOfBirth);
                     const currentYear = new Date().getFullYear();
                     const maxYear = parseInt(document.getElementById('id_year_of_birth').getAttribute('data-max-year')) || (currentYear - 16);
-                    
+
                     if (year < 1900 || year > maxYear) {
                         if (year > maxYear) {
                             showFieldError(form, 'year_of_birth', `You must be at least 16 years old to register. Maximum year allowed is ${maxYear}.`);
@@ -1216,7 +958,7 @@
                     showFieldError(form, 'country', 'Country is required.');
                     hasErrors = true;
                 }
-                
+
                 if (hasErrors) {
                     submitBtn.prop('disabled', false).removeClass('loading').html(originalBtnText);
                     // Scroll to first error
@@ -1228,7 +970,7 @@
                     }
                     return false;
                 }
-                
+
                 // Submit the form via AJAX
                 $.ajax({
                     type: 'POST',
@@ -1261,14 +1003,14 @@
                     error: function(xhr, status, error) {
                         console.log('AJAX error:', xhr, status, error); // Debug
                         console.log('Response text:', xhr.responseText); // Debug
-                        
+
                         submitBtn.prop('disabled', false).removeClass('loading').html(originalBtnText);
-                        
+
                         if (xhr.status === 400) {
                             try {
                                 const response = JSON.parse(xhr.responseText);
                                 console.log('Parsed error response:', response); // Debug
-                                
+
                                 if (response.errors) {
                                     for (const [field, messages] of Object.entries(response.errors)) {
                                         showFieldError(form, field, Array.isArray(messages) ? messages.join(', ') : messages);
@@ -1298,7 +1040,7 @@
             $(this).removeClass('is-invalid');
             $(this).next('.invalid-feedback').hide();
         });
-        
+
         // Handle terms checkbox validation with better UX
         $('#termsCheck').on('change', function() {
             if (this.checked) {
@@ -1306,7 +1048,7 @@
                 $(this).nextAll('.invalid-feedback').hide();
             }
         });
-        
+
         // Handle checkbox click on label
         $('.custom-checkbox .form-check-label').on('click', function(e) {
             if (e.target.tagName !== 'A' && e.target.tagName !== 'INPUT') {
@@ -1315,37 +1057,8 @@
                 $(checkbox).trigger('change');
             }
         });
-        
-        // Add smooth transitions to form sections
-        $('.form-section').each(function(index) {
-            $(this).css('animation-delay', `${index * 0.1}s`);
-            $(this).addClass('animate-fade-in');
-        });
     });
-    
-    // Add CSS animation class
-    const style = document.createElement('style');
-    style.textContent = `
-        .animate-fade-in {
-            animation: fadeInUp 0.6s ease forwards;
-            opacity: 0;
-        }
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        .tab {
-            transition: opacity 0.3s ease;
-        }
-    `;
-    document.head.appendChild(style);
-    
+
     // Function to open Terms of Service popup
     function openTermsPopup() {
         const termsContent = `
@@ -1363,7 +1076,7 @@
                 <p><strong>Last Updated:</strong> February 2026</p>
 
                 <h6>1. Introduction</h6>
-                <p>Welcome to SUDRAW (“we”, “our”, “us”). These Terms and Conditions govern your use of our website, surveys, prize draws, and related services (the “Platform”). By using SUDRAW, you agree to comply with these terms.</p>
+                <p>Welcome to SUDRAW ("we", "our", "us"). These Terms and Conditions govern your use of our website, surveys, prize draws, and related services (the "Platform"). By using SUDRAW, you agree to comply with these terms.</p>
 
                 <h6>2. Eligibility</h6>
                 <p>You must be at least 16+ years old to participate.</p>
@@ -1415,7 +1128,7 @@
                 <p>We may update these terms at any time. Continued use means acceptance.</p>
 
                 <h6>14. Governing Law</h6>
-                <p>These terms are governed by your country’s laws.</p>
+                <p>These terms are governed by your country's laws.</p>
 
                 <h6>15. Contact Information</h6>
                 <p>Email: info@sudraw.com</p>
@@ -1535,7 +1248,7 @@
         popup.document.write(termsContent);
         popup.document.close();
     }
-    
+
     // Function to open Privacy Policy popup
     function openPrivacyPopup() {
         const privacyContent = `
@@ -1553,19 +1266,19 @@
                 <h5>Privacy Policy</h5>
                 <h6>1. Information We Collect</h6>
                 <p>We collect information that you provide when you register, including your name, email, and other details necessary for account creation and survey participation.</p>
-                
+
                 <h6>2. How We Use Your Information</h6>
                 <p>We use your information to provide and improve our services, process transactions, send periodic emails, and communicate with you about your account and our services.</p>
-                
+
                 <h6>3. Information Sharing</h6>
                 <p>We do not sell, trade, or otherwise transfer your personal information to third parties without your consent, except as described in this policy.</p>
-                
+
                 <h6>4. Data Security</h6>
                 <p>We implement appropriate security measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.</p>
-                
+
                 <h6>5. Cookies</h6>
                 <p>We use cookies to enhance your experience on our website and to analyze site usage.</p>
-                
+
                 <h6>6. Your Rights</h6>
                 <p>You have the right to access, update, or delete your personal information. You can also opt out of receiving promotional communications.</p>
             </body>

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.shortcuts import render, redirect, reverse, get_object_or_404
 from django.views.generic import TemplateView, CreateView, FormView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -32,6 +33,7 @@ from .forms import UserRegistrationForm, UserRegisterForm, PollResponseForm, Wal
 from django.contrib.auth.views import LoginView as BaseLoginView
 from django.contrib.auth import authenticate, login as auth_login
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
 from django.contrib import messages
 from django.urls import reverse_lazy
 from django.shortcuts import redirect, render
@@ -543,6 +545,22 @@ class WalletWithdrawalRequestView(LoginRequiredMixin, CreateView):
     template_name = 'frontend/wallet_withdrawal_form.html'
     login_url = 'surveys:login'
 
+    MINIMUM_WITHDRAWAL_BALANCE = Decimal('5.00')
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return super().dispatch(request, *args, **kwargs)
+        profile = self.get_profile()
+        if profile.wallet_balance < self.MINIMUM_WITHDRAWAL_BALANCE:
+            symbol = profile.wallet_currency_symbol
+            messages.warning(
+                request,
+                f'You need at least {symbol}5.00 in your wallet to request a withdrawal. '
+                f'Your current balance is {profile.wallet_display}.'
+            )
+            return redirect(reverse_lazy('surveys:wallet_history'))
+        return super().dispatch(request, *args, **kwargs)
+
     def get_profile(self):
         profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
         return profile
@@ -674,6 +692,40 @@ class HomePageView(TemplateView):
         return context
 
 
+@login_required(login_url='surveys:login')
+def poll_list(request):
+    profile = getattr(request.user, 'profile', None)
+    polls = Poll.objects.filter(
+        is_active=True,
+        country__is_active=True,
+        questions__isnull=False,
+    ).select_related('country').prefetch_related('questions').distinct()
+
+    if profile and profile.country_id:
+        polls = polls.filter(country_id=profile.country_id)
+    else:
+        polls = polls.none()
+
+    completed_poll_ids = set(
+        PollResponse.objects.filter(user=request.user)
+        .values_list('poll_id', flat=True)
+    )
+
+    poll_data = [
+        {
+            'poll': poll,
+            'completed': poll.id in completed_poll_ids,
+            'question_count': poll.questions.count(),
+        }
+        for poll in polls.order_by('order', '-created_at')
+    ]
+
+    return render(request, 'surveys/poll_list.html', {
+        'poll_data': poll_data,
+        'active_page': 'polls',
+    })
+
+
 def _get_available_poll_or_redirect(request, poll_id):
     poll = get_object_or_404(
         Poll.objects.select_related('country').prefetch_related('questions__choices'),
@@ -708,6 +760,7 @@ def poll_detail(request, poll_id):
     })
 
 
+@never_cache
 @login_required(login_url='surveys:login')
 def poll_question(request, poll_id, question_index=0):
     poll, redirect_response = _get_available_poll_or_redirect(request, poll_id)

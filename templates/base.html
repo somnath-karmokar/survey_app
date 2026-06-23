@@ -153,6 +153,9 @@
                         <a class="nav-link {% if request.resolver_match.url_name == 'category_list' %}active{% endif %}" href="{% url 'surveys:category_list' %}" >Categories</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'poll_list' %}active{% endif %}" href="{% url 'surveys:poll_list' %}">Polls</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'faq' %}active{% endif %}" href="{% url 'surveys:faq' %}">FAQ</a>
                     </li>
                     <!-- <li class="nav-item">
@@ -271,6 +274,7 @@
                                 <ul class="links-list clearfix">
                                     <li><a href="{% url 'surveys:home' %}">Home</a></li>
                                     <li><a href="{% url 'surveys:category_list' %}">Categories</a></li>
+                                    <li><a href="{% url 'surveys:poll_list' %}">Polls</a></li>
                                     <li><a href="{% url 'surveys:faq' %}">FAQ</a></li>
                                     <li><a href="{% url 'surveys:contact' %}">Contact Us</a></li>
                                 </ul>
