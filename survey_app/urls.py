@@ -8,12 +8,33 @@ from django.conf.urls.static import static
 from surveys.admin import survey_admin_site
 from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
+from django.http import HttpResponse
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
 from surveys import api_views
+
+# View to serve ads.txt file
+def ads_txt_view(request):
+    ads_content = 'google.com, pub-6294340250765146, DIRECT, f08c47fec0942fa0'
+    ads_file_path = settings.BASE_DIR / 'static' / 'ads.txt'
+    try:
+        with open(ads_file_path, 'r') as f:
+            content = f.read()
+            if content.strip():
+                ads_content = content
+    except (FileNotFoundError, IOError, Exception):
+        # Fall back to default content if file cannot be read
+        pass
+
+    response = HttpResponse(ads_content, content_type='text/plain')
+    # Add headers to help Google AdSense crawler
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
 
 # Password Reset URLs
 password_reset_patterns = [
@@ -43,6 +64,9 @@ router.register(r'api/responses', api_views.SurveyResponseViewSet, basename='sur
 router.register(r'api/lucky-draw', api_views.LuckyDrawEntryViewSet, basename='luckydrawentry')
 
 urlpatterns = [
+    # Serve ads.txt file for Google AdSense
+    path('ads.txt', ads_txt_view),
+    
     # Grappelli URLS
     path('grappelli/', include('grappelli.urls')),
     
