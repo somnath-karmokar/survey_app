@@ -150,7 +150,7 @@
                         <a class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="{% url 'surveys:home' %}">Home</a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'category_list' %}active{% endif %}" href="{% url 'surveys:category_list' %}" >Categories</a>
+                        <a class="nav-link {% if request.resolver_match.url_name == 'category_list' %}active{% endif %}" href="{% url 'surveys:category_list' %}" >Survey Categories</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'poll_list' %}active{% endif %}" href="{% url 'surveys:poll_list' %}">Polls</a>
@@ -223,7 +223,7 @@
     </main>
 
     <a href="{% url 'surveys:category_list' %}" class="btn btn-primary categories-shortcut">
-        <i class="fas fa-layer-group me-2"></i>Categories
+        <i class="fas fa-layer-group me-2"></i>Survey Categories
     </a>
 
     {% block footer %}
@@ -273,7 +273,7 @@
                                 </div>
                                 <ul class="links-list clearfix">
                                     <li><a href="{% url 'surveys:home' %}">Home</a></li>
-                                    <li><a href="{% url 'surveys:category_list' %}">Categories</a></li>
+                                    <li><a href="{% url 'surveys:category_list' %}">Survey Categories</a></li>
                                     <li><a href="{% url 'surveys:poll_list' %}">Polls</a></li>
                                     <li><a href="{% url 'surveys:faq' %}">FAQ</a></li>
                                     <li><a href="{% url 'surveys:contact' %}">Contact Us</a></li>

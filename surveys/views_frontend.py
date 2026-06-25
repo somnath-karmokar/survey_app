@@ -411,7 +411,7 @@ class MySurveysView(LoginRequiredMixin, ListView):
         return SurveyResponse.objects.filter(
             user=self.request.user,
             completed_at__isnull=False
-        ).select_related('survey').order_by('-completed_at')
+        ).select_related('survey', 'survey__category').order_by('-completed_at')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

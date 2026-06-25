@@ -32,7 +32,10 @@
                                         <tr>
                                             <td>
                                                 <h6 class="mb-0">{{ survey_response.survey.name }}</h6>
-                                                <small class="text-muted">{{ survey_response.survey.description|truncatewords:10 }}</small>
+                                                {% if survey_response.survey.category %}
+                                                    <small class="text-primary fw-semibold">{{ survey_response.survey.category.name }}</small>
+                                                {% endif %}
+                                                <small class="text-muted d-block">{{ survey_response.survey.description|truncatewords:10 }}</small>
                                             </td>
                                             <td>{{ survey_response.completed_at|date:"M d, Y" }}</td>
                                             <td>
