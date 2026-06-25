@@ -4,44 +4,36 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="advertisementModalLabel">Advertisement</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <!-- Hidden until ad is clicked -->
+                <button type="button" id="ad-modal-close-btn" class="btn-close d-none" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
-                <!-- Your ad content here -->
-                {% comment %} <img src="https://via.placeholder.com/400x300" class="img-fluid mb-3" alt="Advertisement"> {% endcomment %}
-                {% comment %} <h4>Special Offer!</h4> {% endcomment %}
+                <p class="fw-semibold text-dark mb-3">
+                    <i class="fas fa-info-circle text-primary me-1"></i>
+                    Please click the advertisement below to continue
+                </p>
                 <div style="width:100%; min-width:300px; text-align:center;">
-                    
-                    <!-- Survey Ad -->
-                    {% comment %} <ins class="adsbygoogle"
-                        style="display:block"
-                        data-ad-client="ca-pub-6294340250765146"
-                        data-ad-slot="4579442905"
-                        data-ad-format="auto"
-                        data-full-width-responsive="true"></ins>
-                    
                     <script>
-                        setTimeout(function () {
-                            (adsbygoogle = window.adsbygoogle || []).push({});
-                        }, 500);
-                        </script> {% endcomment %}
-
-                        <script>
-                            atOptions = {
-                                'key' : '5b4d65df705268647416dac4afb19934',
-                                'format' : 'iframe',
-                                'height' : 250,
-                                'width' : 300,
-                                'params' : {}
-                            };
-                            </script>
-                            <script src="https://www.highperformanceformat.com/5b4d65df705268647416dac4afb19934/invoke.js"></script>
-
+                        atOptions = {
+                            'key' : '5b4d65df705268647416dac4afb19934',
+                            'format' : 'iframe',
+                            'height' : 250,
+                            'width' : 300,
+                            'params' : {}
+                        };
+                    </script>
+                    <script src="https://www.highperformanceformat.com/5b4d65df705268647416dac4afb19934/invoke.js"></script>
                 </div>
-                {% comment %} <a href="#" class="btn btn-primary">Learn More</a> {% endcomment %}
+                <p id="ad-modal-hint" class="text-muted mt-3 small">
+                    <i class="fas fa-arrow-up me-1"></i> Click on the advertisement above to unlock the Continue button
+                </p>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Continue Survey</button>
+            <div class="modal-footer justify-content-between align-items-center">
+                <span id="ad-modal-status" class="small text-muted"></span>
+                <!-- Hidden until ad is clicked -->
+                <button type="button" id="ad-modal-continue-btn" class="btn btn-primary d-none" data-bs-dismiss="modal">
+                    <i class="fas fa-arrow-right me-1"></i>Continue Survey
+                </button>
             </div>
         </div>
     </div>

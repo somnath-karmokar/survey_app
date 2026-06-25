@@ -156,9 +156,38 @@
         font-size: 0.875em;
         margin-top: 0.25rem;
     }
+    th label,
+    .form-check-label {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+    }
+    table {
+        -webkit-touch-callout: none;
+    }
 </style>
 
 <script>
+(function() {
+    var table = document.querySelector('table');
+    if (table) {
+        table.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+    }
+    document.addEventListener('copy', function(e) {
+        var sel = window.getSelection();
+        if (!sel || !sel.anchorNode) return;
+        var node = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentNode : sel.anchorNode;
+        if (node.closest && node.closest('table')) {
+            e.preventDefault();
+            e.clipboardData && e.clipboardData.setData('text/plain', '');
+        }
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key.toLowerCase() === 'u') { e.preventDefault(); }
+    });
+})();
+
     function updateOtherAnswerInputs() {
         document.querySelectorAll('.other-answer-input').forEach(input => {
             const fieldName = input.dataset.otherFor;

@@ -111,6 +111,17 @@
         <i class="fas fa-wallet fa-3x opacity-75"></i>
     </div>
 
+    {% if is_first_withdrawal %}
+    <div class="alert alert-info d-flex gap-3 mb-4" role="alert">
+        <i class="fas fa-info-circle fa-lg mt-1 flex-shrink-0"></i>
+        <div>
+            <strong>First withdrawal — bank transfer only.</strong>
+            Your first withdrawal request must be made via <strong>Direct Bank Transfer</strong>.
+            Once it has been processed, future requests can use any payment method (PayPal, Gift Card, etc.).
+        </div>
+    </div>
+    {% endif %}
+
     <form method="post" class="card withdraw-card" id="withdrawal-form" novalidate>
         {% csrf_token %}
         {% if form.non_field_errors %}
@@ -454,6 +465,21 @@
             });
         }
         refreshFields();
+
+        // On a first withdrawal only bank_transfer is available; pre-select and lock it.
+        {% if is_first_withdrawal %}
+        if (methodSelect && methodSelect.options.length === 1) {
+            methodSelect.value = methodSelect.options[0].value;
+            methodSelect.setAttribute('disabled', 'disabled');
+            // Disabled selects don't submit — mirror the value via a hidden input.
+            var hiddenMethod = document.createElement('input');
+            hiddenMethod.type = 'hidden';
+            hiddenMethod.name = methodSelect.name;
+            hiddenMethod.value = methodSelect.value;
+            methodSelect.parentNode.appendChild(hiddenMethod);
+            refreshFields();
+        }
+        {% endif %}
     });
 </script>
 {% endblock %}

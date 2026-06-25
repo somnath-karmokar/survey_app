@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
 from django.contrib import messages
 from django.db.models import Count, Q, F
 from django import forms
@@ -85,6 +86,7 @@ def survey_list(request):
     }
     return render(request, 'surveys/survey_list.html', context)
 
+@never_cache
 @login_required
 def survey_detail(request, survey_id, question_index=0):
     """Display and handle survey questions with pagination"""

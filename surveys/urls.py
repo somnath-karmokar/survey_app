@@ -18,7 +18,8 @@ from .views_frontend import (
     WalletWithdrawalRequestView,
     SearchView,
     poll_detail,
-    poll_question
+    poll_question,
+    poll_list,
 )
 from .views_frontend import MySurveysView
 from .views_categories import CategoryListView, CategoryDetailView
@@ -70,6 +71,7 @@ urlpatterns = [
     path('debug/ad/', views.debug_ad, name='debug_ad'),
     path('question-admin-js/', views.question_admin_js, name='question_admin_js'),
     path('my-surveys/', MySurveysView.as_view(), name='my_surveys'),
+    path('polls/', poll_list, name='poll_list'),
     path('polls/<int:poll_id>/', poll_detail, name='poll_detail'),
     path('polls/<int:poll_id>/q/<int:question_index>/', poll_question, name='poll_question'),
 ]

@@ -62,6 +62,17 @@
     .other-answer-field {
         margin-top: 0.75rem;
     }
+    .question-text,
+    .question-title,
+    .form-check-label {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+    }
+    .question-card {
+        -webkit-touch-callout: none;
+    }
 </style>
 {% endblock %}
 
@@ -241,6 +252,25 @@
     updateOtherAnswerInputs();
 });
 
+// Prevent copying/scraping of question content
+(function() {
+    document.querySelectorAll('.question-card').forEach(function(el) {
+        el.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+    });
+    document.addEventListener('copy', function(e) {
+        var sel = window.getSelection();
+        if (!sel || !sel.anchorNode) return;
+        var node = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentNode : sel.anchorNode;
+        if (node.closest && node.closest('.question-card')) {
+            e.preventDefault();
+            e.clipboardData && e.clipboardData.setData('text/plain', '');
+        }
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key.toLowerCase() === 'u') { e.preventDefault(); }
+    });
+})();
+
 // Track the number of questions answered
 let questionsAnswered = 0;
 const QUESTIONS_BEFORE_AD = 3; // Show ad after every 3 questions
@@ -276,14 +306,48 @@ document.addEventListener('DOMContentLoaded', function() {
 {% if show_ad %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const modal = new bootstrap.Modal(document.getElementById('advertisementModal'), {
-        backdrop: 'static', // Prevent closing when clicking outside
-        keyboard: false    // Prevent closing with ESC key
+    var adModalEl = document.getElementById('advertisementModal');
+    if (!adModalEl) return;
+
+    var modal = new bootstrap.Modal(adModalEl, {
+        backdrop: 'static',
+        keyboard: false
     });
     modal.show();
-    
-    // When modal is closed, user stays on the same question
-    // Backend handles the ad flag, so no JavaScript counter reset needed
+
+    var closeBtn     = document.getElementById('ad-modal-close-btn');
+    var continueBtn  = document.getElementById('ad-modal-continue-btn');
+    var hint         = document.getElementById('ad-modal-hint');
+    var statusEl     = document.getElementById('ad-modal-status');
+    var adUnlocked   = false;
+
+    function unlockContinue() {
+        if (adUnlocked) return;
+        adUnlocked = true;
+        if (closeBtn)    closeBtn.classList.remove('d-none');
+        if (continueBtn) continueBtn.classList.remove('d-none');
+        if (hint) {
+            hint.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i>'
+                           + '<span class="text-success fw-semibold"> Advertisement clicked! You can now continue.</span>';
+        }
+        if (statusEl) statusEl.textContent = '';
+        // Stop listening once unlocked
+        window.removeEventListener('blur', onWindowBlur);
+    }
+
+    function onWindowBlur() {
+        // Fires when user clicks inside the ad iframe (iframe steals focus → window blurs)
+        if (document.activeElement && document.activeElement.tagName === 'IFRAME') {
+            unlockContinue();
+        }
+    }
+
+    window.addEventListener('blur', onWindowBlur);
+
+    // Restore focus to window so subsequent blur events are detectable
+    adModalEl.addEventListener('shown.bs.modal', function() {
+        window.focus();
+    });
 });
 </script>
 {% endif %}
