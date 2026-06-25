@@ -243,8 +243,11 @@ for static_dir in STATICFILES_DIRS:
     os.makedirs(static_dir, exist_ok=True)
 
 # Media files (user-uploaded files)
+# On Render: set PERSISTENT_DISK_PATH env var to the disk mount path (e.g. /var/data)
+# Locally: falls back to the project's media/ directory
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+_persistent_disk = os.environ.get('PERSISTENT_DISK_PATH', '')
+MEDIA_ROOT = os.path.join(_persistent_disk, 'media') if _persistent_disk else os.path.join(BASE_DIR, 'media')
 
 # CKEditor Settings
 CKEDITOR_UPLOAD_PATH = 'uploads/'
@@ -266,11 +269,6 @@ CKEDITOR_CONFIGS = {
 # Make sure the media directory exists
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 os.makedirs(os.path.join(MEDIA_ROOT, CKEDITOR_UPLOAD_PATH), exist_ok=True)
-os.makedirs(MEDIA_ROOT, exist_ok=True)
-
-# Media files
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
 
 # Login settings
 LOGIN_URL = 'surveys:login'

@@ -90,16 +90,12 @@ urlpatterns = [
     path('', include(password_reset_patterns)),
 ]
 
-# Serve static and media files in development
+# Always serve media files (uploaded images must be accessible in production too)
+from django.conf.urls.static import static as _static
+urlpatterns += _static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Serve static files only in development (WhiteNoise handles production)
 if settings.DEBUG:
-    from django.conf.urls.static import static
     from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-    
-    # Serve media files
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    
-    # Serve static files
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    
-    # This will serve static files from STATICFILES_DIRS in development
+    urlpatterns += _static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += staticfiles_urlpatterns()
