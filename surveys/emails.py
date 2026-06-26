@@ -67,25 +67,37 @@ def send_lucky_draw_entry_email(user, entry):
 def send_lucky_draw_winner_email(entry):
     """Send email to lucky draw winner"""
     subject = f'Congratulations! You Won the {entry.created_at.strftime("%B %Y")} Lucky Draw!'
-    
+
+    is_poll_winner = entry.draw_type == 'poll'
+    poll_title = entry.poll.title if is_poll_winner and entry.poll else None
+    prize = entry.prize or 'a prize'
+
+    if is_poll_winner and poll_title:
+        plain_body = (
+            f'Congratulations! You have won {prize} for completing the "{poll_title}".'
+        )
+    else:
+        plain_body = f'Congratulations! You have won the lucky draw with number {entry.guessed_number}.'
+
     context = {
         'user': entry.user,
         'entry': entry,
+        'is_poll_winner': is_poll_winner,
+        'poll_title': poll_title,
+        'prize': prize,
         'site_name': settings.SITE_NAME,
         'site_url': settings.SITE_URL,
     }
-    
-    # Render HTML email
+
     html_content = render_to_string('emails/lucky_draw_winner.html', context)
-    
-    # Create email message
+
     msg = EmailMultiAlternatives(
         subject=subject,
-        body=f'Congratulations! You have won the lucky draw with number {entry.guessed_number}.',
+        body=plain_body,
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[entry.user.email],
     )
-    
+
     msg.attach_alternative(html_content, "text/html")
     result = msg.send()
     print(f"Winner email sent: {result} (to {entry.user.email})")
