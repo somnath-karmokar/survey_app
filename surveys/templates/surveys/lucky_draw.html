@@ -95,6 +95,16 @@
                         <h3>Lucky Draw</h3>
                         {% if user_eligible %}
                             <div class="alert alert-success mt-3">
+                                {% if total_plays_available > 1 %}
+                                    <div class="mb-2">
+                                        <span class="badge bg-warning text-dark fs-6">
+                                            &#x23F3; {{ total_plays_available }} plays available
+                                        </span>
+                                        <small class="d-block text-muted mt-1">
+                                            You have {{ total_plays_available }} pending plays (including any missed due to errors).
+                                        </small>
+                                    </div>
+                                {% endif %}
                                 {% if survey_eligible and poll_eligible %}
                                     <p class="mb-2">You are eligible for both survey and poll lucky draws. Choose one and play; the other remains available separately.</p>
                                 {% elif survey_eligible %}
@@ -277,9 +287,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     luckyNumberSpan.textContent = result.winning_number;
                 }
                 
-                if (result.remaining_draw_types && result.remaining_draw_types.length) {
-                    resultText.innerHTML += '<br>You still have another lucky draw available.';
-                    playAgainBtn.textContent = 'Play Other Draw';
+                if (result.plays_remaining && result.plays_remaining > 0) {
+                    const playsLeft = result.plays_remaining;
+                    resultText.innerHTML += `<br>You still have <strong>${playsLeft}</strong> lucky draw play${playsLeft > 1 ? 's' : ''} available.`;
+                    playAgainBtn.textContent = playsLeft > 1 ? `Play Again (${playsLeft} left)` : 'Play Again';
                     playAgainBtn.classList.remove('d-none');
                     playAgainBtn.style.display = 'inline-block';
                 } else {
