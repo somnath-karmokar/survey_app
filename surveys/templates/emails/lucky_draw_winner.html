@@ -11,18 +11,34 @@
     
     <p>Dear {{ user.get_full_name|default:user.username }},</p>
     
-    <p>We're thrilled to inform you that you've won the {{ entry.month }} {{ entry.year }} Lucky Draw!</p>
-    
+    {% if is_poll_winner and poll_title %}
+        <p>We're thrilled to inform you that you have won <strong>{{ prize }}</strong> for completing the <strong>"{{ poll_title }}"</strong>!</p>
+    {% else %}
+        <p>We're thrilled to inform you that you've won the {{ entry.created_at|date:"F Y" }} Lucky Draw!</p>
+    {% endif %}
+
     <div style="background-color: #f9f9f9; padding: 20px; border: 2px dashed #e74c3c; border-radius: 5px; margin: 20px 0; text-align: center;">
-        <h3 style="margin-top: 0; color: #4a6fa5;">Your Winning Number</h3>
-        <div style="font-size: 42px; font-weight: bold; color: #e74c3c; margin: 15px 0; letter-spacing: 3px;">
-            {{ entry.guessed_number }}
-        </div>
+        {% if is_poll_winner and poll_title %}
+            <h3 style="margin-top: 0; color: #4a6fa5;">Poll Completed</h3>
+            <div style="font-size: 22px; font-weight: bold; color: #e74c3c; margin: 15px 0;">
+                {{ poll_title }}
+            </div>
+            <p style="font-size: 20px; font-weight: bold; color: #27ae60;">Prize: {{ prize }}</p>
+        {% else %}
+            <h3 style="margin-top: 0; color: #4a6fa5;">Your Winning Number</h3>
+            <div style="font-size: 42px; font-weight: bold; color: #e74c3c; margin: 15px 0; letter-spacing: 3px;">
+                {{ entry.guessed_number }}
+            </div>
+        {% endif %}
         <p>Draw Date: {{ entry.created_at|date:"F j, Y" }}</p>
     </div>
-    
+
     <h3>🎁 Your Prize:</h3>
-    <p>You've won an exciting prize! Our team will contact you shortly with details about how to claim your reward.</p>
+    {% if is_poll_winner and poll_title %}
+        <p>You have won <strong>{{ prize }}</strong> for completing the <strong>"{{ poll_title }}"</strong>. Our team will contact you shortly with details about how to claim your reward.</p>
+    {% else %}
+        <p>You've won an exciting prize! Our team will contact you shortly with details about how to claim your reward.</p>
+    {% endif %}
     
     <div style="background-color: #e8f4fc; border-left: 4px solid #4a6fa5; padding: 15px; margin: 20px 0;">
         <h4 style="margin-top: 0;">Next Steps:</h4>

@@ -120,6 +120,13 @@ class Survey(models.Model):
         """
         Lock a survey until every earlier survey in the category sequence
         (ordered by level, then id) has been completed by the user.
+
+        Two conditions lock a survey:
+        1. A previous survey has fewer (or equal) completions than this one
+           — the user hasn't done the prerequisite enough times yet.
+        2. A previous survey's cooldown has expired (it is due for retake)
+           — strict chronological order must be maintained every cycle, so the
+           user must retake the earlier level before continuing to later ones.
         """
         if not user.is_authenticated:
             return False, None
@@ -140,18 +147,32 @@ class Survey(models.Model):
             return False, None
 
         previous_survey_ids = ordered_survey_ids[:current_index]
-        completion_counts = {
-            item['survey_id']: item['count']
+
+        # Single query: get completion count AND last completion timestamp per survey
+        completion_info = {
+            item['survey_id']: {
+                'count': item['count'],
+                'last_at': item['last_at'],
+            }
             for item in SurveyResponse.objects.filter(
                 user=user,
                 survey_id__in=ordered_survey_ids,
                 completed_at__isnull=False,
-            ).values('survey_id').annotate(count=models.Count('id'))
+            ).values('survey_id').annotate(
+                count=models.Count('id'),
+                last_at=models.Max('completed_at'),
+            )
         }
-        current_completion_count = completion_counts.get(self.id, 0)
+
+        current_completion_count = completion_info.get(self.id, {}).get('count', 0)
+        cooldown_days = self.cooldown_days
+        now = timezone.now()
 
         for previous_survey_id in previous_survey_ids:
-            previous_completion_count = completion_counts.get(previous_survey_id, 0)
+            prev_info = completion_info.get(previous_survey_id, {})
+            previous_completion_count = prev_info.get('count', 0)
+
+            # Condition 1: previous level not done enough times relative to current
             if previous_completion_count <= current_completion_count:
                 previous_survey = Survey.objects.filter(id=previous_survey_id).only('name', 'level').first()
                 if previous_survey:
@@ -161,6 +182,16 @@ class Survey(models.Model):
                 if current_completion_count > 0:
                     return True, "Retake the previous survey first"
                 return True, "Complete the previous survey to unlock"
+
+            # Condition 2: previous level cooldown has expired — it is due for retake.
+            # The user must follow strict chronological order (L1 → L2 → L3 every cycle),
+            # so when L1 becomes retakeable, L2 (and all later levels) must wait.
+            last_at = prev_info.get('last_at')
+            if last_at and now >= last_at + timedelta(days=cooldown_days):
+                previous_survey = Survey.objects.filter(id=previous_survey_id).only('name', 'level').first()
+                if previous_survey:
+                    return True, f"Retake '{previous_survey.name}' (Level {previous_survey.level}) first to continue"
+                return True, "Retake the previous survey first to continue"
 
         return False, None
 
