@@ -435,9 +435,9 @@ class EditProfileForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Add user fields to the form
         user = self.instance.user
-        self.fields['first_name'] = forms.CharField(initial=user.first_name, max_length=30, required=False)
-        self.fields['last_name'] = forms.CharField(initial=user.last_name, max_length=150, required=False)
-        self.fields['email'] = forms.EmailField(initial=user.email, required=True)
+        self.fields['first_name'] = forms.CharField(initial=user.first_name, max_length=30, required=False, disabled=True)
+        self.fields['last_name'] = forms.CharField(initial=user.last_name, max_length=150, required=False, disabled=True)
+        self.fields['email'] = forms.EmailField(initial=user.email, required=True, disabled=True)
     def clean_profile_picture(self):
         picture = self.cleaned_data.get('profile_picture')
         if picture:
@@ -458,14 +458,7 @@ class EditProfileForm(forms.ModelForm):
         return picture
     def save(self, commit=True):
         profile = super().save(commit=False)
-        # Update user fields
-        user = profile.user
-        user.first_name = self.cleaned_data['first_name']
-        user.last_name = self.cleaned_data['last_name']
-        user.email = self.cleaned_data['email']
-        
         if commit:
-            user.save()
             profile.save()
         return profile
 

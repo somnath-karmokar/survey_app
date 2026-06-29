@@ -122,6 +122,11 @@ class LuckyDrawView(View):
         polls_completed = max(0, total_polls - (last_poll_entry.polls_at_play or 0)) if last_poll_entry else total_polls
         survey_eligible = surveys_completed >= surveys_required
         poll_eligible = polls_completed >= polls_required
+
+        # How many plays the user has earned but not yet used (catches up missed plays from errors)
+        survey_plays_available = surveys_completed // surveys_required if survey_eligible else 0
+        poll_plays_available = polls_completed // polls_required if poll_eligible else 0
+
         eligible_draw_types = []
         if survey_eligible:
             eligible_draw_types.append(LuckyDrawEntry.DRAW_TYPE_SURVEY)
@@ -140,6 +145,8 @@ class LuckyDrawView(View):
             'polls_required': polls_required,
             'survey_eligible': survey_eligible,
             'poll_eligible': poll_eligible,
+            'survey_plays_available': survey_plays_available,
+            'poll_plays_available': poll_plays_available,
             'eligible_draw_types': eligible_draw_types,
             'user_eligible': bool(eligible_draw_types),
         }
@@ -210,18 +217,28 @@ class LuckyDrawView(View):
             settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_END'] + 1
         ))
         random.shuffle(number_range)
-        
-        # Generate or get current lucky number
+
+        # Generate lucky number
         current_lucky_number = random.randint(
             settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_START'],
             settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_END']
         )
+
+        # Store both in the session — never expose them in the HTML
+        request.session['lucky_draw_grid'] = number_range
+        request.session['lucky_draw_number'] = current_lucky_number
         
+        survey_plays_available = eligibility['survey_plays_available']
+        poll_plays_available = eligibility['poll_plays_available']
+        total_plays_available = survey_plays_available + poll_plays_available
+
         context = {
             'LUCKY_DRAW_CONFIG': {
                 **settings.LUCKY_DRAW_CONFIG,
-                'NUMBER_RANGE': number_range
+                # NUMBER_RANGE is intentionally excluded — stored in session only
             },
+            # grid_range gives the template a safe index sequence (no actual numbers)
+            'grid_range': range(len(number_range)),
             'user_eligible': user_eligible,
             'survey_eligible': survey_eligible,
             'poll_eligible': poll_eligible,
@@ -231,7 +248,10 @@ class LuckyDrawView(View):
             'polls_completed': polls_completed,
             'surveys_required': surveys_required,
             'polls_required': polls_required,
-            'current_lucky_number': current_lucky_number,
+            'survey_plays_available': survey_plays_available,
+            'poll_plays_available': poll_plays_available,
+            'total_plays_available': total_plays_available,
+            # current_lucky_number is intentionally excluded — stored in session only
             'current_winner': current_winner,
             'last_play_date': last_entry.created_at if last_entry else None,
             'last_result': last_entry,
@@ -287,14 +307,28 @@ class LuckyDrawView(View):
                 'error': f'You need to complete {required_surveys} surveys or {required_polls} polls to play again.'
             }, status=400)
 
+        # Resolve the actual number from the session grid using the client-sent index.
+        # The grid and lucky number are never sent to the browser, so they cannot
+        # be tampered with from the client side.
+        grid = request.session.get('lucky_draw_grid')
+        if not grid:
+            return JsonResponse({'error': 'Session expired. Please refresh the page.'}, status=400)
+
         try:
-            number = int(data.get('number'))
-            if not (settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_START'] <= number <= settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_END']):
-                raise ValueError('Invalid number')
-        except (ValueError, TypeError) as e:
-            return JsonResponse({'error': 'Invalid number'}, status=400)
+            index = int(data.get('index'))
+            if not (0 <= index < len(grid)):
+                raise ValueError('Invalid index')
+            number = grid[index]
+        except (ValueError, TypeError):
+            return JsonResponse({'error': 'Invalid selection'}, status=400)
         
         total_surveys, total_polls = self.get_completion_counts(request.user)
+        eligibility = self.get_eligibility_context(request.user)
+        last_survey_entry = eligibility['last_survey_entry']
+        last_poll_entry = eligibility['last_poll_entry']
+        surveys_required = eligibility['surveys_required']
+        polls_required = eligibility['polls_required']
+
         last_entry = self.get_last_entry(request.user, draw_type)
         qualifying_survey = None
         qualifying_poll = None
@@ -302,16 +336,32 @@ class LuckyDrawView(View):
             qualifying_survey = self.get_qualifying_survey(request.user, last_entry)
         else:
             qualifying_poll = self.get_qualifying_poll(request.user, last_entry)
-        
-        # Generate winning number
-        winning_number = int(data.get('current_lucky_number')) if data.get('current_lucky_number') else random.randint(
-            settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_START'],
-            settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_END']
-        )
-        
+
+        # Advance the snapshot by exactly one required batch (not the full total).
+        # This ensures any surplus completions carry over so the user can play
+        # again immediately if they accumulated enough for multiple plays
+        # (e.g. missed a play due to a server error).
+        if draw_type == LuckyDrawEntry.DRAW_TYPE_SURVEY:
+            surveys_baseline = last_survey_entry.surveys_at_play if last_survey_entry else 0
+            entry_surveys_at_play = surveys_baseline + surveys_required
+            entry_polls_at_play = total_polls
+        else:
+            polls_baseline = last_poll_entry.polls_at_play if last_poll_entry else 0
+            entry_polls_at_play = polls_baseline + polls_required
+            entry_surveys_at_play = total_surveys
+
+        # Winning number comes from the session — never from the client request
+        winning_number = request.session.get('lucky_draw_number')
+        if winning_number is None:
+            return JsonResponse({'error': 'Session expired. Please refresh the page.'}, status=400)
+
+        # Invalidate the session grid so this draw cannot be replayed
+        request.session.pop('lucky_draw_grid', None)
+        request.session.pop('lucky_draw_number', None)
+
         is_winner = (number == winning_number)
         prize = self.get_prize_for_user(request.user) if is_winner else None
-        
+
         # Create entry
         entry = LuckyDrawEntry.objects.create(
             user=request.user,
@@ -322,8 +372,8 @@ class LuckyDrawView(View):
             winning_number=winning_number,
             is_winner=is_winner,
             prize=prize,
-            surveys_at_play=total_surveys,
-            polls_at_play=total_polls
+            surveys_at_play=entry_surveys_at_play,
+            polls_at_play=entry_polls_at_play
         )
         
         # Send email notifications if user won
@@ -342,15 +392,18 @@ class LuckyDrawView(View):
                 logger.error(f"Failed to send winner emails: {str(e)}")
                 print(f"Error sending winner emails: {str(e)}")
         
+        post_play_eligibility = self.get_eligibility_context(request.user)
+        remaining_draw_types = post_play_eligibility['eligible_draw_types']
+        plays_remaining = post_play_eligibility['survey_plays_available'] + post_play_eligibility['poll_plays_available']
+
         return JsonResponse({
             'is_winner': is_winner,
+            'guessed_number': number,
             'winning_number': winning_number,
             'prize': prize,
             'draw_type': draw_type,
-            'remaining_draw_types': [
-                entry_type for entry_type in self.get_eligibility_context(request.user)['eligible_draw_types']
-                if entry_type != draw_type
-            ],
+            'remaining_draw_types': remaining_draw_types,
+            'plays_remaining': plays_remaining,
         })
 
     def is_eligible(self, user, draw_type=None):

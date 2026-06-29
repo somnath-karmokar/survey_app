@@ -123,10 +123,10 @@ WSGI_APPLICATION = 'survey_app.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        # 'NAME': 'sudraw_database',
+        'NAME': 'sudraw_database',
         'NAME': 'sudraw_database_04ru', #staging
         'USER': 'sudraw_database_user',
-        # 'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # Change this to your PostgreSQL password
+        'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # Change this to your PostgreSQL password
         'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # staging
         'HOST': 'dpg-d68kcmh4tr6s73c8aetg-a',
         # 'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com',
@@ -190,16 +190,16 @@ SITE_URL = 'http://localhost:8000'
 MILESTONE_REWARDS = (
     {
         'milestone_type': 'surveys_completed',
-        'threshold': 5, #200
+        'threshold': 100,
         'prize_name': 'Wallet Reward',
-        'repeat_interval': 5, #200
+        'repeat_interval': 100,
         'wallet_reward': True,
     },
     {
         'milestone_type': 'polls_completed',
-        'threshold': 5, #200
+        'threshold': 100,
         'prize_name': 'Wallet Reward',
-        'repeat_interval': 5, #200
+        'repeat_interval': 100,
         'wallet_reward': True,
     },
     {
@@ -243,8 +243,11 @@ for static_dir in STATICFILES_DIRS:
     os.makedirs(static_dir, exist_ok=True)
 
 # Media files (user-uploaded files)
+# On Render: set PERSISTENT_DISK_PATH env var to the disk mount path (e.g. /var/data)
+# Locally: falls back to the project's media/ directory
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+_persistent_disk = os.environ.get('PERSISTENT_DISK_PATH', '')
+MEDIA_ROOT = os.path.join(_persistent_disk, 'media') if _persistent_disk else os.path.join(BASE_DIR, 'media')
 
 # CKEditor Settings
 CKEDITOR_UPLOAD_PATH = 'uploads/'
@@ -266,11 +269,6 @@ CKEDITOR_CONFIGS = {
 # Make sure the media directory exists
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 os.makedirs(os.path.join(MEDIA_ROOT, CKEDITOR_UPLOAD_PATH), exist_ok=True)
-os.makedirs(MEDIA_ROOT, exist_ok=True)
-
-# Media files
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
 
 # Login settings
 LOGIN_URL = 'surveys:login'
@@ -347,10 +345,10 @@ SURVEY_CONFIG = {
 
 LUCKY_DRAW_CONFIG = {
     'SURVEYS_REQUIRED': 2,  # Number of same-level surveys to complete
-    'POLLS_REQUIRED': 2,  # Number of completed polls required to play the lucky draw
+    'POLLS_REQUIRED': 1,  # Number of completed polls required to play the lucky draw
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 49,
-    'SHOW_NUMBERS_FOR_TESTING': True,  # Set to False after testing to hide lucky draw numbers
+    'SHOW_NUMBERS_FOR_TESTING': False,  # Set to False after testing to hide lucky draw numbers
     'PRIZES': [  # You can customize the prizes
         # "₹1000 Amazon Voucher",
         # "₹500 Flipkart Voucher",
