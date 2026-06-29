@@ -217,12 +217,16 @@ class LuckyDrawView(View):
             settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_END'] + 1
         ))
         random.shuffle(number_range)
-        
-        # Generate or get current lucky number
+
+        # Generate lucky number
         current_lucky_number = random.randint(
             settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_START'],
             settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_END']
         )
+
+        # Store both in the session — never expose them in the HTML
+        request.session['lucky_draw_grid'] = number_range
+        request.session['lucky_draw_number'] = current_lucky_number
         
         survey_plays_available = eligibility['survey_plays_available']
         poll_plays_available = eligibility['poll_plays_available']
@@ -231,8 +235,10 @@ class LuckyDrawView(View):
         context = {
             'LUCKY_DRAW_CONFIG': {
                 **settings.LUCKY_DRAW_CONFIG,
-                'NUMBER_RANGE': number_range
+                # NUMBER_RANGE is intentionally excluded — stored in session only
             },
+            # grid_range gives the template a safe index sequence (no actual numbers)
+            'grid_range': range(len(number_range)),
             'user_eligible': user_eligible,
             'survey_eligible': survey_eligible,
             'poll_eligible': poll_eligible,
@@ -245,7 +251,7 @@ class LuckyDrawView(View):
             'survey_plays_available': survey_plays_available,
             'poll_plays_available': poll_plays_available,
             'total_plays_available': total_plays_available,
-            'current_lucky_number': current_lucky_number,
+            # current_lucky_number is intentionally excluded — stored in session only
             'current_winner': current_winner,
             'last_play_date': last_entry.created_at if last_entry else None,
             'last_result': last_entry,
@@ -301,12 +307,20 @@ class LuckyDrawView(View):
                 'error': f'You need to complete {required_surveys} surveys or {required_polls} polls to play again.'
             }, status=400)
 
+        # Resolve the actual number from the session grid using the client-sent index.
+        # The grid and lucky number are never sent to the browser, so they cannot
+        # be tampered with from the client side.
+        grid = request.session.get('lucky_draw_grid')
+        if not grid:
+            return JsonResponse({'error': 'Session expired. Please refresh the page.'}, status=400)
+
         try:
-            number = int(data.get('number'))
-            if not (settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_START'] <= number <= settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_END']):
-                raise ValueError('Invalid number')
-        except (ValueError, TypeError) as e:
-            return JsonResponse({'error': 'Invalid number'}, status=400)
+            index = int(data.get('index'))
+            if not (0 <= index < len(grid)):
+                raise ValueError('Invalid index')
+            number = grid[index]
+        except (ValueError, TypeError):
+            return JsonResponse({'error': 'Invalid selection'}, status=400)
         
         total_surveys, total_polls = self.get_completion_counts(request.user)
         eligibility = self.get_eligibility_context(request.user)
@@ -336,11 +350,14 @@ class LuckyDrawView(View):
             entry_polls_at_play = polls_baseline + polls_required
             entry_surveys_at_play = total_surveys
 
-        # Generate winning number
-        winning_number = int(data.get('current_lucky_number')) if data.get('current_lucky_number') else random.randint(
-            settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_START'],
-            settings.LUCKY_DRAW_CONFIG['NUMBER_RANGE_END']
-        )
+        # Winning number comes from the session — never from the client request
+        winning_number = request.session.get('lucky_draw_number')
+        if winning_number is None:
+            return JsonResponse({'error': 'Session expired. Please refresh the page.'}, status=400)
+
+        # Invalidate the session grid so this draw cannot be replayed
+        request.session.pop('lucky_draw_grid', None)
+        request.session.pop('lucky_draw_number', None)
 
         is_winner = (number == winning_number)
         prize = self.get_prize_for_user(request.user) if is_winner else None
@@ -381,6 +398,7 @@ class LuckyDrawView(View):
 
         return JsonResponse({
             'is_winner': is_winner,
+            'guessed_number': number,
             'winning_number': winning_number,
             'prize': prize,
             'draw_type': draw_type,
