@@ -1,3 +1,4 @@
+/* ── CSS Custom Properties ─────────────────────────────────────────────────── */
 :root {
   --sudraw-bg: #f7f3ff;
   --sudraw-surface: #ffffff;
@@ -14,6 +15,9 @@
   --sudraw-danger: #dc2626;
   --sudraw-pink: #db2777;
   --sudraw-shadow: 0 18px 45px rgba(24, 36, 78, 0.1);
+  --sudraw-radius: 14px;
+  --sudraw-radius-sm: 10px;
+  --sudraw-filter-width: 210px;
   --icon-dashboard: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='8' rx='1.5'/%3E%3Crect x='14' y='3' width='7' height='5' rx='1.5'/%3E%3Crect x='14' y='12' width='7' height='9' rx='1.5'/%3E%3Crect x='3' y='15' width='7' height='6' rx='1.5'/%3E%3C/svg%3E");
   --icon-list: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='8' y1='6' x2='21' y2='6'/%3E%3Cline x1='8' y1='12' x2='21' y2='12'/%3E%3Cline x1='8' y1='18' x2='21' y2='18'/%3E%3Ccircle cx='4' cy='6' r='1'/%3E%3Ccircle cx='4' cy='12' r='1'/%3E%3Ccircle cx='4' cy='18' r='1'/%3E%3C/svg%3E");
   --icon-plus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Cline x1='12' y1='5' x2='12' y2='19'/%3E%3Cline x1='5' y1='12' x2='19' y2='12'/%3E%3C/svg%3E");
@@ -24,6 +28,14 @@
   --icon-edit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9'/%3E%3Cpath d='M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z'/%3E%3C/svg%3E");
 }
 
+/* ── Global box-sizing reset (critical for cross-browser input sizing) ──────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ── Base ───────────────────────────────────────────────────────────────────── */
 html,
 body {
   background: var(--sudraw-bg);
@@ -48,10 +60,12 @@ a:focus {
   color: var(--sudraw-primary-dark);
 }
 
+/* ── Container ──────────────────────────────────────────────────────────────── */
 #container {
   background: transparent;
 }
 
+/* ── Header ─────────────────────────────────────────────────────────────────── */
 #header,
 .grp-header {
   background: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 34%, #db2777 67%, #f97316 100%);
@@ -59,27 +73,44 @@ a:focus {
   min-height: 72px;
   padding: 0 28px;
   box-shadow: 0 18px 42px rgba(79, 70, 229, 0.28);
+  /* Prevent header from stretching weirdly in flex containers */
+  position: relative;
+  z-index: 100;
 }
 
 #branding,
 .grp-branding {
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
-  align-items: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
   min-height: 72px;
 }
 
 .sudraw-admin-brand a {
+  display: -webkit-inline-box;
+  display: -ms-inline-flexbox;
   display: inline-flex;
-  align-items: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
   gap: 12px;
   color: #fff !important;
   text-decoration: none;
 }
 
 .sudraw-admin-mark {
+  display: -webkit-inline-box;
+  display: -ms-inline-flexbox;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
   width: 42px;
   height: 42px;
   border: 1px solid rgba(255, 255, 255, 0.45);
@@ -91,6 +122,8 @@ a:focus {
   font-weight: 800;
   line-height: 1;
   position: relative;
+  -ms-flex-negative: 0;
+      flex-shrink: 0;
 }
 
 .sudraw-admin-mark::before {
@@ -103,8 +136,13 @@ a:focus {
 }
 
 .sudraw-admin-brand-text {
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
-  flex-direction: column;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
   gap: 2px;
 }
 
@@ -137,12 +175,74 @@ a:focus {
   text-decoration: none;
 }
 
-#content {
-  padding: 28px;
+/* ── Breadcrumbs ─────────────────────────────────────────────────────────────  */
+.breadcrumbs,
+div.breadcrumbs {
+  background: transparent;
+  border: 0;
+  color: var(--sudraw-muted);
+  font-size: 13px;
+  padding: 18px 28px 0;
 }
 
+.breadcrumbs a,
+div.breadcrumbs a {
+  color: var(--sudraw-primary);
+  font-weight: 600;
+}
+
+/* ── Page content layout ────────────────────────────────────────────────────── */
+/*
+ * KEY FIX: Django admin uses float or flex to position #content-main next to
+ * #content-related (the filter sidebar). We replace both with a robust flexbox
+ * layout so it works in all browsers without float weirdness.
+ */
+#content {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
+  -webkit-box-align: start;
+      -ms-flex-align: start;
+          align-items: flex-start;
+  gap: 24px;
+  padding: 28px;
+  /* Allow content to flow naturally — no overflow clipping at this level */
+  overflow: visible;
+}
+
+/*
+ * #content-main takes all remaining width. min-width:0 is critical: without it
+ * a flex child refuses to shrink below its content size in all browsers.
+ */
 #content-main {
-  width: 100%;
+  -webkit-box-flex: 1;
+      -ms-flex: 1 1 0%;
+          flex: 1 1 0%;
+  min-width: 0;
+  /* Remove any Django-default width so our flex layout controls it */
+  width: auto !important;
+  float: none !important;
+}
+
+/*
+ * #content-related holds the filter sidebar. Fixed width, never shrinks.
+ * Sticky so it follows you while scrolling a long list.
+ */
+#content-related {
+  -webkit-box-flex: 0;
+      -ms-flex: 0 0 var(--sudraw-filter-width);
+          flex: 0 0 var(--sudraw-filter-width);
+  width: var(--sudraw-filter-width);
+  min-width: 180px;
+  float: none !important;
+  /* Sticky filter sidebar */
+  position: -webkit-sticky;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
 }
 
 #content h1 {
@@ -164,50 +264,47 @@ a:focus {
   width: 84px;
 }
 
-.breadcrumbs,
-div.breadcrumbs {
-  background: transparent;
-  border: 0;
-  color: var(--sudraw-muted);
-  font-size: 13px;
-  padding: 18px 28px 0;
-}
-
-.breadcrumbs a,
-div.breadcrumbs a {
-  color: var(--sudraw-primary);
-  font-weight: 600;
-}
-
+/* ── Card / Module base ─────────────────────────────────────────────────────── */
+/*
+ * Shared card appearance. overflow:visible on all of them — the coloured
+ * top-bar ::before pseudo-element handles the rounded-top-corner look
+ * without needing overflow:hidden to clip it (which would trap dropdowns).
+ */
 .module,
 .grp-module,
-#changelist,
-.inline-group,
 fieldset.module,
 .grp-group,
+.inline-group,
+#changelist,
 .dashboard #content-main .module {
   background: var(--sudraw-surface);
   border: 1px solid var(--sudraw-border);
-  border-radius: 14px;
+  border-radius: var(--sudraw-radius);
   box-shadow: var(--sudraw-shadow);
-  overflow: hidden;
+  overflow: visible;
   position: relative;
 }
 
+/* Coloured top accent bar */
 .module::before,
 .grp-module::before,
-#changelist::before,
-.inline-group::before,
 fieldset.module::before,
 .grp-group::before,
+.inline-group::before,
+#changelist::before,
 .dashboard #content-main .module::before {
   background: linear-gradient(90deg, var(--sudraw-primary), var(--sudraw-purple), var(--sudraw-pink), var(--sudraw-accent), var(--sudraw-teal));
+  border-radius: var(--sudraw-radius) var(--sudraw-radius) 0 0;
   content: "";
   display: block;
   height: 4px;
   width: 100%;
+  /* Prevent this bar from causing overflow */
+  position: relative;
+  z-index: 1;
 }
 
+/* Module headings */
 .module h2,
 .module caption,
 .inline-group h2,
@@ -224,16 +321,23 @@ fieldset.module h2,
   text-transform: none;
 }
 
+/* ── Tables ──────────────────────────────────────────────────────────────────── */
 .module table,
 .grp-module table {
   border-collapse: separate;
   border-spacing: 0;
+  width: 100%;
 }
 
+/* Sortable column header links */
 .dashboard .module table th a,
 .app-surveys .module table th a,
 .app-auth .module table th a {
-  align-items: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  display: -webkit-inline-box;
+  display: -ms-inline-flexbox;
   display: inline-flex;
   gap: 8px;
   font-weight: 760;
@@ -249,6 +353,8 @@ fieldset.module h2,
   -webkit-mask: var(--icon-list) center / contain no-repeat;
   mask: var(--icon-list) center / contain no-repeat;
   width: 18px;
+  -ms-flex-negative: 0;
+      flex-shrink: 0;
 }
 
 table {
@@ -263,9 +369,11 @@ tfoot td {
   font-size: 12px;
   font-weight: 750;
   text-transform: none;
+  white-space: nowrap;
 }
 
 tbody tr {
+  -webkit-transition: background-color 0.15s ease;
   transition: background-color 0.15s ease;
 }
 
@@ -280,8 +388,9 @@ tbody tr.selected:hover {
 
 td,
 th {
-  border-bottom-color: #edf2f7;
+  border-bottom: 1px solid #edf2f7;
   vertical-align: middle;
+  padding: 8px 12px;
 }
 
 .row1 {
@@ -292,27 +401,61 @@ th {
   background: #fff7ed;
 }
 
+/* ── Changelist page ─────────────────────────────────────────────────────────── */
 #changelist {
-  border-radius: 14px;
-  overflow: hidden;
+  /* overflow:visible so that date-picker popups and dropdowns aren't clipped */
+  overflow: visible;
+  border-radius: var(--sudraw-radius);
 }
 
+/*
+ * The results table needs its own scroll container so the list can scroll
+ * horizontally on narrow screens without clipping the filter sidebar.
+ */
+#changelist .results {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#changelist .results table {
+  min-width: 600px;
+}
+
+/* ── Filter sidebar ──────────────────────────────────────────────────────────── */
 #changelist-filter {
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-  border-left: 1px solid var(--sudraw-border);
-  border-radius: 0 14px 14px 0;
-  box-shadow: none;
+  border: 1px solid var(--sudraw-border);
+  border-radius: var(--sudraw-radius);
+  box-shadow: var(--sudraw-shadow);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Coloured top bar for filter card */
+#changelist-filter::before {
+  background: linear-gradient(90deg, var(--sudraw-purple), var(--sudraw-primary));
+  border-radius: var(--sudraw-radius) var(--sudraw-radius) 0 0;
+  content: "";
+  display: block;
+  height: 4px;
+  width: 100%;
 }
 
 #changelist-filter h2 {
-  align-items: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
   background: linear-gradient(135deg, var(--sudraw-purple), var(--sudraw-primary));
   color: #fff;
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
   font-size: 13px;
   gap: 8px;
   font-weight: 750;
   letter-spacing: 0;
+  padding: 12px 16px;
+  margin: 0;
 }
 
 #changelist-filter h2::before {
@@ -322,14 +465,59 @@ th {
   -webkit-mask: var(--icon-filter) center / contain no-repeat;
   mask: var(--icon-filter) center / contain no-repeat;
   width: 16px;
+  -ms-flex-negative: 0;
+      flex-shrink: 0;
 }
 
 #changelist-filter h3 {
   color: var(--sudraw-text);
   font-size: 12px;
   font-weight: 750;
+  padding: 10px 16px 4px;
+  margin: 0;
+  border-top: 1px solid var(--sudraw-border);
 }
 
+#changelist-filter ul {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0 10px;
+}
+
+#changelist-filter ul li {
+  padding: 0;
+}
+
+#changelist-filter ul li a {
+  display: block;
+  padding: 5px 16px;
+  font-size: 13px;
+  color: var(--sudraw-text);
+  text-decoration: none;
+  -webkit-transition: background 0.12s ease, color 0.12s ease;
+  transition: background 0.12s ease, color 0.12s ease;
+  border-radius: 0;
+}
+
+#changelist-filter ul li a:hover {
+  background: #eef6ff;
+  color: var(--sudraw-primary);
+}
+
+#changelist-filter ul li.selected a,
+#changelist-filter ul li a.selected {
+  background: linear-gradient(90deg, #eff6ff, #f5f3ff);
+  color: var(--sudraw-primary);
+  font-weight: 700;
+  border-left: 3px solid var(--sudraw-primary);
+}
+
+/* Date hierarchy (filter by date links above the table) */
+.xfull {
+  width: 100%;
+}
+
+/* ── Toolbar & Search ────────────────────────────────────────────────────────── */
 #toolbar,
 .actions {
   background: linear-gradient(135deg, #ffffff 0%, #eff6ff 52%, #fff7ed 100%);
@@ -341,42 +529,92 @@ th {
 }
 
 #toolbar form {
-  align-items: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
   gap: 8px;
+  -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
 }
 
 #toolbar form::before {
   background: var(--sudraw-primary);
   content: "";
-  flex: 0 0 auto;
+  -ms-flex-negative: 0;
+      flex-shrink: 0;
   height: 18px;
   -webkit-mask: var(--icon-search) center / contain no-repeat;
   mask: var(--icon-search) center / contain no-repeat;
   width: 18px;
 }
 
-#toolbar form input[type="text"],
-#searchbar,
+/* Actions row */
+.actions {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ── Form inputs (universal, cross-browser) ──────────────────────────────────── */
 input[type="text"],
 input[type="password"],
 input[type="email"],
 input[type="url"],
 input[type="number"],
 input[type="search"],
+input[type="tel"],
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
 textarea,
 select,
-.vTextField {
+.vTextField,
+#searchbar {
   background: #fff;
   border: 1px solid #cbd5e1;
   border-radius: 9px;
   color: var(--sudraw-text);
+  font-family: inherit;
+  font-size: 14px;
   min-height: 34px;
   padding: 7px 10px;
+  /* box-sizing already set globally, but explicit here for specificity */
+  box-sizing: border-box;
+  max-width: 100%;
+  /* Prevent inputs from overflowing their containers in all browsers */
+  -webkit-appearance: none;
+     -moz-appearance: none;
+          appearance: none;
 }
 
 textarea {
   min-height: 96px;
+  resize: vertical;
+  width: 100%;
+}
+
+select {
+  /* Re-add the dropdown arrow that -webkit-appearance:none removes */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px;
+  padding-right: 28px;
+}
+
+/* Firefox: remove extra inner padding on number inputs */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
 }
 
 input:focus,
@@ -388,6 +626,17 @@ select:focus,
   outline: none;
 }
 
+/* Readonly / disabled fields */
+input[readonly],
+textarea[readonly],
+select[disabled],
+input[disabled] {
+  background: #f8fafc;
+  color: var(--sudraw-muted);
+  cursor: not-allowed;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────────── */
 .button,
 input[type="submit"],
 input[type="button"],
@@ -399,10 +648,18 @@ a.button {
   box-shadow: 0 10px 22px rgba(37, 99, 235, 0.2);
   color: #fff !important;
   cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
   font-weight: 700;
   min-height: 34px;
   padding: 8px 14px;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  text-decoration: none;
+  display: inline-block;
+  vertical-align: middle;
+  -webkit-transition: box-shadow 0.15s ease, -webkit-transform 0.15s ease;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  /* Prevent button from being distorted by global box-sizing */
+  box-sizing: border-box;
 }
 
 .button:hover,
@@ -412,6 +669,8 @@ input[type="button"]:hover,
 a.button:hover {
   background: linear-gradient(135deg, var(--sudraw-primary-dark), #6d28d9);
   box-shadow: 0 12px 26px rgba(124, 58, 237, 0.25);
+  color: #fff !important;
+  text-decoration: none;
 }
 
 .button:active,
@@ -419,6 +678,7 @@ input[type="submit"]:active,
 input[type="button"]:active,
 .submit-row input:active,
 a.button:active {
+  -webkit-transform: translateY(1px);
   transform: translateY(1px);
 }
 
@@ -433,13 +693,19 @@ input[type="submit"].default:hover,
   background: linear-gradient(135deg, #15803d, #0f766e);
 }
 
+/* ── Delete / danger ─────────────────────────────────────────────────────────── */
 .deletelink,
 a.deletelink {
-  align-items: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
   color: var(--sudraw-danger) !important;
+  display: -webkit-inline-box;
+  display: -ms-inline-flexbox;
   display: inline-flex;
   gap: 6px;
   font-weight: 700;
+  text-decoration: none;
 }
 
 a.deletelink::before {
@@ -449,6 +715,8 @@ a.deletelink::before {
   -webkit-mask: var(--icon-delete) center / contain no-repeat;
   mask: var(--icon-delete) center / contain no-repeat;
   width: 15px;
+  -ms-flex-negative: 0;
+      flex-shrink: 0;
 }
 
 input[type="submit"].deletelink,
@@ -463,33 +731,60 @@ input[type="submit"].deletelink:hover,
   background: linear-gradient(135deg, #b91c1c, #be185d);
 }
 
+/* ── Submit row ──────────────────────────────────────────────────────────────── */
 .submit-row {
   background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 55%, #eff6ff 100%);
   border: 1px solid var(--sudraw-border);
-  border-radius: 14px;
+  border-radius: var(--sudraw-radius);
   box-shadow: var(--sudraw-shadow);
   margin: 22px 0 0;
   padding: 14px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  gap: 8px;
 }
 
+/* ── Object tools (Add, History buttons) ─────────────────────────────────────── */
 .object-tools {
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
-  flex-wrap: wrap;
+  -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
   gap: 8px;
   margin-top: -4px;
+  /* Prevent from clipping behind content */
+  position: relative;
+  z-index: 10;
+  list-style: none;
+  padding: 0;
+  float: none !important;
 }
 
 .object-tools a,
 .object-tools a:link,
 .object-tools a:visited {
-  align-items: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
   background: linear-gradient(135deg, var(--sudraw-primary), var(--sudraw-purple));
   border-radius: 999px;
   color: #fff !important;
+  display: -webkit-inline-box;
+  display: -ms-inline-flexbox;
   display: inline-flex;
   gap: 7px;
   font-weight: 750;
   padding: 8px 13px;
+  text-decoration: none;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .object-tools a::before {
@@ -499,6 +794,8 @@ input[type="submit"].deletelink:hover,
   -webkit-mask: var(--icon-edit) center / contain no-repeat;
   mask: var(--icon-edit) center / contain no-repeat;
   width: 15px;
+  -ms-flex-negative: 0;
+      flex-shrink: 0;
 }
 
 .object-tools a.addlink {
@@ -511,45 +808,35 @@ a.addlink::before {
   mask-image: var(--icon-plus);
 }
 
-.messagelist {
-  margin: 0 0 18px;
-  padding: 0;
-}
-
-.messagelist li {
-  align-items: center;
-  background: linear-gradient(135deg, #ecfdf5 0%, #eff6ff 100%);
-  border: 1px solid #a7f3d0;
-  border-radius: 12px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.messagelist li::before {
-  background: var(--sudraw-green);
-  content: "";
-  flex: 0 0 auto;
-  height: 18px;
-  -webkit-mask: var(--icon-save) center / contain no-repeat;
-  mask: var(--icon-save) center / contain no-repeat;
-  width: 18px;
-}
-
-.errornote,
-.errorlist {
-  background: #fff1f2;
-  border-color: #fecdd3;
-  color: #9f1239;
-  border-radius: 12px;
-}
-
+/* ── Aligned form rows (change form) ─────────────────────────────────────────── */
 .aligned label {
   color: var(--sudraw-text);
   font-weight: 700;
+  /* Prevent labels from overflowing into input area in Safari */
+  word-break: break-word;
 }
 
+/* Fieldset form rows — fix vertical alignment across browsers */
+.form-row {
+  overflow: visible;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f0f4f8;
+}
+
+.form-row:last-child {
+  border-bottom: 0;
+}
+
+/* Fields that should expand to available width */
+.vTextField,
+.vLargeTextField,
+.vURLField,
+.vEmailField {
+  width: 100%;
+  max-width: 610px;
+}
+
+/* ── Help text ───────────────────────────────────────────────────────────────── */
 .help,
 p.help,
 form p.help,
@@ -560,19 +847,222 @@ div.help li {
   font-size: 12px;
 }
 
+/* ── Messages ────────────────────────────────────────────────────────────────── */
+.messagelist {
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.messagelist li {
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  background: linear-gradient(135deg, #ecfdf5 0%, #eff6ff 100%);
+  border: 1px solid #a7f3d0;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 12px 16px;
+}
+
+.messagelist li::before {
+  background: var(--sudraw-green);
+  content: "";
+  -ms-flex-negative: 0;
+      flex-shrink: 0;
+  height: 18px;
+  -webkit-mask: var(--icon-save) center / contain no-repeat;
+  mask: var(--icon-save) center / contain no-repeat;
+  width: 18px;
+}
+
+.messagelist li.warning {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-color: #fcd34d;
+}
+
+.messagelist li.error {
+  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+  border-color: #fecdd3;
+}
+
+/* ── Error notes ─────────────────────────────────────────────────────────────── */
+.errornote,
+.errorlist {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #9f1239;
+  border-radius: 12px;
+}
+
+.errorlist li {
+  padding: 4px 0;
+}
+
+/* ── Paginator ───────────────────────────────────────────────────────────────── */
 .paginator {
   background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
   border-top: 1px solid var(--sudraw-border);
   color: var(--sudraw-muted);
   font-weight: 600;
+  padding: 10px 14px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
+  gap: 6px;
+}
+
+.paginator a,
+.paginator .this-page {
+  border: 1px solid var(--sudraw-border);
+  border-radius: 7px;
+  display: inline-block;
+  min-width: 32px;
+  padding: 4px 8px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.paginator a:hover {
+  background: #eef6ff;
+  border-color: var(--sudraw-primary);
+  color: var(--sudraw-primary);
+}
+
+.paginator .this-page {
+  background: linear-gradient(135deg, var(--sudraw-primary), var(--sudraw-purple));
+  border-color: transparent;
+  color: #fff;
+  font-weight: 700;
+}
+
+/* ── ManyToMany selector widget ──────────────────────────────────────────────── */
+.selector {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
+  gap: 12px;
+  -webkit-box-align: start;
+      -ms-flex-align: start;
+          align-items: flex-start;
+}
+
+.selector .selector-available,
+.selector .selector-chosen {
+  -webkit-box-flex: 1;
+      -ms-flex: 1 1 180px;
+          flex: 1 1 180px;
+  min-width: 160px;
 }
 
 .selector .selector-available h2,
 .selector .selector-chosen h2 {
   background: linear-gradient(135deg, var(--sudraw-primary), var(--sudraw-purple));
   border-radius: 10px 10px 0 0;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 750;
+  padding: 10px 14px;
+  margin: 0;
 }
 
+.selector select {
+  width: 100%;
+  min-height: 160px;
+  background-image: none;
+  padding-right: 10px;
+  border-radius: 0 0 8px 8px;
+}
+
+.selector-chooser {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  gap: 6px;
+  -ms-flex-negative: 0;
+      flex-shrink: 0;
+}
+
+/* ── Date / time picker popup fixes ─────────────────────────────────────────── */
+.calendarbox,
+.clockbox,
+.calendar,
+#calendarbox {
+  z-index: 9999 !important;
+  position: absolute !important;
+}
+
+.vDateField,
+.vTimeField,
+.vDateTimeField {
+  width: auto;
+  max-width: 100%;
+}
+
+/* Date/time field row — flex so inputs and icons line up */
+.datetime {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  gap: 8px;
+}
+
+/* ── Related object popup links ──────────────────────────────────────────────── */
+.related-widget-wrapper {
+  display: -webkit-inline-box;
+  display: -ms-inline-flexbox;
+  display: inline-flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  gap: 6px;
+  -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.related-widget-wrapper select {
+  -webkit-box-flex: 1;
+      -ms-flex: 1 1 auto;
+          flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ── Dashboard ───────────────────────────────────────────────────────────────── */
+.dashboard #content-main .module {
+  margin-bottom: 20px;
+}
+
+.dashboard #content-main .module table td,
+.dashboard #content-main .module table th {
+  padding: 8px 12px;
+}
+
+/* ── Login page ──────────────────────────────────────────────────────────────── */
 .login #container {
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   border: 1px solid var(--sudraw-border);
@@ -580,6 +1070,9 @@ div.help li {
   box-shadow: var(--sudraw-shadow);
   margin-top: 70px;
   overflow: hidden;
+  max-width: 440px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .login #header {
@@ -587,9 +1080,154 @@ div.help li {
 }
 
 .login #content {
+  display: block;
   padding: 28px;
 }
 
+.login .form-row {
+  padding: 10px 0;
+}
+
+.login .form-row input {
+  width: 100%;
+}
+
+/* ── Nav sidebar (Django 3.2+) ───────────────────────────────────────────────── */
+#nav-sidebar {
+  background: var(--sudraw-surface);
+  border-right: 1px solid var(--sudraw-border);
+  box-shadow: var(--sudraw-shadow);
+  z-index: 50;
+}
+
+#toggle-nav-sidebar {
+  background: var(--sudraw-primary);
+  color: #fff;
+  border: none;
+  border-radius: 0 6px 6px 0;
+  cursor: pointer;
+  padding: 8px 6px;
+}
+
+/* ── Inline table (change form — tabular inline) ─────────────────────────────── */
+.inline-group {
+  overflow: visible;
+}
+
+.inline-related {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Inputs/selects in inline tables fill their cell, don't overflow */
+.inline-related input,
+.inline-related select,
+.inline-related textarea {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Tabular inline table */
+.inline-related .tabular table {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 560px;
+  table-layout: auto;
+  width: 100%;
+}
+
+/* Give question_text the most space */
+.inline-related .tabular table th:first-child,
+.inline-related .tabular table td:first-child {
+  min-width: 200px;
+  width: 38%;
+}
+
+.inline-related .tabular table th:nth-child(2),
+.inline-related .tabular table td:nth-child(2) {
+  min-width: 120px;
+  width: 18%;
+}
+
+.inline-related .tabular table th,
+.inline-related .tabular table td {
+  padding: 8px 10px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.inline-related .tabular table td:first-child {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.inline-related .tabular .add-row td {
+  white-space: normal;
+}
+
+.inline-related .tabular .delete,
+.inline-related .tabular .original {
+  min-width: 0;
+  width: auto;
+  white-space: nowrap;
+}
+
+/* ── Misc utility ────────────────────────────────────────────────────────────── */
+
+/* Clearfix for legacy float patterns inside modules */
+.module::after,
+#content-main::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+/* Sortable drag handle */
+.question-order-box {
+  margin: 20px 0;
+  padding: 10px;
+  border: 1px solid var(--sudraw-border);
+  border-radius: var(--sudraw-radius-sm);
+  background: #f9f9f9;
+}
+
+.question-order-box h2 {
+  margin-top: 0;
+}
+
+.question-order-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.question-order-item {
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: move;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+}
+
+.question-order-item .handle {
+  cursor: move;
+  margin-right: 10px;
+  color: #999;
+  -ms-flex-negative: 0;
+      flex-shrink: 0;
+}
+
+/* ── Responsive: 1024px ──────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
   #header,
   .grp-header {
@@ -598,14 +1236,70 @@ div.help li {
 
   #content {
     padding: 20px 14px;
+    gap: 16px;
   }
 
   .breadcrumbs,
   div.breadcrumbs {
     padding: 14px 14px 0;
   }
+
+  :root {
+    --sudraw-filter-width: 190px;
+  }
 }
 
+/* ── Responsive: 900px — stack filter below list ─────────────────────────────── */
+@media (max-width: 900px) {
+  #content {
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+  }
+
+  #content-main {
+    width: 100% !important;
+    -ms-flex: none;
+        flex: none;
+  }
+
+  #content-related {
+    width: 100% !important;
+    -webkit-box-flex: 0;
+        -ms-flex: 0 0 auto;
+            flex: 0 0 auto;
+    /* No longer sticky when stacked vertically */
+    position: relative;
+    top: auto;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  #changelist-filter ul {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-wrap: wrap;
+        flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px 12px;
+  }
+
+  #changelist-filter ul li a {
+    border: 1px solid var(--sudraw-border);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 12px;
+    display: inline-block;
+  }
+
+  #changelist-filter h3 {
+    padding: 8px 12px 4px;
+  }
+}
+
+/* ── Responsive: 767px ───────────────────────────────────────────────────────── */
 @media (max-width: 767px) {
   #header,
   .grp-header {
@@ -636,7 +1330,87 @@ div.help li {
   #changelist,
   .inline-group,
   fieldset.module,
+  .submit-row,
+  #changelist-filter {
+    border-radius: var(--sudraw-radius-sm);
+  }
+
+  #content h1 {
+    font-size: 20px;
+  }
+
+  .object-tools {
+    -ms-flex-wrap: wrap;
+        flex-wrap: wrap;
+  }
+
   .submit-row {
-    border-radius: 10px;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    -webkit-box-align: stretch;
+        -ms-flex-align: stretch;
+            align-items: stretch;
+    gap: 8px;
+  }
+
+  .submit-row input,
+  .submit-row a.button {
+    width: 100%;
+    text-align: center;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+  }
+
+  /* Actions bar */
+  .actions {
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    -webkit-box-align: stretch;
+        -ms-flex-align: stretch;
+            align-items: stretch;
+  }
+
+  .actions select {
+    width: 100%;
+  }
+}
+
+/* ── Responsive: 640px — stack inline forms into cards ───────────────────────── */
+@media (max-width: 640px) {
+  .inline-related .tabular table,
+  .inline-related .tabular thead,
+  .inline-related .tabular tbody,
+  .inline-related .tabular th,
+  .inline-related .tabular td,
+  .inline-related .tabular tr {
+    display: block;
+  }
+
+  .inline-related .tabular thead {
+    display: none;
+  }
+
+  .inline-related .tabular tbody tr {
+    border: 1px solid var(--sudraw-border);
+    border-radius: var(--sudraw-radius-sm);
+    margin-bottom: 12px;
+    padding: 10px;
+  }
+
+  .inline-related .tabular td {
+    border: 0;
+    padding: 6px 4px;
+    white-space: normal;
+  }
+
+  .inline-related .tabular input,
+  .inline-related .tabular select,
+  .inline-related .tabular textarea {
+    width: 100%;
   }
 }

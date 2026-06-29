@@ -14,16 +14,16 @@ from .models import MilestoneAchievement, PollResponse, SurveyResponse, UserProf
 DEFAULT_MILESTONE_CONFIG = (
     {
         'milestone_type': 'surveys_completed',
-        'threshold': 200,
+        'threshold': 100,
         'prize_name': 'Wallet Reward',
-        'repeat_interval': 200,
+        'repeat_interval': 100,
         'wallet_reward': True,
     },
     {
         'milestone_type': 'polls_completed',
-        'threshold': 200,
+        'threshold': 100,
         'prize_name': 'Wallet Reward',
-        'repeat_interval': 200,
+        'repeat_interval': 100,
         'wallet_reward': True,
     },
     {
@@ -54,7 +54,7 @@ def get_milestone_config():
 
 def get_wallet_reward_display(user):
     profile, _ = UserProfile.objects.get_or_create(user=user)
-    return Decimal('1.00'), profile.wallet_currency_code, profile.wallet_currency_symbol
+    return Decimal('2.00'), profile.wallet_currency_code, profile.wallet_currency_symbol
 
 
 def get_wallet_reward_prize_name(user):
