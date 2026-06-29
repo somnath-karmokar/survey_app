@@ -491,7 +491,15 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             level_progress = {p['level']: p['total_completed'] for p in progress_by_level}
         from .lucky_draw import LuckyDrawView
         lucky_draw_eligible = LuckyDrawView().is_eligible(user)
-        
+
+        # Milestone countdown (surveys)
+        survey_milestone_interval = 100
+        surveys_into_cycle = completed_surveys % survey_milestone_interval
+        surveys_to_next_reward = survey_milestone_interval - surveys_into_cycle
+        next_survey_milestone = completed_surveys + surveys_to_next_reward
+        survey_milestone_progress_pct = int((surveys_into_cycle / survey_milestone_interval) * 100)
+        currency_symbol = profile.wallet_currency_symbol or '$'
+
         # Add data to context
         context.update({
             'profile': profile,
@@ -508,7 +516,13 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             'active_page': 'dashboard',
             'level_progress': level_progress,
             'lucky_draw_eligible': lucky_draw_eligible,
-            'LUCKY_DRAW_CONFIG': getattr(django_settings, 'LUCKY_DRAW_CONFIG', {})
+            'LUCKY_DRAW_CONFIG': getattr(django_settings, 'LUCKY_DRAW_CONFIG', {}),
+            'surveys_into_cycle': surveys_into_cycle,
+            'surveys_to_next_reward': surveys_to_next_reward,
+            'next_survey_milestone': next_survey_milestone,
+            'survey_milestone_progress_pct': survey_milestone_progress_pct,
+            'survey_milestone_interval': survey_milestone_interval,
+            'milestone_currency_symbol': currency_symbol,
         })
         
         return context

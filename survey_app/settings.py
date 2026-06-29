@@ -190,16 +190,16 @@ SITE_URL = 'http://localhost:8000'
 MILESTONE_REWARDS = (
     {
         'milestone_type': 'surveys_completed',
-        'threshold': 5, #200
+        'threshold': 100,
         'prize_name': 'Wallet Reward',
-        'repeat_interval': 5, #200
+        'repeat_interval': 100,
         'wallet_reward': True,
     },
     {
         'milestone_type': 'polls_completed',
-        'threshold': 5, #200
+        'threshold': 100,
         'prize_name': 'Wallet Reward',
-        'repeat_interval': 5, #200
+        'repeat_interval': 100,
         'wallet_reward': True,
     },
     {
