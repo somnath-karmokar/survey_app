@@ -326,27 +326,12 @@ document.addEventListener('DOMContentLoaded', function() {
         adUnlocked = true;
         if (closeBtn)    closeBtn.classList.remove('d-none');
         if (continueBtn) continueBtn.classList.remove('d-none');
-        if (hint) {
-            hint.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i>'
-                           + '<span class="text-success fw-semibold"> Advertisement clicked! You can now continue.</span>';
-        }
         if (statusEl) statusEl.textContent = '';
-        // Stop listening once unlocked
-        window.removeEventListener('blur', onWindowBlur);
     }
 
-    function onWindowBlur() {
-        // Fires when user clicks inside the ad iframe (iframe steals focus → window blurs)
-        if (document.activeElement && document.activeElement.tagName === 'IFRAME') {
-            unlockContinue();
-        }
-    }
-
-    window.addEventListener('blur', onWindowBlur);
-
-    // Restore focus to window so subsequent blur events are detectable
+    // Auto-unlock continue button after 3 seconds (no ad to click)
     adModalEl.addEventListener('shown.bs.modal', function() {
-        window.focus();
+        setTimeout(unlockContinue, 3000);
     });
 });
 </script>

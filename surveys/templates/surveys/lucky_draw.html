@@ -8,15 +8,6 @@
         width: 100%;
         text-align: center;
     }
-    .number-text {
-        display: none;
-    }
-    .number-box.show-number .number-placeholder {
-        display: none;
-    }
-    .number-box.show-number .number-text {
-        display: inline-block;
-    }
     .current-winner {
         background: #f8f9fa;
         border-radius: 5px;
@@ -112,7 +103,6 @@
                                 {% elif poll_eligible %}
                                     <p class="mb-2">You are eligible from completed polls.</p>
                                 {% endif %}
-                                <h5>Lucky Number: {{ current_lucky_number }}</h5>
                                 <p class="mb-0">Prize: {{ prize_display }}</p>
                             </div>
                         {% endif %}
@@ -138,18 +128,13 @@
                   
                     
                     <div id="number-grid" class="row g-2 mb-4">
-                        {% for num in LUCKY_DRAW_CONFIG.NUMBER_RANGE %}
+                        {% for i in grid_range %}
                             <div class="col-2 col-sm-1 p-1">
-                                <button class="number-box btn btn-outline-primary d-flex align-items-center justify-content-center w-100" 
-                                        data-number="{{ num }}"
+                                <button class="number-box btn btn-outline-primary d-flex align-items-center justify-content-center w-100"
+                                        data-index="{{ forloop.counter0 }}"
                                         style="aspect-ratio: 1/1;"
                                         {% if not user_eligible %}disabled{% endif %}>
-                                    {% if LUCKY_DRAW_CONFIG.SHOW_NUMBERS_FOR_TESTING %}
-                                        <span class="number-text" style="display: inline-block;">{{ num }}</span>
-                                    {% else %}
-                                        <span class="number-text" style="display: none;">{{ num }}</span>
-                                        <span class="number-placeholder">?</span>
-                                    {% endif %}
+                                    <span class="number-placeholder">?</span>
                                 </button>
                             </div>
                         {% endfor %}
@@ -235,13 +220,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            const number = parseInt(this.getAttribute('data-number'));
-            
+            const index = parseInt(this.getAttribute('data-index'));
+
             // Disable all boxes immediately
             numberBoxes.forEach(b => b.disabled = true);
-            
+
             try {
-                // Send the selected number to the server
+                // Send the selected index to the server — actual numbers never leave the server
                 const response = await fetch('{% url "surveys:lucky_draw" %}', {
                     method: 'POST',
                     headers: {
@@ -250,20 +235,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: JSON.stringify({
-                        number: number,
-                        current_lucky_number: {{ current_lucky_number|default:"null" }},
+                        index: index,
                         draw_type: selectedDrawType
                     })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.error) {
                     throw new Error(result.error);
                 }
-                
-                // Show the selected number
-                this.textContent = number;
+
+                // Reveal the number that was behind this button (server tells us)
+                this.textContent = result.guessed_number;
                 this.classList.remove('btn-outline-primary');
                 this.classList.add('btn-primary');
                 
@@ -272,10 +256,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (result.is_winner) {
                     resultMessage.className = 'alert alert-success';
-                    resultText.innerHTML = `<i class="fas fa-trophy me-2"></i> Congratulations! You selected ${number} and won ${result.prize || 'the lucky draw'}!`;
+                    resultText.innerHTML = `<i class="fas fa-trophy me-2"></i> Congratulations! You selected ${result.guessed_number} and won ${result.prize || 'the lucky draw'}!`;
                 } else {
                     resultMessage.className = 'alert alert-danger';
-                    resultText.textContent = `Sorry! You selected ${number}, but the lucky number was ${result.winning_number}. Better luck next time!`;
+                    resultText.textContent = `Sorry! You selected ${result.guessed_number}, but the lucky number was ${result.winning_number}. Better luck next time!`;
                 }
 
                 if (numberGrid) {

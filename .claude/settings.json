@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/somnath projects/Aniket/development/**)",
+      "PowerShell(Get-Command python)",
+      "PowerShell(pip show django 2>&1)"
+    ]
+  }
+}

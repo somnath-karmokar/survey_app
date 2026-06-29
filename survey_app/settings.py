@@ -190,16 +190,16 @@ SITE_URL = 'http://localhost:8000'
 MILESTONE_REWARDS = (
     {
         'milestone_type': 'surveys_completed',
-        'threshold': 5, #200
+        'threshold': 100,
         'prize_name': 'Wallet Reward',
-        'repeat_interval': 5, #200
+        'repeat_interval': 100,
         'wallet_reward': True,
     },
     {
         'milestone_type': 'polls_completed',
-        'threshold': 5, #200
+        'threshold': 100,
         'prize_name': 'Wallet Reward',
-        'repeat_interval': 5, #200
+        'repeat_interval': 100,
         'wallet_reward': True,
     },
     {
@@ -348,7 +348,7 @@ LUCKY_DRAW_CONFIG = {
     'POLLS_REQUIRED': 1,  # Number of completed polls required to play the lucky draw
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 49,
-    'SHOW_NUMBERS_FOR_TESTING': True,  # Set to False after testing to hide lucky draw numbers
+    'SHOW_NUMBERS_FOR_TESTING': False,  # Set to False after testing to hide lucky draw numbers
     'PRIZES': [  # You can customize the prizes
         # "₹1000 Amazon Voucher",
         # "₹500 Flipkart Voucher",
