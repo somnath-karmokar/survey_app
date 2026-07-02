@@ -7,7 +7,9 @@
     <title>{% block title %}Sudraw{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{% static 'surveys/css/style.css' %}">
+    <link rel="stylesheet" href="/static/css/style.css">
     <!-- Bootstrap CSS -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <!-- Bootstrap JS Bundle with Popper -->
@@ -16,55 +18,153 @@
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1735282576772168"
      crossorigin="anonymous"></script>
     <style>
-        .navbar-search-form {
-            min-width: 220px;
+        .site-search-form {
+            align-items: center;
+            min-width: 260px;
+            max-width: 340px;
+            height: 44px;
+            padding: 4px;
+            background: #f7fbfc;
+            border: 1px solid rgba(33, 126, 151, 0.18);
+            border-radius: 999px;
+            box-shadow: 0 8px 24px rgba(18, 63, 77, 0.08);
+            transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+        }
+
+        .site-search-form .form-control {
+            min-height: 36px;
+            padding: 0 12px 0 16px;
+            color: #123f4d;
+            font-size: 14px;
+            font-weight: 500;
+            background: transparent;
+            border: 0;
+            border-radius: 999px;
+            box-shadow: none;
+        }
+
+        .site-search-form .form-control::placeholder {
+            color: #78919a;
+            font-weight: 500;
+        }
+
+        .site-search-form .form-control:focus {
+            background: transparent;
+            border: 0;
+            box-shadow: none;
+        }
+
+        .site-search-form .btn {
+            flex: 0 0 36px;
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
+            padding: 0;
+            color: #fff;
+            background: #217e97;
+            border: 0;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 16px rgba(33, 126, 151, 0.25);
+            transition: background 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .site-search-form .btn:hover,
+        .site-search-form .btn:focus {
+            background: #f45918;
+            box-shadow: 0 10px 20px rgba(244, 89, 24, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .site-search-form:focus-within {
+            background: #fff;
+            border-color: rgba(244, 89, 24, 0.45);
+            box-shadow: 0 10px 28px rgba(18, 63, 77, 0.14);
         }
 
         @media (max-width: 991px) {
-            .navbar-search-form {
+            .site-search-form {
+                max-width: none;
                 width: 100%;
                 margin: 0.75rem 0;
+                min-width: 0;
             }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="/">Sudraw</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <form action="{% url 'surveys:search' %}" method="get" class="navbar-search-form d-flex me-lg-auto">
-                    <input
-                        type="search"
-                        name="q"
-                        value="{{ request.GET.q|default:'' }}"
-                        class="form-control form-control-sm"
-                        placeholder="Search"
-                        aria-label="Search Sudraw"
-                        autocomplete="off"
-                    >
-                    <button class="btn btn-sm btn-outline-light ms-2" type="submit">Search</button>
-                </form>
-                <ul class="navbar-nav ms-auto">
+    <header class="head_nav" id="sticky-header">
+        <nav class="navbar navbar-expand-lg">
+            <div class="container-fluid header-container">
+                <a class="navbar-brand" href="/">
+                    <img src="/static/images/sudraw_logo.jpeg" alt="SUDRAW Logo" class="logo" style="height: 56px; width: auto;">
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                    <span class="navbar-toggler-icon"></span>
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="{% url 'surveys:home' %}">Home</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'category_list' %}active{% endif %}" href="{% url 'surveys:category_list' %}">Survey Categories</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'poll_list' %}active{% endif %}" href="{% url 'surveys:poll_list' %}">Polls</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'faq' %}active{% endif %}" href="{% url 'surveys:faq' %}">FAQ</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'contact' %}active{% endif %}" href="{% url 'surveys:contact' %}">Contact Us</a>
+                    </li>
+                    <li class="nav-item">
+                        <form action="{% url 'surveys:search' %}" method="get" class="site-search-form d-flex ms-lg-3">
+                            <input
+                                type="search"
+                                name="q"
+                                value="{{ request.GET.q|default:'' }}"
+                                class="form-control"
+                                placeholder="Search"
+                                aria-label="Search Sudraw"
+                                autocomplete="off"
+                            >
+                            <button class="btn btn-primary" type="submit" aria-label="Search">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </form>
+                    </li>
                     {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <span class="nav-link">Welcome, {{ user.username }}</span>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'surveys:logout' %}">Logout</a>
-                        </li>
+                    <li class="nav-item">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-user me-1"></i> {{ user.firstname|default:user.username }}
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                <li><a class="dropdown-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'surveys:dashboard' %}"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
+                                <li><a class="dropdown-item {% if request.resolver_match.url_name == 'user_profile' %}active{% endif %}" href="{% url 'surveys:user_profile' %}"><i class="fas fa-user me-2"></i>Profile</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{% url 'surveys:logout' %}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                            </ul>
+                        </div>
+                    </li>
                     {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'surveys:login' %}">Login</a>
-                        </li>
+                    <li class="cont_area">
+                        <a class="nav-link" href="{% url 'surveys:login' %}">
+                            <i class="fas fa-sign-in-alt me-1"></i> Sign Up / Log In
+                        </a>
+                    </li>
                     {% endif %}
                 </ul>
             </div>
-        </div>
-    </nav>
+            </div>
+        </nav>
+    </header>
 
     <main class="container my-4">
         {% if messages %}

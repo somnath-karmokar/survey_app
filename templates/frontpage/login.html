@@ -189,12 +189,60 @@
         .auth-body { padding: 1.25rem 1.25rem 1.5rem; }
         .auth-header { padding: 1.5rem 1.25rem; }
     }
+
+    /* ── Inner banner (matches /categories/ page) ─── */
+    .inner_banner {
+        position: relative;
+        padding: 100px 0;
+        background-size: cover;
+        background-position: center;
+        color: #fff;
+        text-align: center;
+    }
+    .inner_banner::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.6);
+    }
+    .inner_banner_content {
+        position: relative;
+        z-index: 1;
+    }
+    .inner_banner h1 {
+        font-size: 48px;
+        margin-bottom: 15px;
+        font-weight: 700;
+    }
+    .breadcrumb_box {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .breadcrumb_box ul {
+        display: flex;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .breadcrumb_box li {
+        margin: 0 5px;
+    }
+    .breadcrumb_box a {
+        color: #fff;
+        text-decoration: none;
+    }
+    .breadcrumb_box a:hover {
+        text-decoration: underline;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<section class="inner_banner">
-    <img src="{% static 'survey_app/images/survey_img6.jpeg' %}" alt="Login Banner" class="img-fluid" style="width: 100%; height: auto;" />
+<section class="inner_banner" style="background-image: url('{% static "images/survey_img6.jpeg" %}')">
     <div class="container">
         <div class="row">
             <div class="col-lg-12">
