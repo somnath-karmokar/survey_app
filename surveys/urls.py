@@ -4,9 +4,9 @@ from . import views_surveys as surveys_views
 from . import views
 from .views import user_profile, edit_profile, delete_account
 from .views_frontend import (
-    HomePageView, 
-    FeaturesPageView, 
-    ContactPageView, 
+    HomePageView,
+    FeaturesPageView,
+    ContactPageView,
     FAQPageView,
     SignUpView,
     CustomLoginView,
@@ -20,6 +20,8 @@ from .views_frontend import (
     poll_detail,
     poll_question,
     poll_list,
+    JournalListView,
+    JournalDetailView,
 )
 from .views_frontend import MySurveysView
 from .views_categories import CategoryListView, CategoryDetailView
@@ -74,4 +76,8 @@ urlpatterns = [
     path('polls/', poll_list, name='poll_list'),
     path('polls/<int:poll_id>/', poll_detail, name='poll_detail'),
     path('polls/<int:poll_id>/q/<int:question_index>/', poll_question, name='poll_question'),
+
+    # Journal (blog) URLs
+    path('journal/', JournalListView.as_view(), name='journal_list'),
+    path('journal/<slug:slug>/', JournalDetailView.as_view(), name='journal_detail'),
 ]

@@ -24,7 +24,22 @@
     }
 
     .survey_area .serv_img {
-        flex: 0 0 240px;
+        height: 350px;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .survey_area .serv_img img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: top;
+        display: block;
+        transition: all 0.5s ease;
+    }
+
+    .survey_area .serv_box:hover .serv_img img {
+        transform: scale(1.05);
     }
 
     .survey_area .serv_cont {
