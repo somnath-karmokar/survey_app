@@ -118,6 +118,9 @@
                         <a class="nav-link {% if request.resolver_match.url_name == 'poll_list' %}active{% endif %}" href="{% url 'surveys:poll_list' %}">Polls</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'journal_list' or request.resolver_match.url_name == 'journal_detail' %}active{% endif %}" href="{% url 'surveys:journal_list' %}">Journal</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'faq' %}active{% endif %}" href="{% url 'surveys:faq' %}">FAQ</a>
                     </li>
                     <li class="nav-item">

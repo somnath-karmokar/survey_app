@@ -973,3 +973,48 @@ class MilestoneAchievement(models.Model):
             f"{self.user.username} - {self.get_milestone_type_display()} "
             f"{self.threshold}"
         )
+
+
+def journal_image_upload_path(instance, filename):
+    # File will be uploaded to MEDIA_ROOT/journal_images/<slug>/<filename>
+    return f'journal_images/{instance.slug or "unsaved"}/{filename}'
+
+
+class JournalPost(models.Model):
+    """A blog-style journal article shown on the public Journal page."""
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=220, unique=True, blank=True, help_text='A URL-friendly version of the title. Will be automatically generated from the title.')
+    author = models.CharField(max_length=100, blank=True, default='Sudraw Team')
+    excerpt = models.TextField(blank=True, help_text='Short summary shown on the Journal listing page.')
+    content = RichTextField(help_text='Full article content (supports rich text)')
+    featured_image = models.ImageField(upload_to=journal_image_upload_path, blank=True, null=True)
+    is_published = models.BooleanField(default=True)
+    published_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-published_at']
+        verbose_name = 'Journal Post'
+        verbose_name_plural = 'Journal Posts'
+
+    @classmethod
+    def make_slug(cls, title, instance=None):
+        """Generate a unique slug from the title."""
+        slug = slugify(title)
+        original_slug = slug
+        counter = 1
+
+        while cls.objects.filter(slug=slug).exclude(pk=getattr(instance, 'pk', None)).exists():
+            slug = f"{original_slug}-{counter}"
+            counter += 1
+
+        return slug
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = self.__class__.make_slug(self.title, self)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.title

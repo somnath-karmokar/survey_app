@@ -1,6 +1,6 @@
 from decimal import Decimal
 from django.shortcuts import render, redirect, reverse, get_object_or_404
-from django.views.generic import TemplateView, CreateView, FormView, ListView
+from django.views.generic import TemplateView, CreateView, FormView, ListView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, authenticate, get_user_model
@@ -8,7 +8,8 @@ from django.utils import timezone
 from datetime import timedelta
 from .models import (
     Survey, SurveyCategory, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry,
-    Poll, PollResponse, WalletTransaction, WalletWithdrawalRequest, Question, PollQuestion
+    Poll, PollResponse, WalletTransaction, WalletWithdrawalRequest, Question, PollQuestion,
+    JournalPost
 )
 from django.http import JsonResponse, HttpResponseRedirect
 from django.core.mail import send_mail
@@ -868,6 +869,34 @@ def _poll_answers_to_post_data(poll, answers):
 
 class FeaturesPageView(TemplateView):
     template_name = 'frontpage/features.html'
+
+
+class JournalListView(ListView):
+    model = JournalPost
+    template_name = 'surveys/journal_list.html'
+    context_object_name = 'journal_posts'
+    paginate_by = 9
+
+    def get_queryset(self):
+        return JournalPost.objects.filter(is_published=True).order_by('-published_at')
+
+
+class JournalDetailView(DetailView):
+    model = JournalPost
+    template_name = 'surveys/journal_detail.html'
+    context_object_name = 'journal_post'
+    slug_url_kwarg = 'slug'
+
+    def get_queryset(self):
+        return JournalPost.objects.filter(is_published=True)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['recent_posts'] = JournalPost.objects.filter(
+            is_published=True
+        ).exclude(pk=self.object.pk).order_by('-published_at')[:4]
+        return context
+
 
 class FAQPageView(TemplateView):
     template_name = 'frontpage/faq.html'

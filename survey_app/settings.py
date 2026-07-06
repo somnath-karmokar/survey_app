@@ -131,7 +131,7 @@ DATABASES = {
         'HOST': 'dpg-d68kcmh4tr6s73c8aetg-a',
         # 'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com',
         'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com', # staging
-        # 'HOST': 'dpg-d7vmf33rjlhs73dsk92g-a', #staging
+        'HOST': 'dpg-d7vmf33rjlhs73dsk92g-a', #staging
         'PORT': '5432',
     }
 }

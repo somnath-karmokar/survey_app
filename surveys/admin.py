@@ -16,7 +16,7 @@ from .models import (
     SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer,
     LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement,
     Poll, PollQuestion, PollChoice, PollResponse, PollAnswer, CountryLuckyDrawConfig,
-    WalletTransaction, UserWallet, WalletWithdrawalRequest
+    WalletTransaction, UserWallet, WalletWithdrawalRequest, JournalPost
 )
 from django.utils.safestring import mark_safe
 from django.urls import path
@@ -908,6 +908,52 @@ class SurveyCategoryAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
             self.get_descendant_ids(child, id_list)
         return id_list
 
+
+class JournalPostAdminForm(forms.ModelForm):
+    class Meta:
+        model = JournalPost
+        fields = '__all__'
+        widgets = {
+            'content': CKEditorWidget(),
+        }
+
+
+class JournalPostAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
+    form = JournalPostAdminForm
+    list_display = ('title', 'slug', 'author', 'is_published', 'published_at', 'image_preview')
+    list_filter = ('is_published', 'published_at')
+    search_fields = ('title', 'excerpt', 'content', 'author')
+    list_editable = ('is_published',)
+    list_per_page = 20
+    save_on_top = True
+    prepopulated_fields = {'slug': ('title',)}
+    readonly_fields = ('image_preview', 'created_at', 'updated_at')
+    fieldsets = (
+        (None, {
+            'fields': ('title', 'slug', 'author', 'is_published', 'published_at', 'excerpt', 'content')
+        }),
+        ('Featured Image', {
+            'fields': ('featured_image', 'image_preview'),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def image_preview(self, obj):
+        if obj.featured_image:
+            return format_html('<img src="{}" style="max-height: 100px;" />', obj.featured_image.url)
+        return "No image"
+    image_preview.short_description = 'Preview'
+
+    def save_model(self, request, obj, form, change):
+        if not obj.slug:
+            obj.slug = obj._meta.model.make_slug(obj.title, obj)
+        super().save_model(request, obj, form, change)
+
+
 # Custom User Admin
 class UserProfileInline(admin.StackedInline):
     model = UserProfile
@@ -991,6 +1037,7 @@ survey_admin_site.register(EmailVerification, EmailVerificationAdmin)
 survey_admin_site.register(Answer, DefaultModelAdmin)
 survey_admin_site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 survey_admin_site.register(MilestoneAchievement, MilestoneAchievementAdmin)
+survey_admin_site.register(JournalPost, JournalPostAdmin)
 
 # Register with the default admin site (only non-auth models)
 admin.site.register(SurveyCategory, SurveyCategoryAdmin)
@@ -1009,3 +1056,4 @@ admin.site.register(WalletTransaction, WalletTransactionAdmin)
 admin.site.register(WalletWithdrawalRequest, WalletWithdrawalRequestAdmin)
 admin.site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 admin.site.register(MilestoneAchievement, MilestoneAchievementAdmin)
+admin.site.register(JournalPost, JournalPostAdmin)
