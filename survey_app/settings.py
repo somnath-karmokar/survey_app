@@ -130,7 +130,7 @@ DATABASES = {
         'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # staging
         'HOST': 'dpg-d68kcmh4tr6s73c8aetg-a',
         # 'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com',
-        # 'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com', # staging
+        'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com', # staging
         'HOST': 'dpg-d7vmf33rjlhs73dsk92g-a', #staging
         'PORT': '5432',
     }
