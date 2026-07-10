@@ -880,6 +880,13 @@ class JournalListView(ListView):
     def get_queryset(self):
         return JournalPost.objects.filter(is_published=True).order_by('-published_at')
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['recent_posts'] = JournalPost.objects.filter(
+            is_published=True
+        ).order_by('-published_at')[:5]
+        return context
+
 
 class JournalDetailView(DetailView):
     model = JournalPost
