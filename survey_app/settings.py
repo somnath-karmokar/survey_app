@@ -259,9 +259,16 @@ CKEDITOR_CONFIGS = {
             ['Bold', 'Italic', 'Underline'],
             ['NumberedList', 'BulletedList', '-', 'Outdent', 'Indent', '-', 'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'],
             ['Link', 'Unlink'],
+            ['Table'],
             ['RemoveFormat', 'Source']
         ],
-        'height': 200,
+        # Without an enabled Table feature, CKEditor's content filter (ACF) strips
+        # <table> markup on paste, so table structure pasted from Word/Excel/Docs
+        # collapses into plain paragraphs. allowedContent disables that filtering
+        # for this staff-only editor so pasted table structure is kept as-is.
+        'allowedContent': True,
+        'extraPlugins': 'pastefromword,pastefromgdocs,pastefromlibreoffice',
+        'height': 300,
         'width': '100%',
     },
 }
@@ -354,7 +361,7 @@ LUCKY_DRAW_CONFIG = {
         # "₹500 Flipkart Voucher",
         # "₹250 BookMyShow Voucher"
     ],
-    'WINNERS_DISPLAY_DAYS': 30,  # Number of days to show winners from last winning date
+    'WINNERS_DISPLAY_DAYS': 90,  # Number of days to show winners from last winning date
 }
 
 # Email configuration for admin notifications
