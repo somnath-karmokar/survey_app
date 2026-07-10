@@ -64,13 +64,14 @@
     /* ---------- Featured post ---------- */
     .journal_featured {
         display: flex;
+        flex-direction: column;
         background: #fff;
         border-radius: 18px;
         overflow: hidden;
         box-shadow: 0 10px 30px rgba(18,63,77,0.08);
         margin-bottom: 48px;
     }
-    .journal_featured_img { flex: 0 0 50%; position: relative; min-height: 340px; }
+    .journal_featured_img { position: relative; width: 100%; height: 340px; overflow: hidden; }
     .journal_featured_img img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .journal_featured_tag {
         position: absolute;
@@ -86,11 +87,9 @@
         border-radius: 30px;
     }
     .journal_featured_body {
-        flex: 1;
-        padding: 42px 44px;
+        padding: 34px 44px 40px;
         display: flex;
         flex-direction: column;
-        justify-content: center;
     }
     .journal_featured_body h2 {
         font-size: 30px;
@@ -254,8 +253,7 @@
     }
     @media (max-width: 767px) {
         .inner_banner h1 { font-size: 30px; }
-        .journal_featured { flex-direction: column; }
-        .journal_featured_img { min-height: 220px; }
+        .journal_featured_img { height: 220px; }
         .journal_featured_body { padding: 26px; }
     }
 </style>
