@@ -13,6 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
 from decimal import Decimal
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -988,6 +989,11 @@ class JournalPost(models.Model):
     excerpt = models.TextField(blank=True, help_text='Short summary shown on the Journal listing page.')
     content = RichTextField(help_text='Full article content (supports rich text)')
     featured_image = models.ImageField(upload_to=journal_image_upload_path, blank=True, null=True)
+    category = models.ForeignKey(
+        'SurveyCategory', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='journal_posts',
+        help_text='Survey category this post relates to. Auto-detected from the title if left blank.'
+    )
     is_published = models.BooleanField(default=True)
     published_at = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1011,9 +1017,45 @@ class JournalPost(models.Model):
 
         return slug
 
+    _CATEGORY_MATCH_STOPWORDS = {
+        'the', 'a', 'an', 'of', 'and', 'in', 'for', 'to', 'on', 'at', 'with', 'evolution',
+    }
+
+    @classmethod
+    def _keywords(cls, text):
+        """Lowercased, stopword-free, loosely-stemmed (trailing 's') words for matching."""
+        words = re.findall(r'[a-z0-9]+', text.lower())
+        keywords = set()
+        for word in words:
+            if word in cls._CATEGORY_MATCH_STOPWORDS:
+                continue
+            if len(word) > 4 and word.endswith('s'):
+                word = word[:-1]
+            keywords.add(word)
+        return keywords
+
+    @classmethod
+    def guess_category(cls, title):
+        """Best-effort match: the SurveyCategory whose name shares the most keywords with the title."""
+        title_keywords = cls._keywords(title)
+        if not title_keywords:
+            return None
+
+        best_category = None
+        best_score = 0
+        for category in SurveyCategory.objects.only('id', 'name').order_by('name'):
+            score = len(title_keywords & cls._keywords(category.name))
+            if score > best_score:
+                best_score = score
+                best_category = category
+
+        return best_category if best_score >= 2 else None
+
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = self.__class__.make_slug(self.title, self)
+        if not self.category_id:
+            self.category = self.__class__.guess_category(self.title)
         super().save(*args, **kwargs)
 
     def __str__(self):

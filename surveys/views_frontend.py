@@ -878,13 +878,21 @@ class JournalListView(ListView):
     paginate_by = 9
 
     def get_queryset(self):
-        return JournalPost.objects.filter(is_published=True).order_by('-published_at')
+        queryset = JournalPost.objects.filter(is_published=True).order_by('-published_at')
+        category_slug = self.request.GET.get('category')
+        if category_slug:
+            queryset = queryset.filter(category__slug=category_slug)
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['recent_posts'] = JournalPost.objects.filter(
-            is_published=True
-        ).order_by('-published_at')[:5]
+        category_slug = self.request.GET.get('category')
+        context['categories'] = SurveyCategory.objects.filter(
+            journal_posts__is_published=True
+        ).annotate(
+            post_count=models.Count('journal_posts', filter=models.Q(journal_posts__is_published=True))
+        ).distinct().order_by('name')
+        context['selected_category'] = category_slug
         return context
 
 
@@ -899,9 +907,11 @@ class JournalDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['recent_posts'] = JournalPost.objects.filter(
-            is_published=True
-        ).exclude(pk=self.object.pk).order_by('-published_at')[:4]
+        context['categories'] = SurveyCategory.objects.filter(
+            journal_posts__is_published=True
+        ).annotate(
+            post_count=models.Count('journal_posts', filter=models.Q(journal_posts__is_published=True))
+        ).distinct().order_by('name')
         return context
 
 

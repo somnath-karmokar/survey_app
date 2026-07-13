@@ -292,14 +292,12 @@
                 {% for post in journal_posts %}
                 {% if forloop.first %}
                 <article class="journal_featured">
+                    {% if post.featured_image %}
                     <div class="journal_featured_img">
-                        {% if post.featured_image %}
                         <img src="{{ post.featured_image.url }}" alt="{{ post.title }}">
-                        {% else %}
-                        <img src="{% static 'images/survey_img3.jpeg' %}" alt="{{ post.title }}">
-                        {% endif %}
                         <span class="journal_featured_tag">Latest</span>
                     </div>
+                    {% endif %}
                     <div class="journal_featured_body">
                         <div class="journal_meta_row">
                             {% if post.author %}<span><i class="fa-regular fa-user"></i>{{ post.author }}</span>{% endif %}
@@ -309,11 +307,7 @@
                             {% endwith %}
                         </div>
                         <h2><a href="{% url 'surveys:journal_detail' slug=post.slug %}">{{ post.title }}</a></h2>
-                        {% if post.excerpt %}
-                        <p>{{ post.excerpt|truncatewords:600 }}</p>
-                        {% else %}
                         <p>{{ post.content|striptags|truncatewords:600 }}</p>
-                        {% endif %}
                         <a href="{% url 'surveys:journal_detail' slug=post.slug %}" class="journal_cta">
                             Read Full Article <i class="fa-solid fa-arrow-right"></i>
                         </a>
@@ -323,18 +317,24 @@
                 {% endfor %}
                 {% endif %}
 
+                {% if selected_category %}
+                <div class="mb-3">
+                    <span class="text-muted">Filtered by category</span>
+                    <a href="{% url 'surveys:journal_list' %}" class="journal_cta" style="margin-left:8px;">
+                        <i class="fa-solid fa-xmark"></i> Clear filter
+                    </a>
+                </div>
+                {% endif %}
                 <h3 class="journal_section_title">{% if page_obj.number == 1 %}More Articles{% else %}Articles{% endif %}</h3>
                 <div class="journal_grid">
                     {% for post in journal_posts %}
                     {% if page_obj.number > 1 or not forloop.first %}
                     <article class="journal_card">
+                        {% if post.featured_image %}
                         <div class="journal_card_img">
-                            {% if post.featured_image %}
                             <img src="{{ post.featured_image.url }}" alt="{{ post.title }}">
-                            {% else %}
-                            <img src="{% static 'images/survey_img3.jpeg' %}" alt="{{ post.title }}">
-                            {% endif %}
                         </div>
+                        {% endif %}
                         <div class="journal_card_body">
                             <div class="journal_meta_row">
                                 <span><i class="fa-regular fa-calendar"></i>{{ post.published_at|date:"M d, Y" }}</span>
@@ -360,7 +360,7 @@
                 {% if is_paginated %}
                 <nav aria-label="Journal pagination" class="journal_pagination">
                     {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}"><i class="fa-solid fa-angle-left"></i></a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}"><i class="fa-solid fa-angle-left"></i></a>
                     {% else %}
                     <span class="disabled"><i class="fa-solid fa-angle-left"></i></span>
                     {% endif %}
@@ -369,12 +369,12 @@
                         {% if page_num == page_obj.number %}
                         <span class="active">{{ page_num }}</span>
                         {% else %}
-                        <a href="?page={{ page_num }}">{{ page_num }}</a>
+                        <a href="?page={{ page_num }}{% if selected_category %}&category={{ selected_category }}{% endif %}">{{ page_num }}</a>
                         {% endif %}
                     {% endfor %}
 
                     {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}"><i class="fa-solid fa-angle-right"></i></a>
+                    <a href="?page={{ page_obj.next_page_number }}{% if selected_category %}&category={{ selected_category }}{% endif %}"><i class="fa-solid fa-angle-right"></i></a>
                     {% else %}
                     <span class="disabled"><i class="fa-solid fa-angle-right"></i></span>
                     {% endif %}
@@ -384,19 +384,21 @@
 
             <div class="col-lg-4">
                 <div class="journal_sidebar_card">
-                    <h4>Recent Posts</h4>
-                    {% for post in recent_posts %}
-                    <a class="sidebar_post_item" href="{% url 'surveys:journal_detail' slug=post.slug %}">
-                        {% if post.featured_image %}
-                        <img src="{{ post.featured_image.url }}" alt="{{ post.title }}">
+                    <h4>Categories</h4>
+                    {% for category in categories %}
+                    <a class="sidebar_post_item" href="{% url 'surveys:journal_list' %}?category={{ category.slug }}">
+                        {% if category.image %}
+                        <img src="{{ category.image.url }}" alt="{{ category.name }}">
                         {% else %}
-                        <img src="{% static 'images/survey_img3.jpeg' %}" alt="{{ post.title }}">
+                        <img src="{% static 'images/survey_img3.jpeg' %}" alt="{{ category.name }}">
                         {% endif %}
                         <div>
-                            <div class="sp-title">{{ post.title }}</div>
-                            <div class="sp-date">{{ post.published_at|date:"M d, Y" }}</div>
+                            <div class="sp-title">{{ category.name }}{% if category.slug == selected_category %} <i class="fa-solid fa-check" style="color: var(--sd-teal);"></i>{% endif %}</div>
+                            <div class="sp-date">{{ category.post_count }} post{{ category.post_count|pluralize }}</div>
                         </div>
                     </a>
+                    {% empty %}
+                    <p class="text-muted">No categories yet.</p>
                     {% endfor %}
                 </div>
 
