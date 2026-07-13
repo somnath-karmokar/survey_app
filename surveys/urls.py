@@ -23,6 +23,7 @@ from .views_frontend import (
     JournalListView,
     JournalDetailView,
     PrivacyPolicyView,
+    AboutUsView,
 )
 from .views_frontend import MySurveysView
 from .views_categories import CategoryListView, CategoryDetailView
@@ -42,6 +43,7 @@ urlpatterns = [
     path('contact/', ContactPageView.as_view(), name='contact'),
     path('faq/', FAQPageView.as_view(), name='faq'),
     path('privacy-policy/', PrivacyPolicyView.as_view(), name='privacy_policy'),
+    path('about-us/', AboutUsView.as_view(), name='about_us'),
     
     # Category and Survey URLs
     path('categories/', CategoryListView.as_view(), name='category_list'),

@@ -1081,3 +1081,24 @@ class PrivacyPolicy(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class AboutUs(models.Model):
+    """Singleton model holding the site's About Us content, editable from the admin."""
+    title = models.CharField(max_length=200, default='About Us')
+    content = RichTextField(help_text='Full About Us content (supports rich text)')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'About Us'
+        verbose_name_plural = 'About Us'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass
+
+    def __str__(self):
+        return self.title
