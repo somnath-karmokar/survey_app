@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Privacy Policy - Sudraw{% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/swiper.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/slick.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<section class="inner_banner">
+    <img src="{% static 'images/survey_img6.jpeg' %}" alt="Privacy Policy Banner" class="img-fluid" />
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="inner_banner_content">
+                    <h1>{% if privacy_policy %}{{ privacy_policy.title }}{% else %}Privacy Policy{% endif %}</h1>
+                    <div class="breadcrumb_box">
+                        <ul>
+                            <li><a href="{% url 'surveys:home' %}">Home</a></li>
+                            <li><i class="fa fa-angle-right" aria-hidden="true"></i></li>
+                            <li>Privacy Policy</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="faq_area">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-8 offset-md-2">
+                {% if privacy_policy %}
+                    <p class="text-muted">Last updated: {{ privacy_policy.updated_at|date:"F j, Y" }}</p>
+                    {{ privacy_policy.content|safe }}
+                {% else %}
+                    <p>Our privacy policy is coming soon. Please check back later.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

@@ -9,7 +9,7 @@ from datetime import timedelta
 from .models import (
     Survey, SurveyCategory, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry,
     Poll, PollResponse, WalletTransaction, WalletWithdrawalRequest, Question, PollQuestion,
-    JournalPost
+    JournalPost, PrivacyPolicy
 )
 from django.http import JsonResponse, HttpResponseRedirect
 from django.core.mail import send_mail
@@ -907,6 +907,15 @@ class JournalDetailView(DetailView):
 
 class FAQPageView(TemplateView):
     template_name = 'frontpage/faq.html'
+
+
+class PrivacyPolicyView(TemplateView):
+    template_name = 'frontpage/privacy-policy.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['privacy_policy'] = PrivacyPolicy.objects.first()
+        return context
 
 class ContactPageView(TemplateView):
     template_name = 'frontpage/contact-us.html'

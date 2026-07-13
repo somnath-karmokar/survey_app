@@ -1018,3 +1018,24 @@ class JournalPost(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class PrivacyPolicy(models.Model):
+    """Singleton model holding the site's Privacy Policy content, editable from the admin."""
+    title = models.CharField(max_length=200, default='Privacy Policy')
+    content = RichTextField(help_text='Full privacy policy content (supports rich text)')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Privacy Policy'
+        verbose_name_plural = 'Privacy Policy'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass
+
+    def __str__(self):
+        return self.title
