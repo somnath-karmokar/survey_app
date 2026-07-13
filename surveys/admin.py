@@ -16,11 +16,11 @@ from .models import (
     SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer,
     LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement,
     Poll, PollQuestion, PollChoice, PollResponse, PollAnswer, CountryLuckyDrawConfig,
-    WalletTransaction, UserWallet, WalletWithdrawalRequest, JournalPost
+    WalletTransaction, UserWallet, WalletWithdrawalRequest, JournalPost, PrivacyPolicy
 )
 from django.utils.safestring import mark_safe
 from django.urls import path
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseRedirect
 from django.db.models import Count, Max, Q
 
 # Custom Admin Site
@@ -954,6 +954,36 @@ class JournalPostAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 
+class PrivacyPolicyAdminForm(forms.ModelForm):
+    class Meta:
+        model = PrivacyPolicy
+        fields = '__all__'
+        widgets = {
+            'content': CKEditorWidget(),
+        }
+
+
+class PrivacyPolicyAdmin(admin.ModelAdmin):
+    """Singleton admin — only one Privacy Policy record can exist and it cannot be deleted."""
+    form = PrivacyPolicyAdminForm
+    list_display = ('title', 'updated_at')
+    readonly_fields = ('updated_at',)
+    save_on_top = True
+
+    def has_add_permission(self, request):
+        return not PrivacyPolicy.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        policy = PrivacyPolicy.objects.first()
+        if policy:
+            url = reverse(f'{self.admin_site.name}:surveys_privacypolicy_change', args=[policy.pk])
+            return HttpResponseRedirect(url)
+        return super().changelist_view(request, extra_context)
+
+
 # Custom User Admin
 class UserProfileInline(admin.StackedInline):
     model = UserProfile
@@ -1038,6 +1068,7 @@ survey_admin_site.register(Answer, DefaultModelAdmin)
 survey_admin_site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 survey_admin_site.register(MilestoneAchievement, MilestoneAchievementAdmin)
 survey_admin_site.register(JournalPost, JournalPostAdmin)
+survey_admin_site.register(PrivacyPolicy, PrivacyPolicyAdmin)
 
 # Register with the default admin site (only non-auth models)
 admin.site.register(SurveyCategory, SurveyCategoryAdmin)
@@ -1057,3 +1088,4 @@ admin.site.register(WalletWithdrawalRequest, WalletWithdrawalRequestAdmin)
 admin.site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 admin.site.register(MilestoneAchievement, MilestoneAchievementAdmin)
 admin.site.register(JournalPost, JournalPostAdmin)
+admin.site.register(PrivacyPolicy, PrivacyPolicyAdmin)
