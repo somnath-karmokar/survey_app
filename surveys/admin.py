@@ -16,7 +16,7 @@ from .models import (
     SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer,
     LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement,
     Poll, PollQuestion, PollChoice, PollResponse, PollAnswer, CountryLuckyDrawConfig,
-    WalletTransaction, UserWallet, WalletWithdrawalRequest, JournalPost, PrivacyPolicy
+    WalletTransaction, UserWallet, WalletWithdrawalRequest, JournalPost, PrivacyPolicy, AboutUs
 )
 from django.utils.safestring import mark_safe
 from django.urls import path
@@ -984,6 +984,36 @@ class PrivacyPolicyAdmin(admin.ModelAdmin):
         return super().changelist_view(request, extra_context)
 
 
+class AboutUsAdminForm(forms.ModelForm):
+    class Meta:
+        model = AboutUs
+        fields = '__all__'
+        widgets = {
+            'content': CKEditorWidget(),
+        }
+
+
+class AboutUsAdmin(admin.ModelAdmin):
+    """Singleton admin — only one About Us record can exist and it cannot be deleted."""
+    form = AboutUsAdminForm
+    list_display = ('title', 'updated_at')
+    readonly_fields = ('updated_at',)
+    save_on_top = True
+
+    def has_add_permission(self, request):
+        return not AboutUs.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        about = AboutUs.objects.first()
+        if about:
+            url = reverse(f'{self.admin_site.name}:surveys_aboutus_change', args=[about.pk])
+            return HttpResponseRedirect(url)
+        return super().changelist_view(request, extra_context)
+
+
 # Custom User Admin
 class UserProfileInline(admin.StackedInline):
     model = UserProfile
@@ -1069,6 +1099,7 @@ survey_admin_site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 survey_admin_site.register(MilestoneAchievement, MilestoneAchievementAdmin)
 survey_admin_site.register(JournalPost, JournalPostAdmin)
 survey_admin_site.register(PrivacyPolicy, PrivacyPolicyAdmin)
+survey_admin_site.register(AboutUs, AboutUsAdmin)
 
 # Register with the default admin site (only non-auth models)
 admin.site.register(SurveyCategory, SurveyCategoryAdmin)
@@ -1089,3 +1120,4 @@ admin.site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 admin.site.register(MilestoneAchievement, MilestoneAchievementAdmin)
 admin.site.register(JournalPost, JournalPostAdmin)
 admin.site.register(PrivacyPolicy, PrivacyPolicyAdmin)
+admin.site.register(AboutUs, AboutUsAdmin)
