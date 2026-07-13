@@ -239,6 +239,8 @@ class LuckyDrawView(View):
             },
             # grid_range gives the template a safe index sequence (no actual numbers)
             'grid_range': range(len(number_range)),
+            # testing_numbered_grid/testing_winning_number are ONLY populated when
+            # SHOW_NUMBERS_FOR_TESTING is on — must stay False/unset in production.
             'user_eligible': user_eligible,
             'survey_eligible': survey_eligible,
             'poll_eligible': poll_eligible,
@@ -258,7 +260,14 @@ class LuckyDrawView(View):
             'has_played': bool(last_entry and not user_eligible),
             'prize_display': self.get_prize_for_user(request.user),
         }
-        
+
+        # Testing-only: reveal the actual numbers so a tester can pick the
+        # winning one without guessing. Gated by LUCKY_DRAW_CONFIG so it can
+        # never leak in production once the flag is set back to False.
+        if settings.LUCKY_DRAW_CONFIG.get('SHOW_NUMBERS_FOR_TESTING'):
+            context['testing_numbered_grid'] = list(enumerate(number_range))
+            context['testing_winning_number'] = current_lucky_number
+
         return render(request, 'surveys/lucky_draw.html', context)
 
     def get_lucky_number(self, request):

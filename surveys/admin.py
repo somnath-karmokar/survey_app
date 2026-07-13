@@ -920,8 +920,8 @@ class JournalPostAdminForm(forms.ModelForm):
 
 class JournalPostAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     form = JournalPostAdminForm
-    list_display = ('title', 'slug', 'author', 'is_published', 'published_at', 'image_preview')
-    list_filter = ('is_published', 'published_at')
+    list_display = ('title', 'slug', 'category', 'author', 'is_published', 'published_at', 'image_preview')
+    list_filter = ('is_published', 'category', 'published_at')
     search_fields = ('title', 'excerpt', 'content', 'author')
     list_editable = ('is_published',)
     list_per_page = 20
@@ -930,7 +930,7 @@ class JournalPostAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     readonly_fields = ('image_preview', 'created_at', 'updated_at')
     fieldsets = (
         (None, {
-            'fields': ('title', 'slug', 'author', 'is_published', 'published_at', 'excerpt', 'content')
+            'fields': ('title', 'slug', 'category', 'author', 'is_published', 'published_at', 'excerpt', 'content')
         }),
         ('Featured Image', {
             'fields': ('featured_image', 'image_preview'),
