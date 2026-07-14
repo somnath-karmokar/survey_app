@@ -16,7 +16,7 @@ from .models import (
     SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer,
     LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement,
     Poll, PollQuestion, PollChoice, PollResponse, PollAnswer, CountryLuckyDrawConfig,
-    WalletTransaction, UserWallet, WalletWithdrawalRequest, JournalPost, PrivacyPolicy, AboutUs
+    WalletTransaction, UserWallet, WalletWithdrawalRequest, JournalPost, JournalCategory, PrivacyPolicy, AboutUs
 )
 from django.utils.safestring import mark_safe
 from django.urls import path
@@ -909,6 +909,47 @@ class SurveyCategoryAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
         return id_list
 
 
+class JournalCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'order', 'image_preview', 'post_count', 'created_at')
+    search_fields = ('name', 'slug')
+    list_editable = ('order',)
+    list_per_page = 20
+    save_on_top = True
+    prepopulated_fields = {'slug': ('name',)}
+    readonly_fields = ('image_preview', 'created_at', 'updated_at')
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'slug', 'order')
+        }),
+        ('Image', {
+            'fields': ('image', 'image_preview'),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related('journal_posts')
+
+    def post_count(self, obj):
+        return obj.journal_posts.count()
+    post_count.short_description = 'Posts'
+
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" style="max-height: 100px;" />', obj.image.url)
+        return "No image"
+    image_preview.short_description = 'Preview'
+
+    def save_model(self, request, obj, form, change):
+        if not obj.slug:
+            obj.slug = obj._meta.model.make_slug(obj.name, obj)
+        super().save_model(request, obj, form, change)
+
+
 class JournalPostAdminForm(forms.ModelForm):
     class Meta:
         model = JournalPost
@@ -1097,6 +1138,7 @@ survey_admin_site.register(EmailVerification, EmailVerificationAdmin)
 survey_admin_site.register(Answer, DefaultModelAdmin)
 survey_admin_site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 survey_admin_site.register(MilestoneAchievement, MilestoneAchievementAdmin)
+survey_admin_site.register(JournalCategory, JournalCategoryAdmin)
 survey_admin_site.register(JournalPost, JournalPostAdmin)
 survey_admin_site.register(PrivacyPolicy, PrivacyPolicyAdmin)
 survey_admin_site.register(AboutUs, AboutUsAdmin)
@@ -1118,6 +1160,7 @@ admin.site.register(WalletTransaction, WalletTransactionAdmin)
 admin.site.register(WalletWithdrawalRequest, WalletWithdrawalRequestAdmin)
 admin.site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 admin.site.register(MilestoneAchievement, MilestoneAchievementAdmin)
+admin.site.register(JournalCategory, JournalCategoryAdmin)
 admin.site.register(JournalPost, JournalPostAdmin)
 admin.site.register(PrivacyPolicy, PrivacyPolicyAdmin)
 admin.site.register(AboutUs, AboutUsAdmin)
