@@ -9,7 +9,7 @@ from datetime import timedelta
 from .models import (
     Survey, SurveyCategory, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry,
     Poll, PollResponse, WalletTransaction, WalletWithdrawalRequest, Question, PollQuestion,
-    JournalPost, PrivacyPolicy, AboutUs
+    JournalPost, JournalCategory, PrivacyPolicy, AboutUs
 )
 from django.http import JsonResponse, HttpResponseRedirect
 from django.core.mail import send_mail
@@ -887,7 +887,7 @@ class JournalListView(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         category_slug = self.request.GET.get('category')
-        context['categories'] = SurveyCategory.objects.filter(
+        context['categories'] = JournalCategory.objects.filter(
             journal_posts__is_published=True
         ).annotate(
             post_count=models.Count('journal_posts', filter=models.Q(journal_posts__is_published=True))
@@ -907,7 +907,7 @@ class JournalDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['categories'] = SurveyCategory.objects.filter(
+        context['categories'] = JournalCategory.objects.filter(
             journal_posts__is_published=True
         ).annotate(
             post_count=models.Count('journal_posts', filter=models.Q(journal_posts__is_published=True))

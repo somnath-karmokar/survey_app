@@ -981,6 +981,47 @@ def journal_image_upload_path(instance, filename):
     return f'journal_images/{instance.slug or "unsaved"}/{filename}'
 
 
+def journal_category_image_upload_path(instance, filename):
+    # File will be uploaded to MEDIA_ROOT/journal_category_images/<slug>/<filename>
+    return f'journal_category_images/{instance.slug or "unsaved"}/{filename}'
+
+
+class JournalCategory(models.Model):
+    """A category for Journal posts. Independent of SurveyCategory — not tied to any country."""
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True, blank=True, help_text='A URL-friendly version of the name. Will be automatically generated from the name.')
+    image = models.ImageField(upload_to=journal_category_image_upload_path, blank=True, null=True)
+    order = models.PositiveIntegerField(default=0, help_text='Categories will be ordered by this value in ascending order')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Journal Category'
+        verbose_name_plural = 'Journal Categories'
+        ordering = ['order', 'name']
+
+    @classmethod
+    def make_slug(cls, name, instance=None):
+        """Generate a unique slug from the name."""
+        slug = slugify(name)
+        original_slug = slug
+        counter = 1
+
+        while cls.objects.filter(slug=slug).exclude(pk=getattr(instance, 'pk', None)).exists():
+            slug = f"{original_slug}-{counter}"
+            counter += 1
+
+        return slug
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = self.__class__.make_slug(self.name, self)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
 class JournalPost(models.Model):
     """A blog-style journal article shown on the public Journal page."""
     title = models.CharField(max_length=200)
@@ -990,9 +1031,9 @@ class JournalPost(models.Model):
     content = RichTextField(help_text='Full article content (supports rich text)')
     featured_image = models.ImageField(upload_to=journal_image_upload_path, blank=True, null=True)
     category = models.ForeignKey(
-        'SurveyCategory', on_delete=models.SET_NULL, null=True, blank=True,
+        'JournalCategory', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='journal_posts',
-        help_text='Survey category this post relates to. Auto-detected from the title if left blank.'
+        help_text='Journal category this post relates to. Auto-detected from the title if left blank.'
     )
     is_published = models.BooleanField(default=True)
     published_at = models.DateTimeField(default=timezone.now)
@@ -1036,14 +1077,14 @@ class JournalPost(models.Model):
 
     @classmethod
     def guess_category(cls, title):
-        """Best-effort match: the SurveyCategory whose name shares the most keywords with the title."""
+        """Best-effort match: the JournalCategory whose name shares the most keywords with the title."""
         title_keywords = cls._keywords(title)
         if not title_keywords:
             return None
 
         best_category = None
         best_score = 0
-        for category in SurveyCategory.objects.only('id', 'name').order_by('name'):
+        for category in JournalCategory.objects.only('id', 'name').order_by('name'):
             score = len(title_keywords & cls._keywords(category.name))
             if score > best_score:
                 best_score = score
