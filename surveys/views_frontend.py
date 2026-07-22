@@ -655,17 +655,13 @@ class HomePageView(TemplateView):
         else:
             context['featured_polls'] = polls.order_by('?')[:5]
         
-        # Get the number of days to show winners from settings
-        winners_display_days = getattr(django_settings, 'LUCKY_DRAW_CONFIG', {}).get('WINNERS_DISPLAY_DAYS', 30)
-        
-        # Calculate the date cutoff
-        cutoff_date = timezone.now() - timedelta(days=winners_display_days)
-        
-        # Get recent winners within the configured period
+        # Get the number of most recent winners to show from settings
+        winners_display_count = getattr(django_settings, 'LUCKY_DRAW_CONFIG', {}).get('WINNERS_DISPLAY_COUNT', 50)
+
+        # Get the most recent winners, regardless of when they won
         recent_winners = LuckyDrawEntry.objects.filter(
-            is_winner=True,
-            created_at__gte=cutoff_date
-        ).select_related('user').order_by('-created_at')
+            is_winner=True
+        ).select_related('user').order_by('-created_at')[:winners_display_count]
         
         # Prepare winner data for template
         winners_data = []
@@ -707,7 +703,7 @@ class HomePageView(TemplateView):
         
         context.update({
             'recent_winners': winners_data,
-            'winners_display_days': winners_display_days,
+            'winners_display_count': winners_display_count,
         })
         
         return context

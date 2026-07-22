@@ -361,7 +361,7 @@ LUCKY_DRAW_CONFIG = {
         # "₹500 Flipkart Voucher",
         # "₹250 BookMyShow Voucher"
     ],
-    'WINNERS_DISPLAY_DAYS': 90,  # Number of days to show winners from last winning date
+    'WINNERS_DISPLAY_COUNT': 50,  # Number of most recent winners to show on the home page
 }
 
 # Email configuration for admin notifications
