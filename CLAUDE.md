@@ -97,7 +97,7 @@ LUCKY_DRAW_CONFIG = {
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 49,
     'SHOW_NUMBERS_FOR_TESTING': False,  # keep False in production
-    'WINNERS_DISPLAY_DAYS': 30,
+    'WINNERS_DISPLAY_COUNT': 50,  # most recent winners shown on home page (not date-bounded)
     # 'PRIZES': [...]             # country config overrides this
 }
 

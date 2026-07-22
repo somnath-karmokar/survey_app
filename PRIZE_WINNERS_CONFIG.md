@@ -1,7 +1,7 @@
 # Prize Winners Display Configuration
 
 ## Overview
-The home page now displays prize winners for a configurable number of days from the last winning date, instead of the static "Last Month's Prize Winners" section.
+The home page displays a fixed number of the most recent prize winners (by default, the last 50), instead of a date-window ("last N days/months") cutoff.
 
 ## Configuration
 
@@ -18,49 +18,47 @@ LUCKY_DRAW_CONFIG = {
         "₹500 Flipkart Voucher", 
         "₹250 BookMyShow Voucher"
     ],
-    'WINNERS_DISPLAY_DAYS': 30,  # Number of days to show winners from last winning date
+    'WINNERS_DISPLAY_COUNT': 50,  # Number of most recent winners to show
 }
 ```
 
-### How to Change the Display Period
-To change how many days of winners are displayed:
-
+### How to Change the Number of Winners Shown
 1. Open `survey_app/settings.py`
 2. Find the `LUCKY_DRAW_CONFIG` dictionary
-3. Change the value of `WINNERS_DISPLAY_DAYS` to your desired number of days
+3. Change the value of `WINNERS_DISPLAY_COUNT` to your desired number of winners
 
 Example:
 ```python
-'WINNERS_DISPLAY_DAYS': 60,  # Show winners from last 60 days
+'WINNERS_DISPLAY_COUNT': 100,  # Show the last 100 winners
 ```
 
 ## Implementation Details
 
 ### Backend Changes
-- **HomePageView** (`surveys/views_frontend.py`): Updated to fetch recent winners based on the configured days
+- **HomePageView** (`surveys/views_frontend.py`): Fetches the most recent `WINNERS_DISPLAY_COUNT` winners, ordered by `-created_at`, with no date cutoff
 - **Template**: Updated to display dynamic winner data with fallback content
 
 ### Frontend Changes
 - **Template** (`templates/frontpage/index.html`): 
-  - Dynamic title: "Last {{ winners_display_days }} Days' Prize Winners"
+  - Dynamic title: "Last {{ winners_display_count }} Prize Winners"
   - Dynamic winner cards with user names, prizes, and dates
   - Fallback content when no winners exist
 
 ### Features
-- **Configurable Display Period**: Easily change how many days of winners to show
+- **Configurable Count**: Easily change how many winners to show
 - **Dynamic Content**: Shows actual winners from the database
 - **Profile Pictures**: Displays user profile pictures if available
 - **Fallback Content**: Shows placeholder content when no winners exist
 - **Responsive Design**: Maintains existing styling and layout
 
 ## Usage
-1. Configure the display period in settings
+1. Configure `WINNERS_DISPLAY_COUNT` in settings
 2. Winners will automatically appear when users win prizes
-3. The section will update dynamically based on the configured timeframe
+3. The section always shows the most recent winners up to that count, regardless of how old they are
 
 ## Testing
 To verify the implementation:
 1. Check that the home page loads without errors
-2. Verify the title shows the correct number of days
+2. Verify the title shows the correct winner count
 3. Confirm winners appear when they exist in the database
 4. Verify fallback content appears when no winners exist
