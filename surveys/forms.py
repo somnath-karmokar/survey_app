@@ -342,7 +342,7 @@ class UserRegisterForm(forms.ModelForm):
     year_of_birth = forms.IntegerField(
         required=False,
         min_value=1900,
-        max_value=timezone.now().year - 16,  # Minimum age 16
+        max_value=timezone.now().year - 18,  # Minimum age 18
         widget=forms.NumberInput(attrs={'placeholder': 'Year of birth (e.g., 1990)'})
     )
     profile_picture = forms.ImageField(required=False)
@@ -378,11 +378,11 @@ class UserRegisterForm(forms.ModelForm):
         year_of_birth = self.cleaned_data.get('year_of_birth')
         if year_of_birth:
             current_year = timezone.now().year
-            max_year = current_year - 16  # Minimum age 16
-            
+            max_year = current_year - 18  # Minimum age 18
+
             if year_of_birth > max_year:
                 raise forms.ValidationError(
-                    f'You must be at least 16 years old to register. Maximum year allowed is {max_year}.'
+                    f'You must be at least 18 years old to register. Maximum year allowed is {max_year}.'
                 )
             
             if year_of_birth < 1900:
