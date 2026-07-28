@@ -186,7 +186,7 @@ USE_TZ = True
 
 # Application Settings
 SITE_NAME = 'Sudraw'
-SITE_URL = 'http://localhost:8000'
+SITE_URL = 'https://sudraw.com'
 MILESTONE_REWARDS = (
     {
         'milestone_type': 'surveys_completed',
