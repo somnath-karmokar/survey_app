@@ -27,6 +27,18 @@
 <!-- BitLabs (bitlabs.ai) ad widget -->
 <script type="module" src="https://sdk.bitlabs.ai/bitlabs-sdk-v1.0.0.js"></script>
 <link rel="stylesheet" href="https://sdk.bitlabs.ai/bitlabs-sdk-v1.0.0.css">
+<style>
+    /* The BitLabs stylesheet resets button styling globally; re-assert Bootstrap's
+       primary button look for the modal's own buttons so they stay visible. */
+    #advertisementModal #ad-modal-continue-btn {
+        color: #fff !important;
+        background-color: #0d6efd !important;
+        border-color: #0d6efd !important;
+    }
+    #advertisementModal #ad-modal-close-btn {
+        opacity: .5;
+    }
+</style>
 <script>
 (function() {
     var container = document.getElementById('bitlabs-ad-container');
