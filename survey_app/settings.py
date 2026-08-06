@@ -352,7 +352,7 @@ SURVEY_CONFIG = {
 }
 
 # BitLabs (bitlabs.ai) offerwall widget — shown in the advertisement modal
-BITLABS_APP_TOKEN = "ece4f5a9-983e-48bd-8d4e-11f460b6c484"
+BITLABS_APP_TOKEN = "M4uv1bRXDwpq9xkY5EWUDPqAGemMZPlU"
 
 LUCKY_DRAW_CONFIG = {
     'SURVEYS_REQUIRED': 2,  # Number of same-level surveys to complete
