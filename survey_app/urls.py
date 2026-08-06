@@ -36,6 +36,24 @@ def ads_txt_view(request):
     response['Expires'] = '0'
     return response
 
+# Temporary: allow crawling for AdSense bot verification
+def robots_txt_view(request):
+    robots_content = 'User-agent: *\nAllow: /\n'
+    robots_file_path = settings.BASE_DIR / 'static' / 'robots.txt'
+    try:
+        with open(robots_file_path, 'r') as f:
+            content = f.read()
+            if content.strip():
+                robots_content = content
+    except (FileNotFoundError, IOError, Exception):
+        pass
+
+    response = HttpResponse(robots_content, content_type='text/plain')
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
+
 # Password Reset URLs
 password_reset_patterns = [
     path('password_reset/', auth_views.PasswordResetView.as_view(
@@ -66,7 +84,10 @@ router.register(r'api/lucky-draw', api_views.LuckyDrawEntryViewSet, basename='lu
 urlpatterns = [
     # Serve ads.txt file for Google AdSense
     path('ads.txt', ads_txt_view),
-    
+
+    # Serve robots.txt (temporarily allowing all crawling for AdSense bot verification)
+    path('robots.txt', robots_txt_view),
+
     # Grappelli URLS
     path('grappelli/', include('grappelli.urls')),
     

@@ -109,6 +109,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'surveys.context_processors.categories_processor',
+                'surveys.context_processors.bitlabs_processor',
             ],
         },
     },
@@ -349,6 +350,9 @@ SURVEY_CONFIG = {
     'DEFAULT_COOLDOWN_DAYS': 2,  # Default cooldown period in days
     'AD_FREQUENCY': 4,  # Show ad after every 4 surveys
 }
+
+# BitLabs (bitlabs.ai) offerwall widget — shown in the advertisement modal
+BITLABS_APP_TOKEN = "ece4f5a9-983e-48bd-8d4e-11f460b6c484"
 
 LUCKY_DRAW_CONFIG = {
     'SURVEYS_REQUIRED': 2,  # Number of same-level surveys to complete
