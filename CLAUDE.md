@@ -398,8 +398,10 @@ All functions use `EmailMultiAlternatives` (HTML + plain text fallback). Templat
 - Session key `survey_counter` tracks surveys completed since last ad
 - `should_show_advertisement(request)` returns bool; view passes `show_ad` to template
 - Template: `surveys/templates/surveys/includes/advertisement_modal.html`
-- Ad modal is currently a placeholder ("Ads Coming Soon…") — Adsterra scripts were removed
-- The modal unlocks the "Continue" button via a 3-second `setTimeout` (no iframe click needed)
+- Ad modal shows the BitLabs (bitlabs.ai) offerwall widget, loaded via the BitLabs web SDK
+  (`https://sdk.bitlabs.ai/bitlabs-sdk-v1.0.0.js`) and initialized with `settings.BITLABS_APP_TOKEN`
+  (env var `BITLABS_APP_TOKEN`) + the current user's id. Adsterra scripts were removed previously.
+- The modal unlocks the "Continue" button via a 3-second `setTimeout` (unchanged; not tied to widget events)
 - `survey_ad_shown` POST endpoint resets the counter
 
 ---
