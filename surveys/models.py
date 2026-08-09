@@ -5,6 +5,7 @@ from django.utils.text import slugify
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from ckeditor.fields import RichTextField
+from ckeditor_uploader.fields import RichTextUploadingField
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from datetime import timedelta
@@ -1028,7 +1029,7 @@ class JournalPost(models.Model):
     slug = models.SlugField(max_length=220, unique=True, blank=True, help_text='A URL-friendly version of the title. Will be automatically generated from the title.')
     author = models.CharField(max_length=100, blank=True, default='Sudraw Team')
     excerpt = models.TextField(blank=True, help_text='Short summary shown on the Journal listing page.')
-    content = RichTextField(help_text='Full article content (supports rich text)')
+    content = RichTextUploadingField(config_name='journal', help_text='Full article content (supports rich text and inline images)')
     featured_image = models.ImageField(upload_to=journal_image_upload_path, blank=True, null=True)
     category = models.ForeignKey(
         'JournalCategory', on_delete=models.SET_NULL, null=True, blank=True,

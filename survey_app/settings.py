@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     # Must be before django.contrib.admin
     'grappelli',
     'ckeditor',
+    'ckeditor_uploader',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -271,6 +272,26 @@ CKEDITOR_CONFIGS = {
         'extraPlugins': 'pastefromword,pastefromgdocs,pastefromlibreoffice',
         'height': 300,
         'width': '100%',
+    },
+    # Journal posts additionally allow inserting images inline into the article body.
+    'journal': {
+        'toolbar': 'Custom',
+        'toolbar_Custom': [
+            ['Bold', 'Italic', 'Underline'],
+            ['NumberedList', 'BulletedList', '-', 'Outdent', 'Indent', '-', 'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'],
+            ['Link', 'Unlink'],
+            ['Image', 'Table'],
+            ['RemoveFormat', 'Source']
+        ],
+        'allowedContent': True,
+        'extraPlugins': 'pastefromword,pastefromgdocs,pastefromlibreoffice',
+        'height': 400,
+        'width': '100%',
+        # The classic "Image" dialog's Upload tab reads filebrowserImageUploadUrl
+        # specifically — it does not fall back to filebrowserUploadUrl, so without
+        # this the upload succeeds but the dialog shows "Image source URL is missing".
+        'filebrowserImageUploadUrl': '/ckeditor/upload/',
+        'filebrowserImageBrowseUrl': '/ckeditor/browse/',
     },
 }
 
