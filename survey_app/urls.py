@@ -15,6 +15,8 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 from surveys import api_views
+from django.contrib.admin.views.decorators import staff_member_required
+from ckeditor_uploader.views import upload as ckeditor_upload, browse as ckeditor_browse
 
 # View to serve ads.txt file
 def ads_txt_view(request):
@@ -90,7 +92,11 @@ urlpatterns = [
 
     # Grappelli URLS
     path('grappelli/', include('grappelli.urls')),
-    
+
+    # CKEditor image uploads — staff only (used by the Journal Post admin editor)
+    path('ckeditor/upload/', staff_member_required(ckeditor_upload), name='ckeditor_upload'),
+    path('ckeditor/browse/', staff_member_required(ckeditor_browse), name='ckeditor_browse'),
+
     # Custom admin site
     path('admin/', survey_admin_site.urls),
     

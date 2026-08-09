@@ -102,6 +102,18 @@
     .journal_featured_body h2 a:hover { color: var(--sd-teal); }
     .journal_featured_body p { color: #55676d; font-size: 15.5px; line-height: 1.8; margin-bottom: 22px; }
 
+    /* ---------- Raw content preview (featured + card fallback) ---------- */
+    .journal_content_preview { color: #55676d; font-size: 15.5px; line-height: 1.8; margin-bottom: 22px; }
+    .journal_content_preview p { margin-bottom: 16px; }
+    .journal_content_preview h1,
+    .journal_content_preview h2,
+    .journal_content_preview h3,
+    .journal_content_preview h4,
+    .journal_content_preview h5,
+    .journal_content_preview h6 { color: var(--sd-navy); font-weight: 700; margin: 16px 0 10px; }
+    .journal_content_preview img { max-width: 100%; height: auto; border-radius: 10px; margin: 10px 0; }
+    .journal_card_body .journal_content_preview { font-size: 14.5px; flex: 1; }
+
     /* ---------- Shared meta ---------- */
     .journal_meta_row {
         display: flex;
@@ -307,7 +319,7 @@
                             {% endwith %}
                         </div>
                         <h2><a href="{% url 'surveys:journal_detail' slug=post.slug %}">{{ post.title }}</a></h2>
-                        <p>{{ post.content|striptags|truncatewords:600 }}</p>
+                        <div class="journal_content_preview">{{ post.content|safe }}</div>
                         <a href="{% url 'surveys:journal_detail' slug=post.slug %}" class="journal_cta">
                             Read Full Article <i class="fa-solid fa-arrow-right"></i>
                         </a>
@@ -346,7 +358,7 @@
                             {% if post.excerpt %}
                             <p>{{ post.excerpt|truncatewords:600 }}</p>
                             {% else %}
-                            <p>{{ post.content|striptags|truncatewords:600 }}</p>
+                            <div class="journal_content_preview">{{ post.content|safe }}</div>
                             {% endif %}
                             <a href="{% url 'surveys:journal_detail' slug=post.slug %}" class="journal_cta">
                                 Read More <i class="fa-solid fa-arrow-right"></i>

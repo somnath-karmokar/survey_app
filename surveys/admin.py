@@ -12,6 +12,7 @@ from django import forms
 from django.db import models
 from django.forms import CheckboxSelectMultiple
 from ckeditor.widgets import CKEditorWidget
+from ckeditor_uploader.widgets import CKEditorUploadingWidget
 from .models import (
     SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer,
     LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement,
@@ -955,7 +956,7 @@ class JournalPostAdminForm(forms.ModelForm):
         model = JournalPost
         fields = '__all__'
         widgets = {
-            'content': CKEditorWidget(),
+            'content': CKEditorUploadingWidget(config_name='journal'),
         }
 
 
