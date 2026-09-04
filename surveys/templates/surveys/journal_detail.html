@@ -154,6 +154,21 @@
     .back_to_journal:hover {
         color: #f45918;
     }
+
+    @media (max-width: 767px) {
+        .inner_banner { padding: 60px 0; }
+        .inner_banner h1 { font-size: 26px; margin-bottom: 10px; }
+        .journal_article { padding: 20px; }
+        .journal_article .journal_body { font-size: 15px; }
+        .journal_article .journal_body img { margin: 10px 0; }
+        .journal_article .journal_body table { font-size: 13px; }
+        .recent_post_item img { width: 56px; height: 48px; }
+    }
+    @media (max-width: 480px) {
+        .inner_banner { padding: 44px 0; }
+        .inner_banner h1 { font-size: 21px; }
+        .journal_article { padding: 16px; border-radius: 6px; }
+    }
 </style>
 {% endblock %}
 
@@ -202,9 +217,9 @@
                     {% for category in categories %}
                     <a class="recent_post_item" href="{% url 'surveys:journal_list' %}?category={{ category.slug }}">
                         {% if category.image %}
-                        <img src="{{ category.image.url }}" alt="{{ category.name }}">
+                        <img src="{{ category.image.url }}" alt="{{ category.name }}" loading="lazy" decoding="async">
                         {% else %}
-                        <img src="{% static 'images/survey_img3.jpeg' %}" alt="{{ category.name }}">
+                        <img src="{% static 'images/survey_img3.jpeg' %}" alt="{{ category.name }}" loading="lazy" decoding="async">
                         {% endif %}
                         <div>
                             <div class="rp-title">{{ category.name }}{% if category == journal_post.category %} <i class="fa-solid fa-check" style="color: #217e97;"></i>{% endif %}</div>

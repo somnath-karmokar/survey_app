@@ -674,27 +674,32 @@ class HomePageView(TemplateView):
             else:
                 formatted_name = full_name
             
-            # Get city and country name
+            # Get city, state, and country name
             city_name = ""
             if hasattr(winner.user, 'profile') and winner.user.profile.city:
                 city_name = winner.user.profile.city
 
+            state_name = ""
+            if hasattr(winner.user, 'profile') and winner.user.profile.state:
+                state_name = winner.user.profile.state
+
             country_name = ""
             if hasattr(winner.user, 'profile') and winner.user.profile.country:
                 country_name = winner.user.profile.country.name
-            
+
             # Get month name
             month_name = winner.created_at.strftime("%B")
-            
+
             # Combine all details, skipping any missing fields
             winner_details = ", ".join(
-                part for part in [formatted_name, city_name, country_name, month_name] if part
+                part for part in [formatted_name, city_name, state_name, country_name, month_name] if part
             )
 
             winners_data.append({
                 'details': winner_details,
                 'name': formatted_name,
                 'city': city_name,
+                'state': state_name,
                 'country': country_name,
                 'month': month_name,
                 'date': winner.created_at,

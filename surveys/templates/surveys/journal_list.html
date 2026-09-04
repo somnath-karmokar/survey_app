@@ -264,9 +264,20 @@
         .journal_grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 767px) {
+        .inner_banner { padding: 60px 0 50px; }
         .inner_banner h1 { font-size: 30px; }
         .journal_featured_img { height: 220px; }
         .journal_featured_body { padding: 26px; }
+        .journal_card_img { height: 170px; }
+        .sidebar_post_item img { width: 56px; height: 48px; }
+    }
+    @media (max-width: 480px) {
+        .inner_banner { padding: 44px 0 36px; }
+        .inner_banner h1 { font-size: 24px; }
+        .journal_featured_img { height: 180px; }
+        .journal_featured_body { padding: 20px; }
+        .journal_card_img { height: 150px; }
+        .journal_card_body { padding: 18px; }
     }
 </style>
 {% endblock %}
@@ -344,7 +355,7 @@
                     <article class="journal_card">
                         {% if post.featured_image %}
                         <div class="journal_card_img">
-                            <img src="{{ post.featured_image.url }}" alt="{{ post.title }}">
+                            <img src="{{ post.featured_image.url }}" alt="{{ post.title }}" loading="lazy" decoding="async">
                         </div>
                         {% endif %}
                         <div class="journal_card_body">
@@ -400,9 +411,9 @@
                     {% for category in categories %}
                     <a class="sidebar_post_item" href="{% url 'surveys:journal_list' %}?category={{ category.slug }}">
                         {% if category.image %}
-                        <img src="{{ category.image.url }}" alt="{{ category.name }}">
+                        <img src="{{ category.image.url }}" alt="{{ category.name }}" loading="lazy" decoding="async">
                         {% else %}
-                        <img src="{% static 'images/survey_img3.jpeg' %}" alt="{{ category.name }}">
+                        <img src="{% static 'images/survey_img3.jpeg' %}" alt="{{ category.name }}" loading="lazy" decoding="async">
                         {% endif %}
                         <div>
                             <div class="sp-title">{{ category.name }}{% if category.slug == selected_category %} <i class="fa-solid fa-check" style="color: var(--sd-teal);"></i>{% endif %}</div>
