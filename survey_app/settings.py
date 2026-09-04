@@ -126,13 +126,13 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'sudraw_database',
-        'NAME': 'sudraw_database_04ru', #staging
+        # 'NAME': 'sudraw_database_04ru', #staging
         'USER': 'sudraw_database_user',
         'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # Change this to your PostgreSQL password
-        'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # staging
+        # 'PASSWORD': 'v6xFjtl38yfirPLIUWIVsUp6FNY7nBDt',  # staging
         'HOST': 'dpg-d68kcmh4tr6s73c8aetg-a',
         # 'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com',
-        'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com', # staging
+        # 'HOST': 'pg-d68kcmh4tr6s73c8aetg-a.oregon-postgres.render.com', # staging
         # 'HOST': 'dpg-d7vmf33rjlhs73dsk92g-a', #staging
         'PORT': '5432',
     }
@@ -189,6 +189,13 @@ USE_TZ = True
 # Application Settings
 SITE_NAME = 'Sudraw'
 SITE_URL = 'https://sudraw.com'
+
+# Milestone payouts are switched off - there are no milestones for now.
+# The MILESTONE_REWARDS definitions below are kept (rather than deleted) so
+# payouts can be resumed by flipping this back to True. Existing
+# MilestoneAchievement records stay readable in the admin either way.
+MILESTONE_REWARDS_ENABLED = False
+
 MILESTONE_REWARDS = (
     {
         'milestone_type': 'surveys_completed',

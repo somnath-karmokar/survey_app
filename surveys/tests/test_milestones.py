@@ -13,6 +13,9 @@ from surveys.models import (
 @override_settings(
     EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
     ADMIN_EMAIL='admin@sudraw.com',
+    # Payouts are disabled site-wide for now; turn them on here so the
+    # milestone machinery stays covered for whenever it is switched back on.
+    MILESTONE_REWARDS_ENABLED=True,
     MILESTONE_REWARDS=(
         {
             'milestone_type': 'surveys_completed',
