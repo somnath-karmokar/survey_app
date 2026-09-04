@@ -493,14 +493,6 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         from .lucky_draw import LuckyDrawView
         lucky_draw_eligible = LuckyDrawView().is_eligible(user)
 
-        # Milestone countdown (surveys)
-        survey_milestone_interval = 100
-        surveys_into_cycle = completed_surveys % survey_milestone_interval
-        surveys_to_next_reward = survey_milestone_interval - surveys_into_cycle
-        next_survey_milestone = completed_surveys + surveys_to_next_reward
-        survey_milestone_progress_pct = int((surveys_into_cycle / survey_milestone_interval) * 100)
-        currency_symbol = profile.wallet_currency_symbol or '$'
-
         # Add data to context
         context.update({
             'profile': profile,
@@ -518,12 +510,6 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             'level_progress': level_progress,
             'lucky_draw_eligible': lucky_draw_eligible,
             'LUCKY_DRAW_CONFIG': getattr(django_settings, 'LUCKY_DRAW_CONFIG', {}),
-            'surveys_into_cycle': surveys_into_cycle,
-            'surveys_to_next_reward': surveys_to_next_reward,
-            'next_survey_milestone': next_survey_milestone,
-            'survey_milestone_progress_pct': survey_milestone_progress_pct,
-            'survey_milestone_interval': survey_milestone_interval,
-            'milestone_currency_symbol': currency_symbol,
         })
         
         return context
@@ -674,27 +660,32 @@ class HomePageView(TemplateView):
             else:
                 formatted_name = full_name
             
-            # Get city and country name
+            # Get city, state, and country name
             city_name = ""
             if hasattr(winner.user, 'profile') and winner.user.profile.city:
                 city_name = winner.user.profile.city
 
+            state_name = ""
+            if hasattr(winner.user, 'profile') and winner.user.profile.state:
+                state_name = winner.user.profile.state
+
             country_name = ""
             if hasattr(winner.user, 'profile') and winner.user.profile.country:
                 country_name = winner.user.profile.country.name
-            
+
             # Get month name
             month_name = winner.created_at.strftime("%B")
-            
+
             # Combine all details, skipping any missing fields
             winner_details = ", ".join(
-                part for part in [formatted_name, city_name, country_name, month_name] if part
+                part for part in [formatted_name, city_name, state_name, country_name, month_name] if part
             )
 
             winners_data.append({
                 'details': winner_details,
                 'name': formatted_name,
                 'city': city_name,
+                'state': state_name,
                 'country': country_name,
                 'month': month_name,
                 'date': winner.created_at,
@@ -818,8 +809,6 @@ def poll_question(request, poll_id, question_index=0):
             final_form = PollResponseForm(poll=poll, data=_poll_answers_to_post_data(poll, answers))
             if final_form.is_valid():
                 final_form.save(request.user, poll)
-                from .milestones import check_and_award_milestones
-                check_and_award_milestones(request.user)
                 if session_key in request.session:
                     del request.session[session_key]
                 messages.success(request, 'Thank you for participating in the poll!')

@@ -26,6 +26,29 @@
         display: flex;
         justify-content: space-between;
     }
+    /* The BitLabs ad-widget stylesheet (loaded page-wide via the advertisement
+       modal include) resets button styling globally, which was making these
+       navigation buttons show as blank/white until :hover. Re-assert Bootstrap's
+       button colors here so they stay visible regardless of load order. */
+    .navigation-buttons .btn-primary {
+        color: #fff !important;
+        background-color: #0d6efd !important;
+        border-color: #0d6efd !important;
+    }
+    .navigation-buttons .btn-success {
+        color: #fff !important;
+        background-color: #198754 !important;
+        border-color: #198754 !important;
+    }
+    .navigation-buttons .btn-outline-secondary {
+        color: #6c757d !important;
+        background-color: transparent !important;
+        border-color: #6c757d !important;
+    }
+    .navigation-buttons .btn-outline-secondary:hover {
+        color: #fff !important;
+        background-color: #6c757d !important;
+    }
     .form-check {
         margin-bottom: 0.75rem;
         padding: 0.5rem;

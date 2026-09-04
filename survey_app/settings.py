@@ -189,6 +189,13 @@ USE_TZ = True
 # Application Settings
 SITE_NAME = 'Sudraw'
 SITE_URL = 'https://sudraw.com'
+
+# Milestone payouts are switched off - there are no milestones for now.
+# The MILESTONE_REWARDS definitions below are kept (rather than deleted) so
+# payouts can be resumed by flipping this back to True. Existing
+# MilestoneAchievement records stay readable in the admin either way.
+MILESTONE_REWARDS_ENABLED = False
+
 MILESTONE_REWARDS = (
     {
         'milestone_type': 'surveys_completed',
@@ -379,7 +386,7 @@ LUCKY_DRAW_CONFIG = {
     'SURVEYS_REQUIRED': 2,  # Number of same-level surveys to complete
     'POLLS_REQUIRED': 1,  # Number of completed polls required to play the lucky draw
     'NUMBER_RANGE_START': 1,
-    'NUMBER_RANGE_END': 49,
+    'NUMBER_RANGE_END': 31,
     'SHOW_NUMBERS_FOR_TESTING': True,  # Set to False after testing to hide lucky draw numbers
     'PRIZES': [  # You can customize the prizes
         # "₹1000 Amazon Voucher",

@@ -113,9 +113,10 @@
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="id_state" class="form-label">State/Province</label>
-                                        <input type="text" name="state" class="form-control" id="id_state" 
-                                               value="{{ form.state.value|default:'' }}">
+                                        <label for="id_state" class="form-label">State/Province <span class="text-danger">*</span></label>
+                                        <input type="text" name="state" class="form-control" id="id_state"
+                                               value="{{ form.state.value|default:'' }}" required>
+                                        <div class="invalid-feedback">Please enter your state/province.</div>
                                     </div>
                                 </div>
                                 

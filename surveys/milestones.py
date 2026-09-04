@@ -48,7 +48,18 @@ def get_user_milestone_stats(user):
     }
 
 
+def milestone_rewards_enabled():
+    """Milestone payouts are off for now (see MILESTONE_REWARDS_ENABLED).
+
+    Kept behind a flag rather than deleted so existing achievements stay
+    readable in the admin and payouts can be switched back on later.
+    """
+    return getattr(settings, 'MILESTONE_REWARDS_ENABLED', True)
+
+
 def get_milestone_config():
+    if not milestone_rewards_enabled():
+        return ()
     return getattr(settings, 'MILESTONE_REWARDS', DEFAULT_MILESTONE_CONFIG)
 
 

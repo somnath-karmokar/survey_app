@@ -20,7 +20,6 @@ import random
 from django.conf import settings
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.cache import never_cache
-from .milestones import check_and_award_milestones
 from django.contrib.auth import logout
 
 
@@ -157,8 +156,7 @@ def take_survey(request, survey_id):
             # Mark the survey as completed
             response.completed_at = timezone.now()
             response.save()
-            check_and_award_milestones(request.user)
-            
+
             # Check if we should show an advertisement
             if should_show_advertisement(request):
                 request.session['show_ad_after_redirect'] = True
