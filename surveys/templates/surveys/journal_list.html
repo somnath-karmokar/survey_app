@@ -114,8 +114,13 @@
     /* Images pasted/uploaded through the editor can carry their own inline
        width (CKEditor writes style="width:600px" when an author sets a size),
        which beats a plain rule and overflows on a phone - hence !important. */
+    /* CKEditor writes an inline width AND height when an author sizes an image.
+       Both are neutralised here so only ONE dimension is ever constrained (the
+       width) and the height follows from the image's own aspect ratio - that is
+       what guarantees it can never come out stretched or squashed. */
     .journal_content_preview img {
         max-width: 100% !important;
+        width: auto !important;
         height: auto !important;
         border-radius: 10px;
         margin: 10px 0;
@@ -280,7 +285,12 @@
         .sidebar_post_item img { width: 56px; height: 48px; }
         /* Shrink oversized in-article images so a tall one cannot take over
            the screen; the aspect ratio is kept because height stays auto. */
-        .journal_content_preview img { max-height: 260px; width: auto; margin: 8px 0; }
+        /* Smaller on mobile, sized by width only so the ratio is untouched. */
+        .journal_content_preview img {
+            max-width: 80% !important;
+            display: block;
+            margin: 10px auto;
+        }
     }
     @media (max-width: 480px) {
         .inner_banner { padding: 44px 0 36px; }
@@ -289,7 +299,7 @@
         .journal_featured_body { padding: 20px; }
         .journal_card_img { height: 150px; }
         .journal_card_body { padding: 18px; }
-        .journal_content_preview img { max-height: 200px; }
+        .journal_content_preview img { max-width: 68% !important; }
     }
 </style>
 {% endblock %}
