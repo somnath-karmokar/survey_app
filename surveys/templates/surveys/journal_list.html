@@ -18,8 +18,7 @@
 
     .inner_banner {
         position: relative;
-        /* Fluid padding so the banner never eats the screen on a phone. */
-        padding: clamp(48px, 9vw, 100px) 0 clamp(40px, 7vw, 80px);
+        padding: 100px 0 80px;
         background-size: cover;
         background-position: center;
         color: #fff;
@@ -42,14 +41,13 @@
         margin-bottom: 14px;
     }
     .inner_banner h1 {
-        font-size: clamp(25px, 5.4vw, 44px);
+        font-size: 44px;
         margin-bottom: 14px;
         font-weight: 700;
         letter-spacing: -0.01em;
-        line-height: 1.2;
     }
     .inner_banner .lead_text {
-        font-size: clamp(14.5px, 2.2vw, 17px);
+        font-size: 17px;
         opacity: 0.9;
         max-width: 560px;
         margin: 0 auto 22px;
@@ -61,7 +59,7 @@
     .breadcrumb_box a { color: #fff; text-decoration: none; }
     .breadcrumb_box a:hover { text-decoration: underline; }
 
-    .journal_area { padding: clamp(32px, 6vw, 64px) 0 clamp(48px, 8vw, 90px); background: #f7f9fa; }
+    .journal_area { padding: 64px 0 90px; background: #f7f9fa; }
 
     /* ---------- Featured post ---------- */
     .journal_featured {
@@ -73,7 +71,7 @@
         box-shadow: 0 10px 30px rgba(18,63,77,0.08);
         margin-bottom: 48px;
     }
-    .journal_featured_img { position: relative; width: 100%; height: clamp(180px, 34vw, 340px); overflow: hidden; }
+    .journal_featured_img { position: relative; width: 100%; height: 340px; overflow: hidden; }
     .journal_featured_img img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .journal_featured_tag {
         position: absolute;
@@ -89,12 +87,12 @@
         border-radius: 30px;
     }
     .journal_featured_body {
-        padding: clamp(20px, 3.4vw, 34px) clamp(20px, 4.4vw, 44px) clamp(24px, 4vw, 40px);
+        padding: 34px 44px 40px;
         display: flex;
         flex-direction: column;
     }
     .journal_featured_body h2 {
-        font-size: clamp(20px, 3.2vw, 30px);
+        font-size: 30px;
         font-weight: 700;
         color: var(--sd-navy);
         line-height: 1.3;
@@ -104,64 +102,25 @@
     .journal_featured_body h2 a:hover { color: var(--sd-teal); }
     .journal_featured_body p { color: #55676d; font-size: 15.5px; line-height: 1.8; margin-bottom: 22px; }
 
-    /* ---------- Raw content preview (featured + card fallback) ----------
-       The full post HTML is rendered so headings and images still show, but
-       it is height-capped with a fade-out so the listing stays scannable
-       instead of stacking entire articles down the page. */
-    .journal_content_preview {
-        position: relative;
-        color: #55676d;
-        font-size: 15.5px;
-        line-height: 1.8;
-        margin-bottom: 22px;
-        max-height: clamp(150px, 26vw, 240px);
-        overflow: hidden;
-        overflow-wrap: break-word;
-        word-break: break-word;
-    }
-    /* Soft fade into the card background; invisible when the post is short. */
-    .journal_content_preview::after {
-        content: '';
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        height: 64px;
-        background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, #fff 88%);
-        pointer-events: none;
-    }
-    .journal_content_preview > *:first-child { margin-top: 0; }
+    /* ---------- Raw content preview (featured + card fallback) ---------- */
+    .journal_content_preview { color: #55676d; font-size: 15.5px; line-height: 1.8; margin-bottom: 22px; }
     .journal_content_preview p { margin-bottom: 16px; }
     .journal_content_preview h1,
     .journal_content_preview h2,
     .journal_content_preview h3,
     .journal_content_preview h4,
     .journal_content_preview h5,
-    .journal_content_preview h6 {
-        color: var(--sd-navy);
-        font-weight: 700;
-        margin: 16px 0 10px;
-        /* Article headings must not out-shout the post title above them. */
-        font-size: 1.05em;
-        line-height: 1.4;
-    }
-    /* !important beats the inline width CKEditor writes when an author sets an
-       image size in the editor - without it those images overflow on a phone. */
+    .journal_content_preview h6 { color: var(--sd-navy); font-weight: 700; margin: 16px 0 10px; }
+    /* Images pasted/uploaded through the editor can carry their own inline
+       width (CKEditor writes style="width:600px" when an author sets a size),
+       which beats a plain rule and overflows on a phone - hence !important. */
     .journal_content_preview img {
         max-width: 100% !important;
         height: auto !important;
         border-radius: 10px;
         margin: 10px 0;
     }
-    /* Wide pasted tables scroll inside the card instead of stretching it. */
-    .journal_content_preview table { display: block; width: 100%; overflow-x: auto; font-size: 13.5px; }
-    .journal_content_preview iframe,
-    .journal_content_preview video { max-width: 100%; }
-    .journal_card_body .journal_content_preview {
-        font-size: 14.5px;
-        flex: 1;
-        max-height: clamp(120px, 18vw, 170px);
-    }
+    .journal_card_body .journal_content_preview { font-size: 14.5px; flex: 1; }
 
     /* ---------- Shared meta ---------- */
     .journal_meta_row {
@@ -219,8 +178,7 @@
     }
     .journal_card:hover { box-shadow: 0 12px 28px rgba(18,63,77,0.1); transform: translateY(-4px); }
 
-    /* aspect-ratio keeps the crop consistent at every width, no height steps. */
-    .journal_card_img { aspect-ratio: 16 / 10; overflow: hidden; }
+    .journal_card_img { height: 190px; overflow: hidden; }
     .journal_card_img img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.5s ease; }
     .journal_card:hover .journal_card_img img { transform: scale(1.06); }
 
@@ -235,18 +193,7 @@
     }
     .journal_card_body h3 a { color: inherit; text-decoration: none; }
     .journal_card_body h3 a:hover { color: var(--sd-teal); }
-    .journal_card_body p {
-        color: #55676d;
-        font-size: 14.5px;
-        line-height: 1.75;
-        flex: 1;
-        margin-bottom: 16px;
-        /* Cap the excerpt so every card in a row ends at the same place. */
-        display: -webkit-box;
-        -webkit-line-clamp: 4;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
+    .journal_card_body p { color: #55676d; font-size: 14.5px; line-height: 1.75; flex: 1; margin-bottom: 16px; }
 
     /* ---------- Sidebar ---------- */
     .journal_sidebar_card {
@@ -321,46 +268,28 @@
     .journal_pagination .active { background: var(--sd-teal); border-color: var(--sd-teal); color: #fff; }
     .journal_pagination .disabled { opacity: 0.4; pointer-events: none; }
 
-    /* Tablet: two columns get cramped before the sidebar drops away. */
     @media (max-width: 991px) {
-        .journal_grid { grid-template-columns: 1fr; gap: 22px; }
-        .journal_featured { margin-bottom: 34px; }
-        /* Sidebar now sits under the posts rather than beside them. */
-        .journal_sidebar_card { margin-top: 4px; }
+        .journal_grid { grid-template-columns: 1fr; }
     }
-
     @media (max-width: 767px) {
-        .journal_featured { border-radius: 14px; }
-        .journal_featured_tag { top: 14px; left: 14px; font-size: 11px; padding: 5px 12px; }
-        .journal_section_title { font-size: 14px; margin-bottom: 18px; }
+        .inner_banner { padding: 60px 0 50px; }
+        .inner_banner h1 { font-size: 30px; }
+        .journal_featured_img { height: 220px; }
+        .journal_featured_body { padding: 26px; }
+        .journal_card_img { height: 170px; }
         .sidebar_post_item img { width: 56px; height: 48px; }
-        .journal_sidebar_card { padding: 20px; }
-        /* Comfortable thumb targets for paging on a phone. */
-        .journal_pagination { gap: 6px; margin-top: 32px; }
-        .journal_pagination a,
-        .journal_pagination span { min-width: 44px; height: 44px; }
-        .journal_empty { padding: 44px 20px; }
+        /* Shrink oversized in-article images so a tall one cannot take over
+           the screen; the aspect ratio is kept because height stays auto. */
+        .journal_content_preview img { max-height: 260px; width: auto; margin: 8px 0; }
     }
-
     @media (max-width: 480px) {
+        .inner_banner { padding: 44px 0 36px; }
+        .inner_banner h1 { font-size: 24px; }
+        .journal_featured_img { height: 180px; }
+        .journal_featured_body { padding: 20px; }
+        .journal_card_img { height: 150px; }
         .journal_card_body { padding: 18px; }
-        .journal_card { border-radius: 12px; }
-        .journal_meta_row { font-size: 12px; gap: 4px 12px; }
-        .journal_card_body h3 { font-size: 17px; }
-        /* Long titles/prev-next only - keep numbers on one line. */
-        .journal_pagination a,
-        .journal_pagination span { min-width: 40px; height: 40px; padding: 0 10px; font-size: 13.5px; }
-    }
-
-    /* Respect users who ask for reduced motion. */
-    @media (prefers-reduced-motion: reduce) {
-        .journal_card,
-        .journal_card_img img,
-        .journal_cta,
-        .journal_cta i,
-        .journal_pagination a { transition: none; }
-        .journal_card:hover { transform: none; }
-        .journal_card:hover .journal_card_img img { transform: none; }
+        .journal_content_preview img { max-height: 200px; }
     }
 </style>
 {% endblock %}
@@ -488,7 +417,7 @@
                 {% endif %}
             </div>
 
-            <div class="col-lg-4 mt-4 mt-lg-0">
+            <div class="col-lg-4">
                 <div class="journal_sidebar_card">
                     <h4>Categories</h4>
                     {% for category in categories %}
