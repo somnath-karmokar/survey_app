@@ -14,7 +14,7 @@
     {% if is_poll_winner and poll_title %}
         <p>We're thrilled to inform you that you have won <strong>{{ prize }}</strong> for completing the <strong>"{{ poll_title }}"</strong>!</p>
     {% else %}
-        <p>We're thrilled to inform you that you've won the {{ entry.created_at|date:"F Y" }} Lucky Draw!</p>
+        <p>We're thrilled to inform you that you've won the Lucky Draw!</p>
     {% endif %}
 
     <div style="background-color: #f9f9f9; padding: 20px; border: 2px dashed #e74c3c; border-radius: 5px; margin: 20px 0; text-align: center;">
@@ -39,15 +39,6 @@
     {% else %}
         <p>You've won an exciting prize! Your winning has been added to your wallet.</p>
     {% endif %}
-    
-    <div style="background-color: #e8f4fc; border-left: 4px solid #4a6fa5; padding: 15px; margin: 20px 0;">
-        <h4 style="margin-top: 0;">Next Steps:</h4>
-        <ol>
-            <li>Our team will contact you within 3-5 business days</li>
-            <li>You'll need to verify your identity</li>
-            <li>Prize delivery details will be confirmed</li>
-        </ol>
-    </div>
     
     <p>Thank you for participating in our survey program. Your feedback is valuable to us!</p>
     

@@ -9,7 +9,7 @@ from datetime import timedelta
 from .models import (
     Survey, SurveyCategory, SurveyResponse, UserProfile, LoginOTP, LuckyDrawEntry,
     Poll, PollResponse, WalletTransaction, WalletWithdrawalRequest, Question, PollQuestion,
-    JournalPost, JournalCategory, PrivacyPolicy, AboutUs
+    JournalPost, JournalCategory, PrivacyPolicy, AboutUs, DirectMarketing, Advertiser
 )
 from django.http import JsonResponse, HttpResponseRedirect
 from django.core.mail import send_mail
@@ -695,8 +695,10 @@ class HomePageView(TemplateView):
         context.update({
             'recent_winners': winners_data,
             'winners_display_count': winners_display_count,
+            # Randomised on every load, so the slider order differs each visit.
+            'direct_marketing_ads': DirectMarketing.slides_for(self.request.user),
         })
-        
+
         return context
 
 
@@ -802,8 +804,34 @@ def poll_question(request, poll_id, question_index=0):
             request.session[session_key] = answers
             request.session.save()
 
+            # Same ad gate as surveys: after every AD_FREQUENCY questions, but
+            # never on the first or last question, and only once per question.
+            ad_frequency = getattr(django_settings, 'SURVEY_CONFIG', {}).get('AD_FREQUENCY', 4)
+            ad_shown_key = f'poll_{poll.id}_ad_shown_q{question_index}'
+            ad_already_shown = request.session.get(ad_shown_key, False)
+
+            if (question_index > 0
+                    and (question_index + 1) % ad_frequency == 0
+                    and question_index < total_questions - 1
+                    and not ad_already_shown):
+                request.session[ad_shown_key] = True
+                request.session.save()
+                return render(request, 'surveys/poll_detail.html', {
+                    'poll': poll,
+                    'form': form,
+                    'current_question': current_question,
+                    'question_index': question_index,
+                    'total_questions': total_questions,
+                    'progress': int(((question_index + 1) / total_questions) * 100),
+                    'is_last_question': question_index == total_questions - 1,
+                    'show_ad': True,
+                    'advertiser': Advertiser.pick_for(None, request.user),
+                })
+
             next_index = question_index + 1
             if next_index < total_questions:
+                # Clear the ad flag for this question when moving on.
+                request.session.pop(ad_shown_key, None)
                 return redirect('surveys:poll_question', poll_id=poll.id, question_index=next_index)
 
             final_form = PollResponseForm(poll=poll, data=_poll_answers_to_post_data(poll, answers))

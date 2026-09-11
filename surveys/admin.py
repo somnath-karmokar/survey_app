@@ -17,7 +17,7 @@ from .models import (
     SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer,
     LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement,
     Poll, PollQuestion, PollChoice, PollResponse, PollAnswer, CountryLuckyDrawConfig,
-    WalletTransaction, UserWallet, WalletWithdrawalRequest, JournalPost, JournalCategory, PrivacyPolicy, AboutUs
+    WalletTransaction, UserWallet, WalletWithdrawalRequest, JournalPost, JournalCategory, PrivacyPolicy, AboutUs, Advertiser, DirectMarketing
 )
 from django.utils.safestring import mark_safe
 from django.urls import path
@@ -1117,6 +1117,240 @@ class DefaultModelAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     """Default admin with delete link support."""
     pass
 
+class AdvertTargetingForm(forms.ModelForm):
+    """Shared targeting rules for the Advertiser / Direct Marketing forms.
+
+    The country list is limited to countries that actually have surveys, and
+    the category list is limited to the chosen country's categories (the
+    dropdown is repopulated by advert-targeting.js as the country changes).
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields['countries'].queryset = (
+            Country.objects
+            .filter(categories__surveys__isnull=False)
+            .distinct()
+            .order_by('name')
+        )
+        self.fields['countries'].widget.attrs.update({'size': 6})
+        self.fields['categories'].widget.attrs.update({'size': 12})
+
+        # Categories are scoped to whichever countries are currently selected.
+        country_ids = self._selected_country_ids()
+        if country_ids:
+            self.fields['categories'].queryset = (
+                SurveyCategory.objects
+                .filter(country_id__in=country_ids)
+                .order_by('country__name', 'name')
+            )
+        else:
+            # Nothing to choose from until at least one country is picked.
+            self.fields['categories'].queryset = SurveyCategory.objects.none()
+
+    def _selected_country_ids(self):
+        """Country ids from the submitted data, or the saved advert."""
+        if self.data:
+            submitted = self.data.getlist('countries') if hasattr(self.data, 'getlist') else self.data.get('countries')
+            if submitted:
+                return [c for c in (submitted if isinstance(submitted, list) else [submitted]) if c]
+        if self.instance and self.instance.pk:
+            return list(self.instance.countries.values_list('pk', flat=True))
+        initial = self.initial.get('countries')
+        if initial:
+            return [getattr(c, 'pk', c) for c in initial]
+        return []
+
+    def clean(self):
+        cleaned_data = super().clean()
+        countries = cleaned_data.get('countries')
+        categories = cleaned_data.get('categories')
+        if categories and countries:
+            country_ids = {c.pk for c in countries}
+            stray = [c.name for c in categories if c.country_id not in country_ids]
+            if stray:
+                self.add_error(
+                    'categories',
+                    'These categories do not belong to the selected countries: '
+                    + ', '.join(stray),
+                )
+        return cleaned_data
+
+
+class AdvertTargetingAdminMixin:
+    """Adds the country-then-category AJAX endpoint used by both advert admins."""
+
+    class Media:
+        js = ('surveys/js/advert-targeting.js',)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'get-categories/',
+                self.admin_site.admin_view(self.get_categories),
+                name=f'{self.model._meta.model_name}_get_categories',
+            ),
+        ]
+        return custom_urls + urls
+
+    def get_categories(self, request):
+        """Survey categories for the selected countries, for the chained list.
+
+        Accepts one or more `country_id` params, since several countries can be
+        targeted at once.
+        """
+        country_ids = [cid for cid in request.GET.getlist('country_id') if cid.isdigit()]
+        if not country_ids:
+            return JsonResponse([], safe=False)
+        categories = (
+            SurveyCategory.objects
+            .filter(country_id__in=country_ids)
+            .select_related('country')
+            .order_by('country__name', 'name')
+        )
+        return JsonResponse(
+            [{'id': c.id, 'name': f'{c.country.name} - {c.name}'} for c in categories],
+            safe=False,
+        )
+
+
+class AdvertiserForm(AdvertTargetingForm):
+    class Meta:
+        model = Advertiser
+        fields = '__all__'
+
+
+class DirectMarketingForm(AdvertTargetingForm):
+    class Meta:
+        model = DirectMarketing
+        fields = '__all__'
+
+
+class AdvertiserAdmin(AdvertTargetingAdminMixin, SafeDeleteAdminMixin, admin.ModelAdmin):
+    """Full add / edit / delete for the adverts shown in the survey ad slot."""
+    form = AdvertiserForm
+    list_display = ('name', 'target_countries', 'target_categories', 'is_active', 'image_preview', 'link', 'updated_at')
+    list_filter = ('is_active', 'countries', 'categories')
+    search_fields = ('name', 'description', 'url')
+    list_editable = ('is_active',)
+    list_per_page = 25
+    save_on_top = True
+    readonly_fields = ('image_preview', 'created_at', 'updated_at')
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'url', 'description', 'is_active')
+        }),
+        ('Advert Image', {
+            'fields': ('image', 'image_preview'),
+        }),
+        ('Targeting', {
+            'fields': ('countries', 'categories'),
+            'description': (
+                'Pick countries first - only countries that have surveys are listed - '
+                'then the category list fills with those countries\' survey categories. '
+                'Use "Select all" to pick every one, or "Clear" to leave a field empty, '
+                'which targets everything including countries or categories added later. '
+                'When several adverts match a survey, one is picked at random.'
+            ),
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def target_countries(self, obj):
+        names = [c.name for c in obj.countries.all()]
+        return ', '.join(names) if names else 'All countries'
+    target_countries.short_description = 'Countries'
+
+    def target_categories(self, obj):
+        names = [c.name for c in obj.categories.all()]
+        if not names:
+            return 'All categories'
+        if len(names) > 3:
+            return f"{', '.join(names[:3])} +{len(names) - 3} more"
+        return ', '.join(names)
+    target_categories.short_description = 'Categories'
+
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" style="max-height: 80px;" />', obj.image.url)
+        return 'No image'
+    image_preview.short_description = 'Preview'
+
+    def link(self, obj):
+        if obj.url:
+            return format_html('<a href="{}" target="_blank" rel="noopener">Open</a>', obj.url)
+        return '-'
+    link.short_description = 'Link'
+
+
+class DirectMarketingAdmin(AdvertTargetingAdminMixin, SafeDeleteAdminMixin, admin.ModelAdmin):
+    """Full add / edit / delete for the home page banner slider adverts."""
+    form = DirectMarketingForm
+    list_display = ('name', 'target_countries', 'target_categories', 'is_active', 'image_preview', 'link', 'updated_at')
+    list_filter = ('is_active', 'countries', 'categories')
+    search_fields = ('name', 'description', 'url')
+    list_editable = ('is_active',)
+    list_per_page = 25
+    save_on_top = True
+    readonly_fields = ('image_preview', 'created_at', 'updated_at')
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'url', 'description', 'is_active')
+        }),
+        ('Advert Image', {
+            'fields': ('image', 'image_preview'),
+            'description': 'Shown in the sliding panel on the home page banner.',
+        }),
+        ('Targeting', {
+            'fields': ('countries', 'categories'),
+            'description': (
+                'Pick countries first - only countries that have surveys are listed - '
+                'then the category list fills with those countries\' survey categories. '
+                'Use "Select all" to pick every one, or "Clear" to leave countries empty, '
+                'which shows the advert to everyone including signed-out visitors - the '
+                'usual choice for the home page, since signed-out visitors have no country '
+                'to match on. All matching adverts are shuffled into a random slide order '
+                'on every page load.'
+            ),
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def target_countries(self, obj):
+        names = [c.name for c in obj.countries.all()]
+        return ', '.join(names) if names else 'All countries'
+    target_countries.short_description = 'Countries'
+
+    def target_categories(self, obj):
+        names = [c.name for c in obj.categories.all()]
+        if not names:
+            return 'All categories'
+        if len(names) > 3:
+            return f"{', '.join(names[:3])} +{len(names) - 3} more"
+        return ', '.join(names)
+    target_categories.short_description = 'Categories'
+
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" style="max-height: 80px;" />', obj.image.url)
+        return 'No image'
+    image_preview.short_description = 'Preview'
+
+    def link(self, obj):
+        if obj.url:
+            return format_html('<a href="{}" target="_blank" rel="noopener">Open</a>', obj.url)
+        return '-'
+    link.short_description = 'Link'
+
+
 # Register models with the custom admin site
 survey_admin_site.register(User, CustomUserAdmin)
 survey_admin_site.register(Group, GroupAdmin)  # Using default GroupAdmin
@@ -1143,6 +1377,8 @@ survey_admin_site.register(JournalCategory, JournalCategoryAdmin)
 survey_admin_site.register(JournalPost, JournalPostAdmin)
 survey_admin_site.register(PrivacyPolicy, PrivacyPolicyAdmin)
 survey_admin_site.register(AboutUs, AboutUsAdmin)
+survey_admin_site.register(Advertiser, AdvertiserAdmin)
+survey_admin_site.register(DirectMarketing, DirectMarketingAdmin)
 
 # Register with the default admin site (only non-auth models)
 admin.site.register(SurveyCategory, SurveyCategoryAdmin)
@@ -1165,3 +1401,5 @@ admin.site.register(JournalCategory, JournalCategoryAdmin)
 admin.site.register(JournalPost, JournalPostAdmin)
 admin.site.register(PrivacyPolicy, PrivacyPolicyAdmin)
 admin.site.register(AboutUs, AboutUsAdmin)
+admin.site.register(Advertiser, AdvertiserAdmin)
+admin.site.register(DirectMarketing, DirectMarketingAdmin)

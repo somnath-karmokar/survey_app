@@ -8,7 +8,29 @@
                 <button type="button" id="ad-modal-close-btn" class="btn-close d-none" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
-                <div id="bitlabs-ad-container" style="width:100%; min-width:300px; min-height:250px;"></div>
+                {% if advertiser %}
+                    {% comment %}
+                        House advertiser, picked at random from those matching
+                        this survey's category and the user's country.
+                    {% endcomment %}
+                    <a href="{{ advertiser.url }}" target="_blank" rel="noopener sponsored"
+                       class="advertiser-ad d-block text-decoration-none">
+                        {% if advertiser.image %}
+                        <img src="{{ advertiser.image.url }}" alt="{{ advertiser.name }}"
+                             class="advertiser-ad-img">
+                        {% endif %}
+                        <div class="advertiser-ad-name">{{ advertiser.name }}</div>
+                        {% if advertiser.description %}
+                        <p class="advertiser-ad-desc">{{ advertiser.description }}</p>
+                        {% endif %}
+                        <span class="advertiser-ad-cta">
+                            Visit {{ advertiser.name }} <i class="fas fa-arrow-up-right-from-square ms-1"></i>
+                        </span>
+                    </a>
+                {% else %}
+                    {# No advertiser matched - fall back to the BitLabs widget. #}
+                    <div id="bitlabs-ad-container" style="width:100%; min-width:300px; min-height:250px;"></div>
+                {% endif %}
                 <p id="ad-modal-hint" class="text-muted mt-3 small d-none">
                     <i class="fas fa-arrow-up me-1"></i> Click on the advertisement above to unlock the Continue button
                 </p>
@@ -17,16 +39,19 @@
                 <span id="ad-modal-status" class="small text-muted"></span>
                 <!-- Hidden until ad is clicked -->
                 <button type="button" id="ad-modal-continue-btn" class="btn btn-primary d-none" data-bs-dismiss="modal">
-                    <i class="fas fa-arrow-right me-1"></i>Continue Survey
+                    <i class="fas fa-arrow-right me-1"></i>Continue
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- BitLabs (bitlabs.ai) ad widget -->
+{% if not advertiser %}
+<!-- BitLabs (bitlabs.ai) ad widget - only loaded when no house advertiser matched,
+     so its global stylesheet cannot interfere with the page otherwise. -->
 <script type="module" src="https://sdk.bitlabs.ai/bitlabs-sdk-v1.0.0.js"></script>
 <link rel="stylesheet" href="https://sdk.bitlabs.ai/bitlabs-sdk-v1.0.0.css">
+{% endif %}
 <style>
     /* The BitLabs stylesheet resets button styling globally; re-assert Bootstrap's
        primary button look for the modal's own buttons so they stay visible. */
@@ -38,7 +63,40 @@
     #advertisementModal #ad-modal-close-btn {
         opacity: .5;
     }
+
+    /* ---- House advertiser ---- */
+    #advertisementModal .advertiser-ad { color: inherit; }
+    #advertisementModal .advertiser-ad-img {
+        /* Width is the only constraint, so the advert keeps its aspect ratio. */
+        max-width: 100%;
+        width: auto;
+        height: auto;
+        max-height: 260px;
+        border-radius: 8px;
+        margin-bottom: 14px;
+    }
+    #advertisementModal .advertiser-ad-name {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #123f4d;
+    }
+    #advertisementModal .advertiser-ad-desc {
+        font-size: 0.9rem;
+        color: #55676d;
+        margin: 6px 0 12px;
+    }
+    #advertisementModal .advertiser-ad-cta {
+        display: inline-block;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #0d6efd;
+    }
+    #advertisementModal .advertiser-ad:hover .advertiser-ad-cta { text-decoration: underline; }
+    @media (max-width: 480px) {
+        #advertisementModal .advertiser-ad-img { max-height: 190px; }
+    }
 </style>
+{% if not advertiser %}
 <script>
 (function() {
     var container = document.getElementById('bitlabs-ad-container');
@@ -57,3 +115,4 @@
     initBitlabs(25); // SDK script is loaded as a module, so retry briefly until it's ready
 })();
 </script>
+{% endif %}

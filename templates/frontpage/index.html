@@ -74,6 +74,79 @@
             min-height: auto;
         }
     }
+
+    /* ---------- Direct marketing adverts inside the banner slider ----------
+       .banner-slider sets pointer-events:none and lays a gradient over the
+       slides at z-index 2, so the advert has to re-enable clicks and sit
+       above that overlay to be usable. */
+    .banner-slider .dm-ad-slide {
+        pointer-events: auto;
+        position: relative;
+        z-index: 3;
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+        text-decoration: none;
+        overflow: hidden;
+    }
+    /* Fills the 791x320 slide. `contain` keeps the whole advert visible and
+       uncropped whatever shape it was uploaded at. */
+    .banner-slider .dm-ad-slide img {
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        object-position: center;
+        display: block;
+        transition: transform 0.35s ease;
+    }
+    .banner-slider .dm-ad-slide:hover img { transform: scale(1.03); }
+    /* Overlaid, so the image keeps the full height of the slide. */
+    .dm-ad-cta {
+        position: absolute;
+        bottom: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        background: #f45918;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1;
+        white-space: nowrap;
+        padding: 9px 18px;
+        border-radius: 30px;
+        box-shadow: 0 6px 16px rgba(244, 89, 24, 0.45);
+        transition: background 0.2s ease;
+    }
+    .banner-slider .dm-ad-slide:hover .dm-ad-cta { background: #d8480d; }
+    /* Sits on the right: the banner's left half is covered by
+       .banner-four-bg::before (z-index 6) and the darkest end of the
+       .banner-slider:after gradient, which washed the badge out over there. */
+    .dm-ad-badge {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 4;
+        background: rgba(0, 0, 0, 0.72);
+        color: #fff;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 4px 10px;
+        border-radius: 30px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    }
+    @media (max-width: 767px) {
+        .dm-ad-badge { top: 8px; right: 8px; font-size: 9px; padding: 3px 8px; }
+        .dm-ad-cta { font-size: 12px; padding: 8px 15px; bottom: 10px; }
+    }
+
 </style>
 {% endblock %}
 
@@ -94,6 +167,25 @@
             <!-- Swiper -->
             <div class="swiper banner-four-slider overflow-hidden">
                 <div class="swiper-wrapper slider">
+                    {% comment %}
+                        Direct marketing adverts slide here alongside the default
+                        banner images. The order is randomised server-side on
+                        every page load.
+                    {% endcomment %}
+                    {% for ad in direct_marketing_ads %}
+                    <div class="swiper-slide">
+                        <a href="{{ ad.url }}" target="_blank" rel="noopener sponsored"
+                           class="dm-ad-slide" title="{{ ad.name }}{% if ad.description %} - {{ ad.description }}{% endif %}">
+                            {% if ad.image %}
+                            <img src="{{ ad.image.url }}" alt="{{ ad.name }}">
+                            {% endif %}
+                            <span class="dm-ad-cta">
+                                Visit {{ ad.name }} <i class="fa fa-arrow-right" aria-hidden="true"></i>
+                            </span>
+                            <span class="dm-ad-badge">Sponsored</span>
+                        </a>
+                    </div>
+                    {% endfor %}
                     <div class="swiper-slide">
                         <img src="{% static 'images/banner_img.jpg' %}" alt="home">
                     </div>

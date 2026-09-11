@@ -271,4 +271,39 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+
+{% include 'surveys/includes/advertisement_modal.html' %}
+{% if show_ad %}
+<script>
+// Same behaviour as the survey ad modal: opens automatically, and the Continue
+// button unlocks after 3 seconds.
+document.addEventListener('DOMContentLoaded', function() {
+    var adModalEl = document.getElementById('advertisementModal');
+    if (!adModalEl) return;
+
+    var modal = new bootstrap.Modal(adModalEl, {
+        backdrop: 'static',
+        keyboard: false
+    });
+    modal.show();
+
+    var closeBtn    = document.getElementById('ad-modal-close-btn');
+    var continueBtn = document.getElementById('ad-modal-continue-btn');
+    var statusEl    = document.getElementById('ad-modal-status');
+    var adUnlocked  = false;
+
+    function unlockContinue() {
+        if (adUnlocked) return;
+        adUnlocked = true;
+        if (closeBtn)    closeBtn.classList.remove('d-none');
+        if (continueBtn) continueBtn.classList.remove('d-none');
+        if (statusEl) statusEl.textContent = '';
+    }
+
+    adModalEl.addEventListener('shown.bs.modal', function() {
+        setTimeout(unlockContinue, 3000);
+    });
+});
+</script>
+{% endif %}
 {% endblock %}

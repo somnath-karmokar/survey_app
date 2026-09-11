@@ -11,7 +11,40 @@ from .models import (
 from django.contrib.auth.forms import UserChangeForm
 from django.contrib.auth import get_user_model
 from django.core.files.images import get_image_dimensions
+import re
 User = get_user_model()
+
+
+# --- Withdrawal field validation helpers -------------------------------------
+# Names allow the punctuation real names contain (O'Brien, Anne-Marie, J. Smith)
+# but no digits or symbols; account identifiers are digits only once the
+# separators people naturally type (spaces, hyphens) have been stripped.
+NAME_ALLOWED_RE = re.compile(r"^[A-Za-z][A-Za-z .'-]*$")
+SEPARATORS_RE = re.compile(r'[\s-]+')
+
+
+def _clean_name_field(value, label):
+    """Letters only, plus spaces/hyphens/apostrophes/periods used in real names."""
+    if not value:
+        return value
+    value = value.strip()
+    if not NAME_ALLOWED_RE.match(value):
+        raise forms.ValidationError(
+            f'{label} may only contain letters, spaces, hyphens and apostrophes.'
+        )
+    return value
+
+
+def _clean_digits_field(value, label, exact_length=None):
+    """Digits only. Spaces and hyphens are stripped first (e.g. '12-34-56')."""
+    if not value:
+        return value
+    cleaned = SEPARATORS_RE.sub('', value.strip())
+    if not cleaned.isdigit():
+        raise forms.ValidationError(f'{label} may only contain numbers.')
+    if exact_length and len(cleaned) != exact_length:
+        raise forms.ValidationError(f'{label} must be exactly {exact_length} digits.')
+    return cleaned
 
 
 class WalletWithdrawalRequestForm(forms.ModelForm):
@@ -25,21 +58,23 @@ class WalletWithdrawalRequestForm(forms.ModelForm):
             'gift_card_email', 'notes'
         )
         widgets = {
-            'full_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Name on bank/payment account'}),
+            # inputmode/pattern give phones a numeric keypad and the browser an
+            # early hint; the real enforcement is the clean_* methods below.
+            'full_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Name on bank/payment account', 'pattern': "[A-Za-z][A-Za-z .'-]*", 'title': 'Letters only'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Your email address'}),
             'amount': forms.NumberInput(attrs={'class': 'form-control', 'min': '0.01', 'step': '0.01'}),
             'country': forms.Select(attrs={'class': 'form-select', 'data-withdraw-country': 'true'}),
             'payment_method': forms.Select(attrs={'class': 'form-select', 'data-payment-method': 'true'}),
             'paypal_email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'PayPal email address'}),
-            'bank_account_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Account holder name'}),
+            'bank_account_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Account holder name', 'pattern': "[A-Za-z][A-Za-z .'-]*", 'title': 'Letters only'}),
             'bank_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Bank name'}),
-            'bank_account_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Account number'}),
-            'routing_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '9 digit routing number'}),
-            'sort_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '6 digit sort code'}),
-            'iban': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'IBAN'}),
-            'nuban_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '10 digit NUBAN'}),
-            'transit_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '5 digit transit number'}),
-            'institution_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '3 digit institution number'}),
+            'bank_account_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Account number', 'inputmode': 'numeric', 'title': 'Numbers only'}),
+            'routing_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '9 digit routing number', 'inputmode': 'numeric', 'title': '9 digits'}),
+            'sort_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '6 digit sort code', 'inputmode': 'numeric', 'title': '6 digits'}),
+            'iban': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'IBAN', 'title': 'Letters and numbers only'}),
+            'nuban_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '10 digit NUBAN', 'inputmode': 'numeric', 'title': '10 digits'}),
+            'transit_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '5 digit transit number', 'inputmode': 'numeric', 'title': '5 digits'}),
+            'institution_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '3 digit institution number', 'inputmode': 'numeric', 'title': '3 digits'}),
             'gift_card_brand': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Amazon, Flipkart, etc.'}),
             'gift_card_email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email for gift card delivery'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Optional notes for admin'}),
@@ -71,6 +106,52 @@ class WalletWithdrawalRequestForm(forms.ModelForm):
         if amount and amount > wallet_balance:
             raise forms.ValidationError('Withdrawal amount cannot be greater than your current wallet balance.')
         return amount
+
+    # --- Names: letters only -------------------------------------------------
+    def clean_full_name(self):
+        return _clean_name_field(self.cleaned_data.get('full_name'), 'Full name')
+
+    def clean_bank_account_name(self):
+        return _clean_name_field(self.cleaned_data.get('bank_account_name'), 'Account holder name')
+
+    # --- Account identifiers: digits only ------------------------------------
+    def clean_bank_account_number(self):
+        # Length varies by bank and country, so only the digits are enforced.
+        return _clean_digits_field(self.cleaned_data.get('bank_account_number'), 'Account number')
+
+    def clean_routing_number(self):
+        return _clean_digits_field(self.cleaned_data.get('routing_number'), 'Routing number', 9)
+
+    def clean_sort_code(self):
+        return _clean_digits_field(self.cleaned_data.get('sort_code'), 'Sort code', 6)
+
+    def clean_nuban_number(self):
+        return _clean_digits_field(self.cleaned_data.get('nuban_number'), 'NUBAN account number', 10)
+
+    def clean_transit_number(self):
+        return _clean_digits_field(self.cleaned_data.get('transit_number'), 'Transit number', 5)
+
+    def clean_institution_number(self):
+        return _clean_digits_field(self.cleaned_data.get('institution_number'), 'Institution number', 3)
+
+    # --- IBAN: general alphanumeric -----------------------------------------
+    def clean_iban(self):
+        """IBANs are letters and digits only, conventionally written in groups
+        of four. Spaces are stripped and the value is upper-cased for storage.
+        """
+        iban = self.cleaned_data.get('iban')
+        if not iban:
+            return iban
+        cleaned = SEPARATORS_RE.sub('', iban.strip()).upper()
+        if not cleaned.isalnum():
+            raise forms.ValidationError('IBAN may only contain letters and numbers.')
+        if not (15 <= len(cleaned) <= 34):
+            raise forms.ValidationError('IBAN must be between 15 and 34 characters.')
+        if not re.match(r'^[A-Z]{2}[0-9]{2}', cleaned):
+            raise forms.ValidationError(
+                'IBAN must start with a 2-letter country code followed by 2 check digits.'
+            )
+        return cleaned
 
     def clean(self):
         cleaned_data = super().clean()
