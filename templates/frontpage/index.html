@@ -168,30 +168,33 @@
             <div class="swiper banner-four-slider overflow-hidden">
                 <div class="swiper-wrapper slider">
                     {% comment %}
-                        Direct marketing adverts slide here alongside the default
-                        banner images. The order is randomised server-side on
-                        every page load.
+                        When there are active direct marketing adverts, only the
+                        adverts slide here (order randomised server-side on every
+                        page load). With no adverts, the default banners show.
                     {% endcomment %}
-                    {% for ad in direct_marketing_ads %}
-                    <div class="swiper-slide">
-                        <a href="{{ ad.url }}" target="_blank" rel="noopener sponsored"
-                           class="dm-ad-slide" title="{{ ad.name }}{% if ad.description %} - {{ ad.description }}{% endif %}">
-                            {% if ad.image %}
-                            <img src="{{ ad.image.url }}" alt="{{ ad.name }}">
-                            {% endif %}
-                            <span class="dm-ad-cta">
-                                Visit {{ ad.name }} <i class="fa fa-arrow-right" aria-hidden="true"></i>
-                            </span>
-                            <span class="dm-ad-badge">Sponsored</span>
-                        </a>
-                    </div>
-                    {% endfor %}
-                    <div class="swiper-slide">
-                        <img src="{% static 'images/banner_img.jpg' %}" alt="home">
-                    </div>
-                    <div class="swiper-slide">
-                        <img src="{% static 'images/banner_img2.jpg' %}" alt="home">
-                    </div>
+                    {% if direct_marketing_ads %}
+                        {% for ad in direct_marketing_ads %}
+                        <div class="swiper-slide">
+                            <a href="{{ ad.url }}" target="_blank" rel="noopener sponsored"
+                               class="dm-ad-slide" title="{{ ad.name }}{% if ad.description %} - {{ ad.description }}{% endif %}">
+                                {% if ad.image %}
+                                <img src="{{ ad.image.url }}" alt="{{ ad.name }}">
+                                {% endif %}
+                                <span class="dm-ad-cta">
+                                    Visit {{ ad.name }} <i class="fa fa-arrow-right" aria-hidden="true"></i>
+                                </span>
+                                <span class="dm-ad-badge">Sponsored</span>
+                            </a>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="swiper-slide">
+                            <img src="{% static 'images/banner_img.jpg' %}" alt="home">
+                        </div>
+                        <div class="swiper-slide">
+                            <img src="{% static 'images/banner_img2.jpg' %}" alt="home">
+                        </div>
+                    {% endif %}
                 </div>
                 <div class="banner-four-pagination">
                     <div class="swiper-pagination"></div>
@@ -329,4 +332,22 @@
         </div>
     </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{% if direct_marketing_ads|length == 1 %}
+<script>
+// With a single advert the banner Swiper (loop + autoplay, set up in custom.js)
+// would keep sliding that one advert into its own clone. Hold it still instead.
+(function () {
+    var el = document.querySelector('.banner-four-slider');
+    if (!el || !el.swiper) return;
+    if (el.swiper.autoplay) el.swiper.autoplay.stop();
+    el.swiper.allowTouchMove = false;
+    var pagination = el.querySelector('.banner-four-pagination');
+    if (pagination) pagination.style.display = 'none';
+})();
+</script>
+{% endif %}
 {% endblock %}
