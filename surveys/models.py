@@ -14,6 +14,8 @@ from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
 from decimal import Decimal
 import logging
+import os
+import random
 import re
 
 logger = logging.getLogger(__name__)
@@ -1144,3 +1146,222 @@ class AboutUs(models.Model):
 
     def __str__(self):
         return self.title
+
+
+ADVERT_IMAGE_MAX_SIZE = 800  # px on the longest side
+
+
+def resize_advert_image(field_file, max_size=ADVERT_IMAGE_MAX_SIZE):
+    """Shrink an oversized advert upload in place, keeping its aspect ratio.
+
+    Advert images display at a few hundred pixels, so a multi-megabyte photo
+    is wasted bandwidth - especially on mobile, where the modal can look blank
+    while it downloads. Only images larger than `max_size` are touched.
+    """
+    if not field_file:
+        return
+    try:
+        path = field_file.path
+    except (NotImplementedError, ValueError):
+        return  # storage backend without local files (e.g. S3)
+    if not os.path.exists(path):
+        return
+
+    try:
+        from PIL import Image
+
+        with Image.open(path) as img:
+            image_format = img.format
+            if img.width <= max_size and img.height <= max_size:
+                return
+            resized = img.copy()
+            resized.thumbnail((max_size, max_size), Image.LANCZOS)
+
+        if image_format == 'JPEG':
+            resized.save(path, 'JPEG', quality=85, optimize=True)
+        elif image_format == 'PNG':
+            resized.save(path, 'PNG', optimize=True)
+        else:
+            resized.save(path, image_format)
+    except Exception:
+        # A failed resize must never block saving the advert itself.
+        logger.exception('Could not resize advert image: %s', path)
+
+
+def advertiser_image_upload_path(instance, filename):
+    # File will be uploaded to MEDIA_ROOT/advertiser_images/<id or 'new'>/<filename>
+    return f'advertiser_images/{instance.pk or "new"}/{filename}'
+
+
+class Advertiser(models.Model):
+    """A house advertiser shown in the survey advertisement slot.
+
+    Targeting: an advertiser is eligible for a survey when its category and
+    country both match (leaving either blank means "any"), and one eligible
+    advertiser is then picked at random.
+    """
+    name = models.CharField(max_length=200)
+    url = models.URLField(help_text='Where the advert links to when clicked.')
+    image = models.ImageField(upload_to=advertiser_image_upload_path, blank=True, null=True)
+    description = models.TextField(blank=True, help_text='Short line shown under the advert image.')
+    countries = models.ManyToManyField(
+        Country,
+        blank=True,
+        related_name='advertiser_targets',
+        help_text='Show only to users in these countries. Leave empty to show in every country.',
+    )
+    categories = models.ManyToManyField(
+        SurveyCategory,
+        blank=True,
+        related_name='advertiser_targets',
+        help_text='Show only on surveys in these categories. Leave empty to show in every category.',
+    )
+    is_active = models.BooleanField(default=True, help_text='Uncheck to stop showing this advert.')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Advertiser'
+        verbose_name_plural = 'Advertisers'
+
+    def __str__(self):
+        if not self.pk:
+            return self.name
+        # Summarised, not listed - an advert can target hundreds of categories.
+        countries = self.countries.count()
+        categories = self.categories.count()
+        target = 'all countries' if not countries else f'{countries} countr{"y" if countries == 1 else "ies"}'
+        scope = 'all categories' if not categories else f'{categories} categor{"y" if categories == 1 else "ies"}'
+        return f"{self.name} ({target}, {scope})"
+
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Downscale oversized uploads so the ad slot stays light to load.
+        resize_advert_image(self.image)
+
+    @classmethod
+    def pick_for(cls, survey=None, user=None):
+        """Pick one random active advertiser for this survey and user.
+
+        An advert matches when the survey's category is among its categories
+        (or it has none, meaning every category), and likewise for the user's
+        country - so an untargeted advert stays eligible everywhere.
+
+        If nothing matches - a user with no country set, say - any active
+        advert is shown rather than leaving the ad slot empty. Targeting is
+        therefore a preference, not a hard rule.
+        """
+        active = cls.objects.filter(is_active=True)
+        queryset = active
+
+        category = getattr(survey, 'category', None)
+        if category is not None:
+            queryset = queryset.filter(
+                models.Q(categories=category) | models.Q(categories__isnull=True)
+            )
+        # With no category context at all (polls, for instance) category
+        # targeting simply does not apply, so nothing is filtered on it.
+
+        country = getattr(getattr(user, 'profile', None), 'country', None)
+        if country is not None:
+            queryset = queryset.filter(
+                models.Q(countries=country) | models.Q(countries__isnull=True)
+            )
+        else:
+            queryset = queryset.filter(countries__isnull=True)
+
+        # Joining two M2Ms can repeat rows, so collect distinct ids and pick in
+        # Python. (Postgres rejects DISTINCT combined with ORDER BY RANDOM().)
+        advert_ids = list(queryset.values_list('pk', flat=True).distinct())
+        if not advert_ids:
+            # Nothing targeted this user - show any active advert rather than
+            # an empty ad slot.
+            advert_ids = list(active.values_list('pk', flat=True).distinct())
+        if not advert_ids:
+            return None
+        return cls.objects.filter(pk=random.choice(advert_ids)).first()
+
+
+def direct_marketing_image_upload_path(instance, filename):
+    # File will be uploaded to MEDIA_ROOT/direct_marketing_images/<id or 'new'>/<filename>
+    return f'direct_marketing_images/{instance.pk or "new"}/{filename}'
+
+
+class DirectMarketing(models.Model):
+    """A direct-marketing advert shown in the sliding panel on the home banner.
+
+    Same shape as Advertiser, but these are shown on the public home page
+    rather than inside a survey, so they rotate randomly through a slider
+    instead of being picked one at a time.
+    """
+    name = models.CharField(max_length=200)
+    url = models.URLField(help_text='Where the advert links to when clicked.')
+    image = models.ImageField(upload_to=direct_marketing_image_upload_path, blank=True, null=True)
+    description = models.TextField(blank=True, help_text='Short line shown under the advert name.')
+    countries = models.ManyToManyField(
+        Country,
+        blank=True,
+        related_name='direct_marketing_targets',
+        help_text='Show only to signed-in users in these countries. Leave empty to show to everyone, including signed-out visitors.',
+    )
+    categories = models.ManyToManyField(
+        SurveyCategory,
+        blank=True,
+        related_name='direct_marketing_targets',
+        help_text='Optional. Recorded for your own reporting - the home page has no category, so this does not affect where the advert shows.',
+    )
+    is_active = models.BooleanField(default=True, help_text='Uncheck to stop showing this advert.')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Direct Marketing Advert'
+        verbose_name_plural = 'Direct Marketing Adverts'
+
+    def __str__(self):
+        if not self.pk:
+            return self.name
+        countries = self.countries.count()
+        target = 'all countries' if not countries else f'{countries} countr{"y" if countries == 1 else "ies"}'
+        return f"{self.name} ({target})"
+
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Downscale oversized uploads so the ad slot stays light to load.
+        resize_advert_image(self.image)
+
+    @classmethod
+    def slides_for(cls, user=None, limit=8):
+        """Active adverts for the home banner slider, in random order.
+
+        A signed-in user with a country sees adverts for that country plus the
+        blank-country ones; anyone whose country is unknown (including
+        signed-out visitors) sees only the blank-country adverts, since there
+        is nothing to target them on.
+        """
+        active = cls.objects.filter(is_active=True)
+        queryset = active
+
+        country = getattr(getattr(user, 'profile', None), 'country', None)
+        if country is not None:
+            queryset = queryset.filter(
+                models.Q(countries=country) | models.Q(countries__isnull=True)
+            )
+        else:
+            queryset = queryset.filter(countries__isnull=True)
+
+        # Distinct ids first (the M2M join can repeat rows), then shuffle in
+        # Python so the slide order differs on every page load.
+        advert_ids = list(queryset.values_list('pk', flat=True).distinct())
+        if not advert_ids:
+            # Nothing targeted this visitor - most home page traffic is signed
+            # out and so has no country - so fall back to any active advert
+            # rather than showing no adverts at all.
+            advert_ids = list(active.values_list('pk', flat=True).distinct())
+        random.shuffle(advert_ids)
+        adverts = cls.objects.in_bulk(advert_ids[:limit])
+        return [adverts[pk] for pk in advert_ids[:limit] if pk in adverts]

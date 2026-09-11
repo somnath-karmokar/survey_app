@@ -13,7 +13,7 @@ from django.template.loader import render_to_string
 from django.core.mail import send_mail, EmailMultiAlternatives
 from django.utils.html import strip_tags
 
-from .models import Survey, SurveyCategory, Question, UserSurveyProgress, SurveyResponse, Answer, LuckyDrawEntry
+from .models import Survey, SurveyCategory, Question, UserSurveyProgress, SurveyResponse, Answer, LuckyDrawEntry, Advertiser
 from .views import should_show_advertisement
 from .forms import SurveyResponseForm
 from .emails import send_survey_completion_email, send_lucky_draw_entry_email, send_lucky_draw_winner_email
@@ -164,7 +164,8 @@ def survey_detail(request, survey_id, question_index=0):
                     'total_questions': total_questions,
                     'progress': int(((question_index + 1) / total_questions) * 100),
                     'is_last_question': question_index == total_questions - 1,
-                    'show_ad': True
+                    'show_ad': True,
+                    'advertiser': Advertiser.pick_for(survey, request.user),
                 })
             
             # If not showing ad, proceed to next question or submit
@@ -280,7 +281,8 @@ def survey_detail(request, survey_id, question_index=0):
         'total_questions': total_questions,
         'progress': progress,
         'is_last_question': question_index == total_questions - 1,
-        'show_ad': show_ad
+        'show_ad': show_ad,
+        'advertiser': Advertiser.pick_for(survey, request.user) if show_ad else None,
     })
 
 @login_required

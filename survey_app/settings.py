@@ -386,7 +386,7 @@ LUCKY_DRAW_CONFIG = {
     'SURVEYS_REQUIRED': 2,  # Number of same-level surveys to complete
     'POLLS_REQUIRED': 1,  # Number of completed polls required to play the lucky draw
     'NUMBER_RANGE_START': 1,
-    'NUMBER_RANGE_END': 31,
+    'NUMBER_RANGE_END': 21,
     'SHOW_NUMBERS_FOR_TESTING': True,  # Set to False after testing to hide lucky draw numbers
     'PRIZES': [  # You can customize the prizes
         # "₹1000 Amazon Voucher",
