@@ -161,9 +161,11 @@
                     </div>
                     <!-- Show result if already played -->
                     {% if has_played %}
-                    <div class="alert {% if last_result.is_winner %}alert-success{% else %}alert-danger{% endif %}">
+                    <div class="alert {% if last_result.is_winner %}alert-success{% elif last_result.guessed_number == last_result.winning_number %}alert-warning{% else %}alert-danger{% endif %}">
                         {% if last_result.is_winner %}
                             <i class="fas fa-trophy me-2"></i> Congratulations! You found the lucky number {{ last_result.winning_number }}!
+                        {% elif last_result.guessed_number == last_result.winning_number %}
+                            <i class="fas fa-star me-2"></i> You picked the lucky number {{ last_result.winning_number }}! This month's prize winners for your country have already all been announced, so this one didn't win — you're back in for next month.
                         {% else %}
                             Sorry! You selected {{ last_result.guessed_number }} but the lucky number was {{ last_result.winning_number }}. Better luck next time!
                         {% endif %}
@@ -277,6 +279,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (result.is_winner) {
                     resultMessage.className = 'alert alert-success';
                     resultText.innerHTML = `<i class="fas fa-trophy me-2"></i> Congratulations! You selected ${result.guessed_number} and won ${result.prize || 'the lucky draw'}!`;
+                } else if (result.monthly_cap_reached) {
+                    resultMessage.className = 'alert alert-warning';
+                    resultText.innerHTML = `<i class="fas fa-star me-2"></i> You picked the lucky number ${result.winning_number}! This month's prize winners for your country have already all been announced, so this one didn't win — you're back in for next month.`;
                 } else {
                     resultMessage.className = 'alert alert-danger';
                     resultText.textContent = `Sorry! You selected ${result.guessed_number}, but the lucky number was ${result.winning_number}. Better luck next time!`;

@@ -34,13 +34,13 @@ class CategoryListView(ListView):
             
             # If user has a country, filter by it
             if user_country:
-                return queryset.filter(country=user_country)
+                return queryset.filter(country=user_country).order_by('?')
                 
         except Exception as e:
             print(f"Error getting user country: {str(e)}")
         
         # Return all categories if no country filter applies
-        return queryset.filter(parent__isnull=True).order_by('order', 'name')
+        return queryset.filter(parent__isnull=True).order_by('?')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
