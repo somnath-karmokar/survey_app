@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 import os
+from decimal import Decimal
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -190,11 +191,11 @@ USE_TZ = True
 SITE_NAME = 'Sudraw'
 SITE_URL = 'https://sudraw.com'
 
-# Milestone payouts are switched off - there are no milestones for now.
-# The MILESTONE_REWARDS definitions below are kept (rather than deleted) so
-# payouts can be resumed by flipping this back to True. Existing
-# MilestoneAchievement records stay readable in the admin either way.
-MILESTONE_REWARDS_ENABLED = False
+# Milestone payouts: currently only "every 100 surveys completed" is active.
+# polls_completed and points_earned milestones stay paused - add an entry
+# back below to switch one on. Existing MilestoneAchievement records stay
+# readable in the admin either way.
+MILESTONE_REWARDS_ENABLED = True
 
 MILESTONE_REWARDS = (
     {
@@ -203,19 +204,21 @@ MILESTONE_REWARDS = (
         'prize_name': 'Wallet Reward',
         'repeat_interval': 100,
         'wallet_reward': True,
+        'wallet_reward_amount': Decimal('1.00'),  # $1 USD / £1 GBP per 100 surveys
+        'excluded_countries': ('NG',),  # no survey milestones for Nigeria users
     },
-    {
-        'milestone_type': 'polls_completed',
-        'threshold': 100,
-        'prize_name': 'Wallet Reward',
-        'repeat_interval': 100,
-        'wallet_reward': True,
-    },
-    {
-        'milestone_type': 'points_earned',
-        'threshold': 2200,
-        'prize_name': '2200 Points Achievement Prize',
-    },
+    # {
+    #     'milestone_type': 'polls_completed',
+    #     'threshold': 100,
+    #     'prize_name': 'Wallet Reward',
+    #     'repeat_interval': 100,
+    #     'wallet_reward': True,
+    # },
+    # {
+    #     'milestone_type': 'points_earned',
+    #     'threshold': 2200,
+    #     'prize_name': '2200 Points Achievement Prize',
+    # },
 )
 
 # Static files (CSS, JavaScript, Images)

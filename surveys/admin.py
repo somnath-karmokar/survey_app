@@ -169,10 +169,11 @@ class PollResponseAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
 
 
 class CountryLuckyDrawConfigAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('country', 'poll_count_required', 'prize_display', 'currency_code', 'is_active', 'updated_at')
+    list_display = ('country', 'poll_count_required', 'prize_display', 'currency_code', 'monthly_winner_cap', 'is_active', 'updated_at')
     list_filter = ('is_active', 'currency_code', 'country')
     search_fields = ('country__name', 'country__code', 'currency_code')
     list_select_related = ('country',)
+    list_editable = ('monthly_winner_cap',)
 
     def prize_display(self, obj):
         return obj.get_prize_display()

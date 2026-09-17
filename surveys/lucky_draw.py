@@ -33,27 +33,42 @@ class LuckyDrawView(View):
             return config.poll_count_required
         return 5
 
-    def get_prize_for_user(self, user):
+    def get_prize_amount_and_currency(self, user):
+        """(amount, currency_code, currency_symbol) for this user's country.
+
+        CountryLuckyDrawConfig is the single source of truth when a row
+        exists for the user's country; both the prize text shown on the page
+        and the actual wallet credit are derived from it, so they can never
+        disagree. Falls back to the historical defaults when no config row
+        exists for that country.
+        """
         config = self.get_user_country_config(user)
         if config:
-            return config.get_prize_display()
+            return config.prize_amount, config.currency_code, config.currency_symbol
 
         profile = getattr(user, 'profile', None)
         country_code = str(getattr(getattr(profile, 'country', None), 'code', '') or '').upper()
         if country_code in ['US', 'CA']:
-            return '$1 USD'
+            return Decimal('1.00'), 'USD', '$'
         if country_code == 'GB':
-            return '\u00a31 GBP'
+            return Decimal('1.00'), 'GBP', '\u00a3'
         if country_code == 'NG':
-            return '$0.50 USD'
-        return '$1 USD'
+            return Decimal('0.50'), 'USD', '$'
+        return Decimal('1.00'), 'USD', '$'
 
-    def get_wallet_credit_amount(self, user):
-        profile = getattr(user, 'profile', None)
-        country_code = str(getattr(getattr(profile, 'country', None), 'code', '') or '').upper()
-        if country_code == 'NG':
-            return Decimal('0.50')
-        return Decimal('1.00')
+    def get_prize_for_user(self, user):
+        amount, currency_code, currency_symbol = self.get_prize_amount_and_currency(user)
+        amount_display = int(amount) if amount == amount.to_integral() else f"{amount:.2f}"
+        return f"{currency_symbol}{amount_display} {currency_code}".strip()
+
+    def get_monthly_winner_count(self, country, at=None):
+        at = at or timezone.now()
+        return LuckyDrawEntry.objects.filter(
+            is_winner=True,
+            created_at__year=at.year,
+            created_at__month=at.month,
+            user__profile__country=country,
+        ).count()
 
     def credit_winner_wallet(self, entry):
         if not entry.is_winner:
@@ -66,7 +81,7 @@ class LuckyDrawView(View):
         if WalletTransaction.objects.filter(lucky_draw_entry=entry).exists():
             return Decimal('0.00')
 
-        amount = self.get_wallet_credit_amount(entry.user)
+        amount, currency_code, currency_symbol = self.get_prize_amount_and_currency(entry.user)
         with transaction.atomic():
             profile, _ = UserProfile.objects.select_for_update().get_or_create(user=entry.user)
             UserProfile.objects.filter(pk=profile.pk).update(wallet_balance=F('wallet_balance') + amount)
@@ -75,8 +90,8 @@ class LuckyDrawView(View):
                 profile=profile,
                 transaction_type=WalletTransaction.TRANSACTION_TYPE_CREDIT,
                 amount=amount,
-                currency_code=profile.wallet_currency_code,
-                currency_symbol=profile.wallet_currency_symbol,
+                currency_code=currency_code,
+                currency_symbol=currency_symbol,
                 description=f"{entry.get_draw_type_display()} lucky draw win",
                 lucky_draw_entry=entry,
                 balance_after=profile.wallet_balance,
@@ -369,6 +384,24 @@ class LuckyDrawView(View):
         request.session.pop('lucky_draw_number', None)
 
         is_winner = (number == winning_number)
+
+        # A country with a monthly winner cap (see CountryLuckyDrawConfig)
+        # stops paying out once that many winners have already been drawn
+        # this calendar month — the correct number was still picked (the
+        # stored guessed_number/winning_number reflect that), but it does
+        # not count as a win once the cap is reached.
+        # Best-effort only: two correct guesses arriving at the same instant
+        # (count-then-create, not locked) could both slip through when the
+        # cap is one away. At 4 winners/month on this site's traffic that
+        # risk is negligible; a stricter guard would need a per-country lock.
+        monthly_cap_reached = False
+        if is_winner:
+            country_config = self.get_user_country_config(request.user)
+            cap = getattr(country_config, 'monthly_winner_cap', None)
+            if cap and self.get_monthly_winner_count(country_config.country) >= cap:
+                is_winner = False
+                monthly_cap_reached = True
+
         prize = self.get_prize_for_user(request.user) if is_winner else None
 
         # Create entry
@@ -413,6 +446,7 @@ class LuckyDrawView(View):
             'draw_type': draw_type,
             'remaining_draw_types': remaining_draw_types,
             'plays_remaining': plays_remaining,
+            'monthly_cap_reached': monthly_cap_reached,
         })
 
     def is_eligible(self, user, draw_type=None):

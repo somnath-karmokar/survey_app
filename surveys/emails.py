@@ -66,7 +66,7 @@ def send_lucky_draw_entry_email(user, entry):
 
 def send_lucky_draw_winner_email(entry):
     """Send email to lucky draw winner"""
-    subject = f'Congratulations! You Won the {entry.created_at.strftime("%B %Y")} Lucky Draw!'
+    subject = 'Congratulations! You Won the Lucky Draw!'
 
     is_poll_winner = entry.draw_type == 'poll'
     poll_title = entry.poll.title if is_poll_winner and entry.poll else None

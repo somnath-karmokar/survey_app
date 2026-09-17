@@ -17,6 +17,7 @@ from .models import Survey, SurveyCategory, Question, UserSurveyProgress, Survey
 from .views import should_show_advertisement
 from .forms import SurveyResponseForm
 from .emails import send_survey_completion_email, send_lucky_draw_entry_email, send_lucky_draw_winner_email
+from .milestones import check_and_award_milestones
 
 # surveys/views_surveys.py
 @login_required
@@ -30,8 +31,15 @@ def survey_list(request):
         if profile and profile.country:
             categories = categories.filter(country=profile.country)
 
-    categories = categories.distinct().prefetch_related('surveys')
-    
+    # Randomise the display order (was alphabetical via the model's default
+    # ordering). distinct() + order_by('?') cannot be combined directly here —
+    # the surveys__is_active join fans out per survey, and Postgres then treats
+    # each joined row as distinct once RANDOM() is involved, producing
+    # duplicate categories. Resolving the distinct ids first, then re-querying
+    # by id with a random order, avoids that.
+    category_ids = list(categories.distinct().values_list('id', flat=True))
+    categories = SurveyCategory.objects.filter(id__in=category_ids).prefetch_related('surveys').order_by('?')
+
     # Get all surveys the user has completed
     completed_responses = SurveyResponse.objects.filter(
         user=request.user,
@@ -243,6 +251,7 @@ def survey_detail(request, survey_id, question_index=0):
                     progress.refresh_from_db()
                 
                 print(f"Updated progress for {request.user.username} - {survey.category.name} (Level {survey.level}): {progress.completed_count} surveys completed")
+                check_and_award_milestones(request.user)
                 # Clear the session data
                 if session_key in request.session:
                     del request.session[session_key]

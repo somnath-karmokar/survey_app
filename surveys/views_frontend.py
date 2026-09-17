@@ -11,6 +11,7 @@ from .models import (
     Poll, PollResponse, WalletTransaction, WalletWithdrawalRequest, Question, PollQuestion,
     JournalPost, JournalCategory, PrivacyPolicy, AboutUs, DirectMarketing, Advertiser
 )
+from .milestones import get_survey_milestone_progress
 from django.http import JsonResponse, HttpResponseRedirect
 from django.core.mail import send_mail
 from django.conf import settings
@@ -493,6 +494,11 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         from .lucky_draw import LuckyDrawView
         lucky_draw_eligible = LuckyDrawView().is_eligible(user)
 
+        # None when the surveys-completed milestone doesn't apply to this
+        # user (e.g. Nigeria, or no country set) - the template hides the
+        # progress card entirely in that case.
+        survey_milestone = get_survey_milestone_progress(user)
+
         # Add data to context
         context.update({
             'profile': profile,
@@ -510,8 +516,9 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             'level_progress': level_progress,
             'lucky_draw_eligible': lucky_draw_eligible,
             'LUCKY_DRAW_CONFIG': getattr(django_settings, 'LUCKY_DRAW_CONFIG', {}),
+            'survey_milestone': survey_milestone,
         })
-        
+
         return context
 
 

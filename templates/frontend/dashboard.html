@@ -122,6 +122,48 @@
         </div>
     </div>
 
+    {% if survey_milestone %}
+    <!-- Survey Milestone Reward -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color:#fff;">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fas fa-trophy text-warning fa-lg"></i>
+                            <span class="fw-semibold fs-6">Survey Milestone Reward</span>
+                        </div>
+                        <span class="badge rounded-pill px-3 py-2" style="background:rgba(255,255,255,0.15); font-size:0.85rem;">
+                            Every {{ survey_milestone.interval }} surveys = <strong>{{ survey_milestone.currency_symbol }}{{ survey_milestone.reward_amount|floatformat:2 }}</strong> wallet credit
+                        </span>
+                    </div>
+
+                    <div class="progress mb-2" style="height:10px; background:rgba(255,255,255,0.15); border-radius:6px;">
+                        <div class="progress-bar bg-warning" role="progressbar"
+                             style="width: {{ survey_milestone.progress_pct }}%; border-radius:6px;"
+                             aria-valuenow="{{ survey_milestone.progress_pct }}" aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center" style="font-size:0.82rem; opacity:0.85;">
+                        <span>{{ survey_milestone.surveys_into_cycle }} / {{ survey_milestone.interval }} surveys completed</span>
+                        {% if survey_milestone.surveys_to_next_reward == survey_milestone.interval %}
+                            <span class="text-warning fw-semibold">Start completing surveys to earn {{ survey_milestone.currency_symbol }}{{ survey_milestone.reward_amount|floatformat:2 }}!</span>
+                        {% else %}
+                            <span>
+                                <strong class="text-warning">{{ survey_milestone.surveys_to_next_reward }}</strong>
+                                more survey{{ survey_milestone.surveys_to_next_reward|pluralize }} to earn
+                                <strong class="text-warning">{{ survey_milestone.currency_symbol }}{{ survey_milestone.reward_amount|floatformat:2 }}</strong>
+                                (milestone #{{ survey_milestone.next_milestone }})
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Recent Activity & Available Surveys -->
     <div class="row">
         <!-- Recent Activity -->
