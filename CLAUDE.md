@@ -89,10 +89,11 @@ python manage.py collectstatic      # publish static files
 SURVEY_CONFIG = {
     'DEFAULT_COOLDOWN_DAYS': 2,   # days before a user can retake a survey
     'AD_FREQUENCY': 4,            # show ad modal every N surveys
+    'MONTHLY_SURVEY_CAP': 200,    # max surveys a user can complete per calendar month (UTC); None/0 = no cap
 }
 
 LUCKY_DRAW_CONFIG = {
-    'SURVEYS_REQUIRED': 2,        # surveys to complete between plays
+    'SURVEYS_REQUIRED': 2,        # Quick draw: every N surveys qualifies a draw play (surplus carries over)
     'POLLS_REQUIRED': 1,          # polls to complete between plays
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 49,

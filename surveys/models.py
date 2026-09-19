@@ -208,17 +208,28 @@ class Survey(models.Model):
         if not user.is_authenticated:
             return False, "You must be logged in to take this survey."
 
+        # Monthly cap first: it applies to every survey and every user, so it
+        # is the most useful thing to tell someone who has hit it. Checked here
+        # because every start/continue/finish path goes through this method.
+        limit = SurveyResponse.monthly_limit_status(user)
+        if limit and limit['reached']:
+            resets = limit['resets_on']
+            return False, (
+                f"You've reached this month's limit of {limit['cap']} surveys. "
+                f"You can take surveys again from {resets.strftime('%B')} {resets.day}."
+            )
+
         is_sequence_locked, sequence_lock_message = self.get_sequence_lock_info(user)
         if is_sequence_locked:
             return False, sequence_lock_message
-        
+
         # Check if user has already completed this specific survey
         last_response = SurveyResponse.objects.filter(
             user=user,
             survey=self,
             completed_at__isnull=False
         ).order_by('-completed_at').first()
-        
+
         if last_response and last_response.completed_at:
             cooldown_until = last_response.completed_at + timedelta(days=self.cooldown_days)
             if timezone.now() < cooldown_until:
@@ -294,7 +305,41 @@ class SurveyResponse(models.Model):
         if self.completed_at is None and 'completed' in kwargs:
             self.completed_at = timezone.now()
         super().save(*args, **kwargs)
-        
+
+    @classmethod
+    def monthly_limit_status(cls, user, at=None):
+        """Where this user stands against the monthly survey cap.
+
+        Returns None when no cap is configured (SURVEY_CONFIG['MONTHLY_SURVEY_CAP']
+        unset or 0). Otherwise a dict: the cap, how many surveys the user has
+        completed so far this calendar month, how many are left, whether the cap
+        is reached, and the moment it resets (start of next month).
+        """
+        cap = getattr(settings, 'SURVEY_CONFIG', {}).get('MONTHLY_SURVEY_CAP')
+        if not cap:
+            return None
+
+        now = timezone.localtime(at or timezone.now())
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if month_start.month == 12:
+            next_month_start = month_start.replace(year=month_start.year + 1, month=1)
+        else:
+            next_month_start = month_start.replace(month=month_start.month + 1)
+
+        completed = cls.objects.filter(
+            user=user,
+            completed_at__isnull=False,
+            completed_at__gte=month_start,
+            completed_at__lt=next_month_start,
+        ).count()
+        return {
+            'cap': cap,
+            'completed': completed,
+            'remaining': max(0, cap - completed),
+            'reached': completed >= cap,
+            'resets_on': next_month_start,
+        }
+
     @property
     def time_spent(self):
         """
@@ -434,9 +479,14 @@ class CountryLuckyDrawConfig(models.Model):
     prize_amount = models.DecimalField(max_digits=8, decimal_places=2, default=1)
     currency_symbol = models.CharField(max_length=5, default='$')
     currency_code = models.CharField(max_length=10, default='USD')
+    monthly_prize_amount = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True,
+        help_text='Monthly draw prize for this country, in the currency above. '
+                  'Leave blank if this country does not take part in the Monthly draw.'
+    )
     monthly_winner_cap = models.PositiveIntegerField(
         null=True, blank=True,
-        help_text='Max lucky draw winners per calendar month for this country. Leave blank for no cap.'
+        help_text='Max Monthly draw winners per calendar month for this country. Leave blank for no cap.'
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -451,6 +501,13 @@ class CountryLuckyDrawConfig(models.Model):
 
     def get_prize_display(self):
         amount = int(self.prize_amount) if self.prize_amount == self.prize_amount.to_integral() else f"{self.prize_amount:.2f}"
+        return f"{self.currency_symbol}{amount} {self.currency_code}".strip()
+
+    def get_monthly_prize_display(self):
+        if self.monthly_prize_amount is None:
+            return ''
+        amount = self.monthly_prize_amount
+        amount = int(amount) if amount == amount.to_integral() else f"{amount:.2f}"
         return f"{self.currency_symbol}{amount} {self.currency_code}".strip()
 
     @classmethod
@@ -588,10 +645,13 @@ class UserSurveyProgress(models.Model):
 class LuckyDrawEntry(models.Model):
     DRAW_TYPE_SURVEY = 'survey'
     DRAW_TYPE_POLL = 'poll'
+    DRAW_TYPE_MONTHLY = 'monthly'
     DRAW_TYPE_CHOICES = [
         (DRAW_TYPE_SURVEY, 'Survey'),
         (DRAW_TYPE_POLL, 'Poll'),
+        (DRAW_TYPE_MONTHLY, 'Monthly'),
     ]
+    VALID_DRAW_TYPES = frozenset(value for value, _label in DRAW_TYPE_CHOICES)
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='lucky_draw_entries')
     created_at = models.DateTimeField(auto_now_add=True)

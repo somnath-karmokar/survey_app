@@ -17,7 +17,27 @@ from decimal import Decimal
 from .emails import send_lucky_draw_winner_email, send_lucky_draw_winner_admin_notification
 
 
+QUICK_DRAW_NUDGE = 'Please complete one more survey to qualify for the Quick draw.'
+
+
 class LuckyDrawView(View):
+    def quick_draw_nudge(self, user):
+        """Text to add to the survey "Thank you" message, or '' for none.
+
+        Returned only when the user cannot play the Quick draw yet and exactly
+        one more survey would qualify them. It is derived from the same eligibility
+        the draw itself uses, so it can never disagree with when the draw
+        actually unlocks. (Users who already qualify are sent straight to the
+        draw, and users further away get no message.)
+        """
+        eligibility = self.get_eligibility_context(user)
+        # Quick draw only: attempts held for the Monthly draw don't count here.
+        if eligibility['survey_eligible'] or eligibility['poll_eligible']:
+            return ''
+        if eligibility['surveys_required'] - eligibility['surveys_completed'] == 1:
+            return QUICK_DRAW_NUDGE
+        return ''
+
     def get_user_country_config(self, user):
         profile = getattr(user, 'profile', None)
         country = getattr(profile, 'country', None)
@@ -33,15 +53,27 @@ class LuckyDrawView(View):
             return config.poll_count_required
         return 5
 
-    def get_prize_amount_and_currency(self, user):
+    def get_monthly_draw_config(self, user):
+        """The user's country config if that country takes part in the Monthly draw."""
+        config = self.get_user_country_config(user)
+        if config and config.monthly_prize_amount is not None:
+            return config
+        return None
+
+    def get_prize_amount_and_currency(self, user, draw_type=None):
         """(amount, currency_code, currency_symbol) for this user's country.
 
         CountryLuckyDrawConfig is the single source of truth when a row
         exists for the user's country; both the prize text shown on the page
         and the actual wallet credit are derived from it, so they can never
-        disagree. Falls back to the historical defaults when no config row
-        exists for that country.
+        disagree. The Monthly draw has its own prize on that row. Falls back to
+        the historical Quick draw defaults when no config row exists.
         """
+        if draw_type == LuckyDrawEntry.DRAW_TYPE_MONTHLY:
+            monthly = self.get_monthly_draw_config(user)
+            if monthly:
+                return monthly.monthly_prize_amount, monthly.currency_code, monthly.currency_symbol
+
         config = self.get_user_country_config(user)
         if config:
             return config.prize_amount, config.currency_code, config.currency_symbol
@@ -51,19 +83,21 @@ class LuckyDrawView(View):
         if country_code in ['US', 'CA']:
             return Decimal('1.00'), 'USD', '$'
         if country_code == 'GB':
-            return Decimal('1.00'), 'GBP', '\u00a3'
+            return Decimal('1.00'), 'GBP', '£'
         if country_code == 'NG':
             return Decimal('0.50'), 'USD', '$'
         return Decimal('1.00'), 'USD', '$'
 
-    def get_prize_for_user(self, user):
-        amount, currency_code, currency_symbol = self.get_prize_amount_and_currency(user)
+    def get_prize_for_user(self, user, draw_type=None):
+        amount, currency_code, currency_symbol = self.get_prize_amount_and_currency(user, draw_type)
         amount_display = int(amount) if amount == amount.to_integral() else f"{amount:.2f}"
         return f"{currency_symbol}{amount_display} {currency_code}".strip()
 
     def get_monthly_winner_count(self, country, at=None):
+        """Monthly draw winners so far this calendar month for one country."""
         at = at or timezone.now()
         return LuckyDrawEntry.objects.filter(
+            draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY,
             is_winner=True,
             created_at__year=at.year,
             created_at__month=at.month,
@@ -81,7 +115,7 @@ class LuckyDrawView(View):
         if WalletTransaction.objects.filter(lucky_draw_entry=entry).exists():
             return Decimal('0.00')
 
-        amount, currency_code, currency_symbol = self.get_prize_amount_and_currency(entry.user)
+        amount, currency_code, currency_symbol = self.get_prize_amount_and_currency(entry.user, entry.draw_type)
         with transaction.atomic():
             profile, _ = UserProfile.objects.select_for_update().get_or_create(user=entry.user)
             UserProfile.objects.filter(pk=profile.pk).update(wallet_balance=F('wallet_balance') + amount)
@@ -125,6 +159,45 @@ class LuckyDrawView(View):
         response = queryset.first()
         return response.poll if response else None
 
+    def get_monthly_eligibility(self, user, total_surveys):
+        """Where the user stands in the Monthly draw.
+
+        It has its own attempt counter (a snapshot taken at each Monthly play,
+        so it never interferes with the Quick draw's), its own prize and its own
+        per-country winner cap. Only countries with a Monthly prize configured
+        take part. Attempts are kept, not lost, while a country's prizes for the
+        month have all been won: the draw is just closed until the next month.
+        """
+        config = self.get_monthly_draw_config(user)
+        required = max(1, settings.LUCKY_DRAW_CONFIG.get('MONTHLY_SURVEYS_REQUIRED', 100))
+        last_entry = self.get_last_entry(user, LuckyDrawEntry.DRAW_TYPE_MONTHLY)
+        completed = max(0, total_surveys - (last_entry.surveys_at_play or 0)) if last_entry else total_surveys
+        plays = completed // required if config else 0
+
+        cap = config.monthly_winner_cap if config else None
+        winners = self.get_monthly_winner_count(config.country) if (config and cap) else 0
+        is_open = not (cap and winners >= cap)
+
+        month_start = timezone.localtime().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if month_start.month == 12:
+            resets_on = month_start.replace(year=month_start.year + 1, month=1)
+        else:
+            resets_on = month_start.replace(month=month_start.month + 1)
+
+        return {
+            'monthly_available': config is not None,
+            'monthly_required': required,
+            'monthly_surveys_completed': completed,
+            'monthly_progress_to_next': completed % required,
+            'monthly_plays_available': plays,
+            'monthly_winner_cap': cap,
+            'monthly_winners_this_month': winners,
+            'monthly_open': is_open,
+            'monthly_eligible': plays > 0 and is_open,
+            'monthly_resets_on': resets_on,
+            'monthly_prize_display': config.get_monthly_prize_display() if config else '',
+        }
+
     def get_eligibility_context(self, user):
         last_entry = user.lucky_draw_entries.order_by('-created_at').first()
         last_survey_entry = self.get_last_entry(user, LuckyDrawEntry.DRAW_TYPE_SURVEY)
@@ -142,11 +215,15 @@ class LuckyDrawView(View):
         survey_plays_available = surveys_completed // surveys_required if survey_eligible else 0
         poll_plays_available = polls_completed // polls_required if poll_eligible else 0
 
+        monthly = self.get_monthly_eligibility(user, total_surveys)
+
         eligible_draw_types = []
         if survey_eligible:
             eligible_draw_types.append(LuckyDrawEntry.DRAW_TYPE_SURVEY)
         if poll_eligible:
             eligible_draw_types.append(LuckyDrawEntry.DRAW_TYPE_POLL)
+        if monthly['monthly_eligible']:
+            eligible_draw_types.append(LuckyDrawEntry.DRAW_TYPE_MONTHLY)
 
         return {
             'last_entry': last_entry,
@@ -164,10 +241,25 @@ class LuckyDrawView(View):
             'poll_plays_available': poll_plays_available,
             'eligible_draw_types': eligible_draw_types,
             'user_eligible': bool(eligible_draw_types),
+            **monthly,
         }
 
+    def monthly_play_error(self, user):
+        """Why the user cannot play the Monthly draw right now, or '' if they can."""
+        e = self.get_eligibility_context(user)
+        if not e['monthly_available']:
+            return 'The Monthly draw is not available in your country.'
+        if not e['monthly_open']:
+            return (
+                "All of this month's Monthly draw prizes for your country have been won. "
+                "Your attempts are kept for next month."
+            )
+        if not e['monthly_plays_available']:
+            return f"You need to complete {e['monthly_required']} surveys for a Monthly draw attempt."
+        return ''
+
     def resolve_draw_type(self, user, requested_draw_type=None):
-        if requested_draw_type in {LuckyDrawEntry.DRAW_TYPE_SURVEY, LuckyDrawEntry.DRAW_TYPE_POLL}:
+        if requested_draw_type in LuckyDrawEntry.VALID_DRAW_TYPES:
             return requested_draw_type
 
         eligible_draw_types = self.get_eligibility_context(user)['eligible_draw_types']
@@ -245,7 +337,8 @@ class LuckyDrawView(View):
         
         survey_plays_available = eligibility['survey_plays_available']
         poll_plays_available = eligibility['poll_plays_available']
-        total_plays_available = survey_plays_available + poll_plays_available
+        monthly_plays_playable = eligibility['monthly_plays_available'] if eligibility['monthly_open'] else 0
+        total_plays_available = survey_plays_available + poll_plays_available + monthly_plays_playable
 
         context = {
             'LUCKY_DRAW_CONFIG': {
@@ -275,6 +368,9 @@ class LuckyDrawView(View):
             'has_played': bool(last_entry and not user_eligible),
             'prize_display': self.get_prize_for_user(request.user),
         }
+
+        # Monthly draw status for the page (attempts, prize, winners so far, whether open).
+        context.update({key: value for key, value in eligibility.items() if key.startswith('monthly_')})
 
         # Testing-only: reveal the actual numbers so a tester can pick the
         # winning one without guessing. Gated by LUCKY_DRAW_CONFIG so it can
@@ -319,12 +415,16 @@ class LuckyDrawView(View):
             return JsonResponse({'error': 'Invalid request'}, status=400)
 
         requested_draw_type = data.get('draw_type')
-        if requested_draw_type and requested_draw_type not in {LuckyDrawEntry.DRAW_TYPE_SURVEY, LuckyDrawEntry.DRAW_TYPE_POLL}:
+        if requested_draw_type and requested_draw_type not in LuckyDrawEntry.VALID_DRAW_TYPES:
             return JsonResponse({'error': 'Invalid lucky draw type.'}, status=400)
         draw_type = self.resolve_draw_type(request.user, requested_draw_type)
 
         # Check if user is eligible to play for the selected source.
-        if not self.is_eligible(request.user, draw_type):
+        if draw_type == LuckyDrawEntry.DRAW_TYPE_MONTHLY:
+            monthly_error = self.monthly_play_error(request.user)
+            if monthly_error:
+                return JsonResponse({'error': monthly_error}, status=400)
+        elif not self.is_eligible(request.user, draw_type):
             required_surveys = settings.LUCKY_DRAW_CONFIG.get('SURVEYS_REQUIRED', 3)
             required_polls = self.get_poll_requirement(request.user)
             return JsonResponse({
@@ -356,7 +456,7 @@ class LuckyDrawView(View):
         last_entry = self.get_last_entry(request.user, draw_type)
         qualifying_survey = None
         qualifying_poll = None
-        if draw_type == LuckyDrawEntry.DRAW_TYPE_SURVEY:
+        if draw_type in (LuckyDrawEntry.DRAW_TYPE_SURVEY, LuckyDrawEntry.DRAW_TYPE_MONTHLY):
             qualifying_survey = self.get_qualifying_survey(request.user, last_entry)
         else:
             qualifying_poll = self.get_qualifying_poll(request.user, last_entry)
@@ -368,6 +468,12 @@ class LuckyDrawView(View):
         if draw_type == LuckyDrawEntry.DRAW_TYPE_SURVEY:
             surveys_baseline = last_survey_entry.surveys_at_play if last_survey_entry else 0
             entry_surveys_at_play = surveys_baseline + surveys_required
+            entry_polls_at_play = total_polls
+        elif draw_type == LuckyDrawEntry.DRAW_TYPE_MONTHLY:
+            # The Monthly draw keeps its own snapshot: one attempt uses up
+            # MONTHLY_SURVEYS_REQUIRED surveys, and any surplus carries over.
+            monthly_baseline = last_entry.surveys_at_play if last_entry else 0
+            entry_surveys_at_play = monthly_baseline + eligibility['monthly_required']
             entry_polls_at_play = total_polls
         else:
             polls_baseline = last_poll_entry.polls_at_play if last_poll_entry else 0
@@ -384,25 +490,7 @@ class LuckyDrawView(View):
         request.session.pop('lucky_draw_number', None)
 
         is_winner = (number == winning_number)
-
-        # A country with a monthly winner cap (see CountryLuckyDrawConfig)
-        # stops paying out once that many winners have already been drawn
-        # this calendar month — the correct number was still picked (the
-        # stored guessed_number/winning_number reflect that), but it does
-        # not count as a win once the cap is reached.
-        # Best-effort only: two correct guesses arriving at the same instant
-        # (count-then-create, not locked) could both slip through when the
-        # cap is one away. At 4 winners/month on this site's traffic that
-        # risk is negligible; a stricter guard would need a per-country lock.
-        monthly_cap_reached = False
-        if is_winner:
-            country_config = self.get_user_country_config(request.user)
-            cap = getattr(country_config, 'monthly_winner_cap', None)
-            if cap and self.get_monthly_winner_count(country_config.country) >= cap:
-                is_winner = False
-                monthly_cap_reached = True
-
-        prize = self.get_prize_for_user(request.user) if is_winner else None
+        prize = self.get_prize_for_user(request.user, draw_type) if is_winner else None
 
         # Create entry
         entry = LuckyDrawEntry.objects.create(
@@ -436,7 +524,11 @@ class LuckyDrawView(View):
         
         post_play_eligibility = self.get_eligibility_context(request.user)
         remaining_draw_types = post_play_eligibility['eligible_draw_types']
-        plays_remaining = post_play_eligibility['survey_plays_available'] + post_play_eligibility['poll_plays_available']
+        plays_remaining = (
+            post_play_eligibility['survey_plays_available']
+            + post_play_eligibility['poll_plays_available']
+            + (post_play_eligibility['monthly_plays_available'] if post_play_eligibility['monthly_open'] else 0)
+        )
 
         return JsonResponse({
             'is_winner': is_winner,
@@ -446,7 +538,6 @@ class LuckyDrawView(View):
             'draw_type': draw_type,
             'remaining_draw_types': remaining_draw_types,
             'plays_remaining': plays_remaining,
-            'monthly_cap_reached': monthly_cap_reached,
         })
 
     def is_eligible(self, user, draw_type=None):
@@ -471,6 +562,8 @@ class LuckyDrawView(View):
             return eligibility['survey_eligible']
         if draw_type == LuckyDrawEntry.DRAW_TYPE_POLL:
             return eligibility['poll_eligible']
+        if draw_type == LuckyDrawEntry.DRAW_TYPE_MONTHLY:
+            return eligibility['monthly_eligible']
         
         # If user has never played, check if they've completed the required surveys
         if not last_entry:

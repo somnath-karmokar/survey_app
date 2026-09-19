@@ -31,7 +31,7 @@
                     <h2 class="h4 mb-0">Lucky Draw</h2>
                 </div>
                 <div class="card-body">
-                    {% if not user_eligible %}
+                    {% if not survey_eligible and not poll_eligible %}
                     <div class="alert {% if last_play_date %}alert-warning{% else %}alert-info{% endif %}">
                         <!-- <i class="fas {% if last_play_date %}fa-clock me-2{% else %}fa-info-circle me-2{% endif %}"></i> -->
                         {% if last_play_date %}
@@ -42,7 +42,7 @@
                                 </small>
                             </div>
                         {% else %}
-                            You need to complete {{ surveys_required }} surveys or {{ polls_required }} polls to play the lucky draw.
+                            You need to complete {{ surveys_required }} surveys or {{ polls_required }} polls to play the Quick draw.
                             <div class="mt-2">
                                 <small class="text-muted">
                                     You've completed {{ surveys_completed }} of {{ surveys_required }} required surveys and {{ polls_completed }} of {{ polls_required }} required polls.
@@ -103,10 +103,53 @@
                                 {% elif poll_eligible %}
                                     <p class="mb-2">You are eligible from completed polls.</p>
                                 {% endif %}
-                                <p class="mb-0">Prize: {{ prize_display }}</p>
+                                {% if monthly_eligible %}
+                                    <p class="mb-2">You have {{ monthly_plays_available }} Monthly draw attempt{{ monthly_plays_available|pluralize }} available.</p>
+                                {% endif %}
+                                {% if survey_eligible or poll_eligible %}
+                                    <p class="mb-0">Quick draw prize: {{ prize_display }}</p>
+                                {% endif %}
+                                {% if monthly_eligible %}
+                                    <p class="mb-0">Monthly draw prize: {{ monthly_prize_display }}</p>
+                                {% endif %}
                             </div>
                         {% endif %}
                     </div>
+
+
+                    {% if monthly_available %}
+                    <div class="card border-warning mb-4" id="monthly-draw-panel">
+                        <div class="card-header bg-warning bg-opacity-25 d-flex justify-content-between align-items-center">
+                            <strong><i class="fas fa-calendar-alt me-2"></i>Monthly Draw</strong>
+                            <span class="badge bg-warning text-dark">{{ monthly_prize_display }} prize</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="small mb-3">
+                                Every {{ monthly_required }} surveys you complete earns one Monthly draw attempt.
+                                {% if monthly_winner_cap %}Up to {{ monthly_winner_cap }} winners each month in your country, first come, first served.{% endif %}
+                            </p>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span>Progress to your next attempt</span>
+                                <span>{{ monthly_progress_to_next }}/{{ monthly_required }} surveys</span>
+                            </div>
+                            <div class="progress mb-3" style="height: 14px;">
+                                {% widthratio monthly_progress_to_next monthly_required 100 as monthly_progress_percent %}
+                                <div class="progress-bar bg-warning" role="progressbar"
+                                     style="width: {{ monthly_progress_percent }}%;"
+                                     aria-valuenow="{{ monthly_progress_to_next }}" aria-valuemin="0" aria-valuemax="{{ monthly_required }}"></div>
+                            </div>
+                            <p class="mb-1"><strong>Attempts available:</strong> {{ monthly_plays_available }}</p>
+                            {% if monthly_winner_cap %}
+                            <p class="mb-0 small text-muted">{{ monthly_winners_this_month }} of {{ monthly_winner_cap }} prizes claimed this month.</p>
+                            {% endif %}
+                            {% if not monthly_open %}
+                            <div class="alert alert-secondary mt-3 mb-0">
+                                All of this month's prizes for your country have been won. The Monthly draw opens again on {{ monthly_resets_on|date:"F j" }}{% if monthly_plays_available %} &mdash; your {{ monthly_plays_available }} attempt{{ monthly_plays_available|pluralize }} will be waiting{% endif %}.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
 
                     {% if user_eligible %}
                     <div class="btn-group w-100 mb-3" role="group" aria-label="Lucky draw type">
@@ -114,7 +157,7 @@
                                 class="btn {% if selected_draw_type == 'survey' %}btn-primary{% else %}btn-outline-primary{% endif %} draw-type-btn"
                                 data-draw-type="survey"
                                 {% if not survey_eligible %}disabled{% endif %}>
-                            Survey Draw
+                            Quick Draw
                         </button>
                         <button type="button"
                                 class="btn {% if selected_draw_type == 'poll' %}btn-primary{% else %}btn-outline-primary{% endif %} draw-type-btn"
@@ -122,6 +165,14 @@
                                 {% if not poll_eligible %}disabled{% endif %}>
                             Poll Draw
                         </button>
+                        {% if monthly_available %}
+                        <button type="button"
+                                class="btn {% if selected_draw_type == 'monthly' %}btn-primary{% else %}btn-outline-primary{% endif %} draw-type-btn"
+                                data-draw-type="monthly"
+                                {% if not monthly_eligible %}disabled{% endif %}>
+                            Monthly Draw
+                        </button>
+                        {% endif %}
                     </div>
                     {% endif %}
                     
@@ -161,11 +212,9 @@
                     </div>
                     <!-- Show result if already played -->
                     {% if has_played %}
-                    <div class="alert {% if last_result.is_winner %}alert-success{% elif last_result.guessed_number == last_result.winning_number %}alert-warning{% else %}alert-danger{% endif %}">
+                    <div class="alert {% if last_result.is_winner %}alert-success{% else %}alert-danger{% endif %}">
                         {% if last_result.is_winner %}
                             <i class="fas fa-trophy me-2"></i> Congratulations! You found the lucky number {{ last_result.winning_number }}!
-                        {% elif last_result.guessed_number == last_result.winning_number %}
-                            <i class="fas fa-star me-2"></i> You picked the lucky number {{ last_result.winning_number }}! This month's prize winners for your country have already all been announced, so this one didn't win — you're back in for next month.
                         {% else %}
                             Sorry! You selected {{ last_result.guessed_number }} but the lucky number was {{ last_result.winning_number }}. Better luck next time!
                         {% endif %}
@@ -238,7 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
         box.addEventListener('click', async function() {
             if (!gameInProgress) return;
             if (!selectedDrawType) {
-                alert('Please choose Survey Draw or Poll Draw first.');
+                alert('Please choose a draw first.');
                 return;
             }
             
@@ -279,9 +328,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (result.is_winner) {
                     resultMessage.className = 'alert alert-success';
                     resultText.innerHTML = `<i class="fas fa-trophy me-2"></i> Congratulations! You selected ${result.guessed_number} and won ${result.prize || 'the lucky draw'}!`;
-                } else if (result.monthly_cap_reached) {
-                    resultMessage.className = 'alert alert-warning';
-                    resultText.innerHTML = `<i class="fas fa-star me-2"></i> You picked the lucky number ${result.winning_number}! This month's prize winners for your country have already all been announced, so this one didn't win — you're back in for next month.`;
                 } else {
                     resultMessage.className = 'alert alert-danger';
                     resultText.textContent = `Sorry! You selected ${result.guessed_number}, but the lucky number was ${result.winning_number}. Better luck next time!`;
@@ -318,7 +364,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 
             } catch (error) {
                 console.error('Error:', error);
-                alert('An error occurred. Please try again.');
+                // Server refusals (e.g. "all of this month's prizes have been won") explain themselves.
+                alert(error.message || 'An error occurred. Please try again.');
                 window.location.reload();
             }
             

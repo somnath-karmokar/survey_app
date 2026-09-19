@@ -169,7 +169,7 @@ class PollResponseAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
 
 
 class CountryLuckyDrawConfigAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('country', 'poll_count_required', 'prize_display', 'currency_code', 'monthly_winner_cap', 'is_active', 'updated_at')
+    list_display = ('country', 'poll_count_required', 'prize_display', 'monthly_prize_display', 'monthly_winner_cap', 'currency_code', 'is_active', 'updated_at')
     list_filter = ('is_active', 'currency_code', 'country')
     search_fields = ('country__name', 'country__code', 'currency_code')
     list_select_related = ('country',)
@@ -177,7 +177,11 @@ class CountryLuckyDrawConfigAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
 
     def prize_display(self, obj):
         return obj.get_prize_display()
-    prize_display.short_description = 'Prize Amount'
+    prize_display.short_description = 'Quick draw prize'
+
+    def monthly_prize_display(self, obj):
+        return obj.get_monthly_prize_display() or '-'
+    monthly_prize_display.short_description = 'Monthly draw prize'
 
 
 class WalletTransactionAdmin(admin.ModelAdmin):

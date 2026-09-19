@@ -25,6 +25,17 @@
         </div>
     </div>
 </section>
+{% if monthly_survey_limit.reached %}
+<div class="container mt-4">
+    <div class="alert alert-warning d-flex align-items-start mb-0" role="alert">
+        <i class="fas fa-hourglass-half me-3 mt-1"></i>
+        <div>
+            <strong>You've reached this month's limit of {{ monthly_survey_limit.cap }} surveys.</strong><br>
+            You can take surveys again from {{ monthly_survey_limit.resets_on|date:"F j" }}.
+        </div>
+    </div>
+</div>
+{% endif %}
 <!-- Add this near the top of the template, after any existing messages -->
 {% if user.is_authenticated %}
     {% if is_eligible_for_draw %}

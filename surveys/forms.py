@@ -12,6 +12,7 @@ from django.contrib.auth.forms import UserChangeForm
 from django.contrib.auth import get_user_model
 from django.core.files.images import get_image_dimensions
 import re
+import unicodedata
 User = get_user_model()
 
 
@@ -19,16 +20,20 @@ User = get_user_model()
 # Names allow the punctuation real names contain (O'Brien, Anne-Marie, J. Smith)
 # but no digits or symbols; account identifiers are digits only once the
 # separators people naturally type (spaces, hyphens) have been stripped.
-NAME_ALLOWED_RE = re.compile(r"^[A-Za-z][A-Za-z .'-]*$")
+NAME_PUNCTUATION = " .'’-"
 SEPARATORS_RE = re.compile(r'[\s-]+')
+# ASCII only: str.isdigit() / isalnum() also accept things like ² and Arabic-Indic numerals.
+DIGITS_RE = re.compile(r'[0-9]+')
+ALNUM_RE = re.compile(r'[A-Za-z0-9]+')
 
 
 def _clean_name_field(value, label):
-    """Letters only, plus spaces/hyphens/apostrophes/periods used in real names."""
+    """Letters (any alphabet, so José and Zoë work) plus the spaces, hyphens,
+    apostrophes and periods used in real names. No digits or symbols."""
+    value = unicodedata.normalize('NFC', (value or '').strip())
     if not value:
         return value
-    value = value.strip()
-    if not NAME_ALLOWED_RE.match(value):
+    if not (value[0].isalpha() and all(ch.isalpha() or ch in NAME_PUNCTUATION for ch in value)):
         raise forms.ValidationError(
             f'{label} may only contain letters, spaces, hyphens and apostrophes.'
         )
@@ -40,7 +45,7 @@ def _clean_digits_field(value, label, exact_length=None):
     if not value:
         return value
     cleaned = SEPARATORS_RE.sub('', value.strip())
-    if not cleaned.isdigit():
+    if not DIGITS_RE.fullmatch(cleaned):
         raise forms.ValidationError(f'{label} may only contain numbers.')
     if exact_length and len(cleaned) != exact_length:
         raise forms.ValidationError(f'{label} must be exactly {exact_length} digits.')
@@ -58,23 +63,24 @@ class WalletWithdrawalRequestForm(forms.ModelForm):
             'gift_card_email', 'notes'
         )
         widgets = {
-            # inputmode/pattern give phones a numeric keypad and the browser an
-            # early hint; the real enforcement is the clean_* methods below.
-            'full_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Name on bank/payment account', 'pattern': "[A-Za-z][A-Za-z .'-]*", 'title': 'Letters only'}),
+            # inputmode gives phones a numeric keypad; data-format/-label/-length
+            # drive the page's live checks (wallet_withdrawal_form.html). They
+            # mirror the clean_* methods below, which are the real enforcement.
+            'full_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Name on bank/payment account', 'title': 'Letters only', 'data-format': 'name', 'data-label': 'Full name'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Your email address'}),
             'amount': forms.NumberInput(attrs={'class': 'form-control', 'min': '0.01', 'step': '0.01'}),
             'country': forms.Select(attrs={'class': 'form-select', 'data-withdraw-country': 'true'}),
             'payment_method': forms.Select(attrs={'class': 'form-select', 'data-payment-method': 'true'}),
             'paypal_email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'PayPal email address'}),
-            'bank_account_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Account holder name', 'pattern': "[A-Za-z][A-Za-z .'-]*", 'title': 'Letters only'}),
+            'bank_account_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Account holder name', 'title': 'Letters only', 'data-format': 'name', 'data-label': 'Account holder name'}),
             'bank_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Bank name'}),
-            'bank_account_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Account number', 'inputmode': 'numeric', 'title': 'Numbers only'}),
-            'routing_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '9 digit routing number', 'inputmode': 'numeric', 'title': '9 digits'}),
-            'sort_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '6 digit sort code', 'inputmode': 'numeric', 'title': '6 digits'}),
-            'iban': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'IBAN', 'title': 'Letters and numbers only'}),
-            'nuban_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '10 digit NUBAN', 'inputmode': 'numeric', 'title': '10 digits'}),
-            'transit_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '5 digit transit number', 'inputmode': 'numeric', 'title': '5 digits'}),
-            'institution_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '3 digit institution number', 'inputmode': 'numeric', 'title': '3 digits'}),
+            'bank_account_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Account number', 'inputmode': 'numeric', 'title': 'Numbers only', 'data-format': 'digits', 'data-label': 'Account number'}),
+            'routing_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '9 digit routing number', 'inputmode': 'numeric', 'title': '9 digits', 'data-format': 'digits', 'data-label': 'Routing number', 'data-length': '9'}),
+            'sort_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '6 digit sort code', 'inputmode': 'numeric', 'title': '6 digits', 'data-format': 'digits', 'data-label': 'Sort code', 'data-length': '6'}),
+            'iban': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'IBAN', 'title': 'Letters and numbers only', 'data-format': 'iban', 'data-label': 'IBAN'}),
+            'nuban_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '10 digit NUBAN', 'inputmode': 'numeric', 'title': '10 digits', 'data-format': 'digits', 'data-label': 'NUBAN account number', 'data-length': '10'}),
+            'transit_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '5 digit transit number', 'inputmode': 'numeric', 'title': '5 digits', 'data-format': 'digits', 'data-label': 'Transit number', 'data-length': '5'}),
+            'institution_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '3 digit institution number', 'inputmode': 'numeric', 'title': '3 digits', 'data-format': 'digits', 'data-label': 'Institution number', 'data-length': '3'}),
             'gift_card_brand': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Amazon, Flipkart, etc.'}),
             'gift_card_email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email for gift card delivery'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Optional notes for admin'}),
@@ -86,7 +92,8 @@ class WalletWithdrawalRequestForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['country'].queryset = Country.objects.filter(is_active=True).order_by('name')
         self.fields['country'].empty_label = 'Select country of residence'
-        self.fields['full_name'].initial = self.profile.user.get_full_name() or self.profile.user.username
+        # Not the username as a fallback: it's often not a name and would fail the letters-only rule untouched.
+        self.fields['full_name'].initial = self.profile.user.get_full_name()
         self.fields['email'].initial = self.profile.user.email
         if self.profile.country_id:
             self.fields['country'].initial = self.profile.country_id
@@ -142,9 +149,10 @@ class WalletWithdrawalRequestForm(forms.ModelForm):
         iban = self.cleaned_data.get('iban')
         if not iban:
             return iban
-        cleaned = SEPARATORS_RE.sub('', iban.strip()).upper()
-        if not cleaned.isalnum():
+        cleaned = SEPARATORS_RE.sub('', iban.strip())
+        if not ALNUM_RE.fullmatch(cleaned):
             raise forms.ValidationError('IBAN may only contain letters and numbers.')
+        cleaned = cleaned.upper()  # after the check: 'ß'.upper() is 'SS', which would sneak past it
         if not (15 <= len(cleaned) <= 34):
             raise forms.ValidationError('IBAN must be between 15 and 34 characters.')
         if not re.match(r'^[A-Z]{2}[0-9]{2}', cleaned):
