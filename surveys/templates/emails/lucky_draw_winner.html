@@ -14,7 +14,9 @@
     {% if is_poll_winner and poll_title %}
         <p>We're thrilled to inform you that you have won <strong>{{ prize }}</strong> for completing the <strong>"{{ poll_title }}"</strong>!</p>
     {% else %}
-        <p>We're thrilled to inform you that you've won the {{ draw_label|default:"Lucky Draw" }}!</p>
+        {% comment %} <p>We're thrilled to inform you that you've won the {{ draw_label|default:"Lucky Draw" }}!</p> {% endcomment %}
+        <p>We're thrilled to inform you that you've won the Lucky Draw!</p>
+
     {% endif %}
 
     <div style="background-color: #f9f9f9; padding: 20px; border: 2px dashed #e74c3c; border-radius: 5px; margin: 20px 0; text-align: center;">
