@@ -14,7 +14,7 @@
     {% if is_poll_winner and poll_title %}
         <p>We're thrilled to inform you that you have won <strong>{{ prize }}</strong> for completing the <strong>"{{ poll_title }}"</strong>!</p>
     {% else %}
-        <p>We're thrilled to inform you that you've won the Lucky Draw!</p>
+        <p>We're thrilled to inform you that you've won the {{ draw_label|default:"Lucky Draw" }}!</p>
     {% endif %}
 
     <div style="background-color: #f9f9f9; padding: 20px; border: 2px dashed #e74c3c; border-radius: 5px; margin: 20px 0; text-align: center;">
@@ -29,6 +29,9 @@
             <div style="font-size: 42px; font-weight: bold; color: #e74c3c; margin: 15px 0; letter-spacing: 3px;">
                 {{ entry.guessed_number }}
             </div>
+            {% if is_monthly_winner %}
+                <p style="font-size: 20px; font-weight: bold; color: #27ae60;">Prize: {{ prize }}</p>
+            {% endif %}
         {% endif %}
         <p>Draw Date: {{ entry.created_at|date:"F j, Y" }}</p>
     </div>

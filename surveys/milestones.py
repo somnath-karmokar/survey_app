@@ -18,7 +18,7 @@ DEFAULT_MILESTONE_CONFIG = (
         'prize_name': 'Wallet Reward',
         'repeat_interval': 100,
         'wallet_reward': True,
-        'wallet_reward_amount': Decimal('1.00'),  # $1 / £1 per 100 surveys
+        'wallet_reward_amount': Decimal('2.00'),  # $2 / £2 per 100 surveys
         'excluded_countries': ('NG',),  # no survey milestones for Nigeria
     },
     # polls_completed and points_earned milestones are paused - only the
@@ -80,7 +80,7 @@ def get_wallet_reward_display(user, amount=None):
     """The reward amount + the user's wallet currency (USD, or GBP for GB).
 
     `amount` lets a specific milestone override the default $2.00 - the
-    surveys_completed milestone pays $1 / £1 per 100 surveys, for instance.
+    surveys_completed milestone pays $2 / £2 per 100 surveys, for instance.
     """
     profile, _ = UserProfile.objects.get_or_create(user=user)
     amount = amount if amount is not None else Decimal('2.00')

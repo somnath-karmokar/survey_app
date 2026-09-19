@@ -200,11 +200,12 @@ MILESTONE_REWARDS_ENABLED = True
 MILESTONE_REWARDS = (
     {
         'milestone_type': 'surveys_completed',
-        'threshold': 100,
+        # TESTING VALUES - set both back to 100 before deploying.
+        'threshold': 5,
         'prize_name': 'Wallet Reward',
-        'repeat_interval': 100,
+        'repeat_interval': 5,
         'wallet_reward': True,
-        'wallet_reward_amount': Decimal('1.00'),  # $1 USD / £1 GBP per 100 surveys
+        'wallet_reward_amount': Decimal('2.00'),  # $2 USD / £2 GBP per milestone
         'excluded_countries': ('NG',),  # no survey milestones for Nigeria users
     },
     # {
@@ -380,14 +381,25 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SURVEY_CONFIG = {
     'DEFAULT_COOLDOWN_DAYS': 2,  # Default cooldown period in days
     'AD_FREQUENCY': 4,  # Show ad after every 4 surveys
+    # Max surveys a user can complete per calendar month (UTC). Applies to every
+    # user, retakes included. Set to None (or 0) to remove the limit.
+    'MONTHLY_SURVEY_CAP': 10, #for test make it 10, for production set it to 200
 }
 
 # BitLabs (bitlabs.ai) offerwall widget — shown in the advertisement modal
 BITLABS_APP_TOKEN = "M4uv1bRXDwpq9xkY5EWUDPqAGemMZPlU"
 
 LUCKY_DRAW_CONFIG = {
-    'SURVEYS_REQUIRED': 2,  # Number of same-level surveys to complete
+    # Quick draw: every 2 surveys completed qualifies a user for a draw play, and
+    # the survey "Thank you" message nudges users who are one survey away.
+    # Surplus carries over.
+    'SURVEYS_REQUIRED': 2,
     'POLLS_REQUIRED': 1,  # Number of completed polls required to play the lucky draw
+    # Monthly draw (a separate draw on the same page): 100 surveys = 1 attempt,
+    # 200 = 2, and so on; surplus carries over. With the 200-surveys-a-month cap
+    # (SURVEY_CONFIG) that is at most 2 new attempts a month. Prize, winner cap
+    # and which countries take part are set per country in CountryLuckyDrawConfig.
+    'MONTHLY_SURVEYS_REQUIRED': 100,
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 21,
     'SHOW_NUMBERS_FOR_TESTING': True,  # Set to False after testing to hide lucky draw numbers

@@ -19,6 +19,19 @@ from .forms import SurveyResponseForm
 from .emails import send_survey_completion_email, send_lucky_draw_entry_email, send_lucky_draw_winner_email
 from .milestones import check_and_award_milestones
 
+
+def thank_you_message(user):
+    """The survey "Thank you" flash message.
+
+    When exactly one more survey would qualify the user for the Quick draw, that
+    is added to the same message.
+    """
+    from .lucky_draw import LuckyDrawView
+    message = 'Thank you for completing the survey!'
+    nudge = LuckyDrawView().quick_draw_nudge(user)
+    return f'{message} {nudge}' if nudge else message
+
+
 # surveys/views_surveys.py
 @login_required
 def survey_list(request):
@@ -89,7 +102,8 @@ def survey_list(request):
         'all_surveys_completed': all_surveys_completed,
         'show_advertisement': show_advertisement,
         'cooldown_days': settings.SURVEY_CONFIG.get('DEFAULT_COOLDOWN_DAYS', 1),
-        'now': timezone.now()  # Add this line
+        'now': timezone.now(),  # Add this line
+        'monthly_survey_limit': SurveyResponse.monthly_limit_status(request.user),
     }
     return render(request, 'surveys/survey_list.html', context)
 
@@ -255,8 +269,8 @@ def survey_detail(request, survey_id, question_index=0):
                 # Clear the session data
                 if session_key in request.session:
                     del request.session[session_key]
-                
-                messages.success(request, 'Thank you for completing the survey!')
+
+                messages.success(request, thank_you_message(request.user))
                 return redirect('surveys:survey_complete', survey_id=survey.id)
         if not form.is_valid():
             messages.error(request, 'Please correct the highlighted answer before continuing.')

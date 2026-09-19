@@ -336,6 +336,57 @@
             return field && field.value.trim() !== '';
         }
 
+        // Same rules as WalletWithdrawalRequestForm (surveys/forms.py), so
+        // mistakes show up as the user types rather than after a page reload.
+        // Spaces and hyphens are fine in numbers and the IBAN: the server strips them.
+        const NAME_OK = /^\p{L}[\p{L} .'’-]*$/u;
+        const DIGITS_OK = /^[0-9]+$/;
+        const ALNUM_OK = /^[A-Za-z0-9]+$/;
+
+        // checkLength is false while typing (a half-typed number isn't wrong yet).
+        function formatError(field, checkLength) {
+            const format = field.dataset.format;
+            const value = field.value.trim();
+            if (!format || field.disabled || !value) {
+                return '';
+            }
+            const label = field.dataset.label;
+            if (format === 'name') {
+                return NAME_OK.test(value.normalize('NFC')) ? '' : label + ' may only contain letters, spaces, hyphens and apostrophes.';
+            }
+            const compact = value.replace(/[\s-]+/g, '');
+            if (format === 'digits') {
+                if (!DIGITS_OK.test(compact)) {
+                    return label + ' may only contain numbers.';
+                }
+                const length = parseInt(field.dataset.length, 10);
+                if (checkLength && length && compact.length !== length) {
+                    return label + ' must be exactly ' + length + ' digits.';
+                }
+            }
+            if (format === 'iban') {
+                if (!ALNUM_OK.test(compact)) {
+                    return 'IBAN may only contain letters and numbers.';
+                }
+                if (checkLength && (compact.length < 15 || compact.length > 34)) {
+                    return 'IBAN must be between 15 and 34 characters.';
+                }
+                if (checkLength && !/^[A-Za-z]{2}[0-9]{2}/.test(compact)) {
+                    return 'IBAN must start with a 2-letter country code followed by 2 check digits.';
+                }
+            }
+            return '';
+        }
+
+        function setGroupActive(group, active) {
+            group.classList.toggle('active', active);
+            // A hidden field isn't submitted, so a value typed before the user
+            // switched method or country can't fail validation unseen.
+            group.querySelectorAll('input, select, textarea').forEach(function(field) {
+                field.disabled = !active;
+            });
+        }
+
         function requireField(errors, name, message) {
             const field = getField(name);
             if (!hasValue(field)) {
@@ -349,13 +400,15 @@
             const method = methodSelect ? methodSelect.value : '';
             const country = selectedCountryCode();
 
+            // Method groups first: enabling one enables the country groups nested in it,
+            // then the country groups below switch off the ones that don't apply.
             methodGroups.forEach(function(group) {
-                group.classList.toggle('active', group.dataset.methodFields === method);
+                setGroupActive(group, group.dataset.methodFields === method);
             });
 
             countryGroups.forEach(function(group) {
                 const countries = (group.dataset.countryFields || '').split(' ');
-                group.classList.toggle('active', method === 'bank_transfer' && countries.indexOf(country) !== -1);
+                setGroupActive(group, method === 'bank_transfer' && countries.indexOf(country) !== -1);
             });
         }
 
@@ -423,6 +476,15 @@
                 requireField(errors, 'gift_card_email', 'Gift card delivery email is required.');
             }
 
+            form.querySelectorAll('[data-format]').forEach(function(field) {
+                const message = formatError(field, true);
+                if (message) {
+                    errors.push(function() {
+                        return setFieldError(field, message);
+                    });
+                }
+            });
+
             if (errors.length) {
                 errors.forEach(function(showError) {
                     showError();
@@ -457,6 +519,16 @@
         if (form) {
             form.addEventListener('input', function(event) {
                 clearFieldError(event.target);
+                const message = formatError(event.target, false);
+                if (message) {
+                    setFieldError(event.target, message);
+                }
+            });
+            form.addEventListener('focusout', function(event) {
+                const message = formatError(event.target, true);
+                if (message) {
+                    setFieldError(event.target, message);
+                }
             });
             form.addEventListener('submit', function(event) {
                 if (!validateWithdrawalForm()) {

@@ -66,15 +66,21 @@ def send_lucky_draw_entry_email(user, entry):
 
 def send_lucky_draw_winner_email(entry):
     """Send email to lucky draw winner"""
-    subject = 'Congratulations! You Won the Lucky Draw!'
-
     is_poll_winner = entry.draw_type == 'poll'
+    is_monthly_winner = entry.draw_type == 'monthly'
+    draw_label = 'Monthly Draw' if is_monthly_winner else 'Lucky Draw'
+    subject = f'Congratulations! You Won the {draw_label}!'
     poll_title = entry.poll.title if is_poll_winner and entry.poll else None
     prize = entry.prize or 'a prize'
 
     if is_poll_winner and poll_title:
         plain_body = (
             f'Congratulations! You have won {prize} for completing the "{poll_title}".'
+        )
+    elif is_monthly_winner:
+        plain_body = (
+            f'Congratulations! You have won the Monthly Draw with number {entry.guessed_number}. '
+            f'Your prize of {prize} has been added to your wallet.'
         )
     else:
         plain_body = f'Congratulations! You have won the lucky draw with number {entry.guessed_number}.'
@@ -83,6 +89,8 @@ def send_lucky_draw_winner_email(entry):
         'user': entry.user,
         'entry': entry,
         'is_poll_winner': is_poll_winner,
+        'is_monthly_winner': is_monthly_winner,
+        'draw_label': draw_label,
         'poll_title': poll_title,
         'prize': prize,
         'site_name': settings.SITE_NAME,

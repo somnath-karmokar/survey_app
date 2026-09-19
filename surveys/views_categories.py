@@ -144,9 +144,13 @@ class CategoryDetailView(DetailView):
             'now': timezone.now(),
             'cooldown_days': settings.SURVEY_CONFIG.get('DEFAULT_COOLDOWN_DAYS', 10),
             'user_highest_level': unlocked_count,
-            'show_advertisement': should_show_advertisement(self.request)
+            'show_advertisement': should_show_advertisement(self.request),
+            'monthly_survey_limit': (
+                SurveyResponse.monthly_limit_status(self.request.user)
+                if self.request.user.is_authenticated else None
+            ),
         })
-        
+
         return context
 
 @login_required
