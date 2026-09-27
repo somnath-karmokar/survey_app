@@ -400,6 +400,11 @@ LUCKY_DRAW_CONFIG = {
     # (SURVEY_CONFIG) that is at most 2 new attempts a month. Prize, winner cap
     # and which countries take part are set per country in CountryLuckyDrawConfig.
     'MONTHLY_SURVEYS_REQUIRED': 100,
+    # Per country, at least this many people must newly cross a
+    # MONTHLY_SURVEYS_REQUIRED-survey milestone during the current calendar
+    # month for that country's Monthly draw to run at all this month. Below
+    # this, the draw simply doesn't happen this cycle. 0/None = no minimum.
+    'MONTHLY_MIN_QUALIFIERS': 5,
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 21,
     'SHOW_NUMBERS_FOR_TESTING': True,  # Set to False after testing to hide lucky draw numbers

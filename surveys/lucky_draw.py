@@ -1,4 +1,5 @@
 import random
+from string import ascii_uppercase
 from django.conf import settings
 from django.contrib import messages
 from django.shortcuts import render, redirect
@@ -8,7 +9,7 @@ from .models import (
     UserSurveyProgress, LuckyDrawEntry, PollResponse, CountryLuckyDrawConfig,
     SurveyResponse,
 )
-from django.db.models import Sum
+from django.db.models import Sum, Count
 import random
 from django.utils import timezone
 from django.http import JsonResponse  # Add this line
@@ -104,6 +105,62 @@ class LuckyDrawView(View):
             user__profile__country=country,
         ).count()
 
+    def get_monthly_milestone_qualifiers(self, country, required, at=None):
+        """How many distinct users in `country` newly crossed a `required`-survey
+        milestone (100, 200, ...) during the current calendar month, as of `at`.
+
+        Compares each user's all-time completed-survey total against their total
+        as of just before this month started; a user counts if that crossed a
+        new multiple of `required` in between. The "before" total is read from
+        SurveyResponse (one row per completion) since UserSurveyProgress only
+        keeps a running total, not a history.
+        """
+        at = at or timezone.now()
+        month_start = timezone.localtime(at).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        totals_now = {
+            row['user_id']: row['total'] or 0
+            for row in UserSurveyProgress.objects
+                .filter(user__profile__country=country)
+                .values('user_id')
+                .annotate(total=Sum('completed_count'))
+        }
+        totals_before_month = {
+            row['user_id']: row['total']
+            for row in SurveyResponse.objects
+                .filter(user__profile__country=country, completed_at__lt=month_start)
+                .values('user_id')
+                .annotate(total=Count('id'))
+        }
+
+        return sum(
+            1 for user_id, total_now in totals_now.items()
+            if total_now // required > totals_before_month.get(user_id, 0) // required
+        )
+
+    def get_monthly_winners(self, country, at=None):
+        """This month's Monthly draw winners for one country, in the order they won."""
+        at = at or timezone.now()
+        return LuckyDrawEntry.objects.filter(
+            draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY,
+            is_winner=True,
+            created_at__year=at.year,
+            created_at__month=at.month,
+            user__profile__country=country,
+        ).select_related('user').order_by('created_at', 'id')
+
+    def format_winner_name(self, user):
+        """"F. Surname" — same privacy convention as the homepage's recent-winners list."""
+        full_name = user.get_full_name() or user.username
+        name_parts = full_name.split()
+        if len(name_parts) > 1:
+            return f"{name_parts[0][0].upper()}. {' '.join(name_parts[1:])}"
+        return full_name
+
+    def format_winner_list(self, names):
+        """"A: Name, B: Name, ..." so a blocked player can see who took this month's slots."""
+        return ', '.join(f"{letter}: {name}" for letter, name in zip(ascii_uppercase, names))
+
     def credit_winner_wallet(self, entry):
         if not entry.is_winner:
             return Decimal('0.00')
@@ -178,11 +235,36 @@ class LuckyDrawView(View):
         winners = self.get_monthly_winner_count(config.country) if (config and cap) else 0
         is_open = not (cap and winners >= cap)
 
-        month_start = timezone.localtime().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # Who took this month's slots, so a blocked player can see who won
+        # instead of just being told the prizes are gone. Only fetched once
+        # the draw is actually closed for the cap.
+        winner_names = (
+            [self.format_winner_name(entry.user) for entry in self.get_monthly_winners(config.country)]
+            if (config and cap and not is_open) else []
+        )
+
+        # The Monthly draw only runs on the 1st of the month (00:00-23:59 local
+        # time) — the rest of the month it's closed even if attempts are banked.
+        now = timezone.localtime()
+        window_open = now.day == 1
+
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         if month_start.month == 12:
             resets_on = month_start.replace(year=month_start.year + 1, month=1)
         else:
             resets_on = month_start.replace(month=month_start.month + 1)
+
+        # The country needs a minimum number of people to newly reach the
+        # Monthly milestone this calendar month before the draw runs at all —
+        # below that, there's no Monthly draw this cycle regardless of anyone's
+        # banked attempts. Only checked (it's a whole-country scan) when it can
+        # actually matter: the draw window is open and a minimum is configured.
+        min_qualifiers = settings.LUCKY_DRAW_CONFIG.get('MONTHLY_MIN_QUALIFIERS', 5)
+        milestone_qualifiers = (
+            self.get_monthly_milestone_qualifiers(config.country, required)
+            if (config and min_qualifiers and window_open) else 0
+        )
+        quorum_met = (not min_qualifiers) or (not window_open) or (milestone_qualifiers >= min_qualifiers)
 
         return {
             'monthly_available': config is not None,
@@ -192,8 +274,14 @@ class LuckyDrawView(View):
             'monthly_plays_available': plays,
             'monthly_winner_cap': cap,
             'monthly_winners_this_month': winners,
+            'monthly_winner_names': winner_names,
+            'monthly_winner_list': self.format_winner_list(winner_names),
             'monthly_open': is_open,
-            'monthly_eligible': plays > 0 and is_open,
+            'monthly_window_open': window_open,
+            'monthly_min_qualifiers': min_qualifiers,
+            'monthly_milestone_qualifiers': milestone_qualifiers,
+            'monthly_quorum_met': quorum_met,
+            'monthly_eligible': plays > 0 and is_open and window_open and quorum_met,
             'monthly_resets_on': resets_on,
             'monthly_prize_display': config.get_monthly_prize_display() if config else '',
         }
@@ -274,11 +362,25 @@ class LuckyDrawView(View):
         e = self.get_eligibility_context(user)
         if not e['monthly_available']:
             return 'The Monthly draw is not available in your country.'
-        if not e['monthly_open']:
+        if not e['monthly_window_open']:
+            resets_on = e['monthly_resets_on']
             return (
-                "All of this month's Monthly draw prizes for your country have been won. "
+                "The Monthly draw only runs on the 1st of each month. "
+                f"It opens again on {resets_on.strftime('%B')} {resets_on.day}."
+            )
+        if not e['monthly_quorum_met']:
+            return (
+                f"Not enough people have reached the {e['monthly_required']}-survey milestone "
+                f"in your country this month yet ({e['monthly_milestone_qualifiers']} of "
+                f"{e['monthly_min_qualifiers']} needed) — there's no Monthly draw this cycle. "
                 "Your attempts are kept for next month."
             )
+        if not e['monthly_open']:
+            message = "All of this month's Monthly draw prizes for your country have been won."
+            if e['monthly_winner_list']:
+                message += f" Winners: {e['monthly_winner_list']}."
+            message += " Your attempts are kept for next month."
+            return message
         if not e['monthly_plays_available']:
             return f"You need to complete {e['monthly_required']} surveys for a Monthly draw attempt."
         return ''
@@ -362,7 +464,10 @@ class LuckyDrawView(View):
         
         survey_plays_available = eligibility['survey_plays_available']
         poll_plays_available = eligibility['poll_plays_available']
-        monthly_plays_playable = eligibility['monthly_plays_available'] if eligibility['monthly_open'] else 0
+        monthly_plays_playable = (
+            eligibility['monthly_plays_available']
+            if (eligibility['monthly_open'] and eligibility['monthly_window_open'] and eligibility['monthly_quorum_met']) else 0
+        )
         total_plays_available = survey_plays_available + poll_plays_available + monthly_plays_playable
 
         context = {
@@ -552,7 +657,14 @@ class LuckyDrawView(View):
         plays_remaining = (
             post_play_eligibility['survey_plays_available']
             + post_play_eligibility['poll_plays_available']
-            + (post_play_eligibility['monthly_plays_available'] if post_play_eligibility['monthly_open'] else 0)
+            + (
+                post_play_eligibility['monthly_plays_available']
+                if (
+                    post_play_eligibility['monthly_open']
+                    and post_play_eligibility['monthly_window_open']
+                    and post_play_eligibility['monthly_quorum_met']
+                ) else 0
+            )
         )
 
         return JsonResponse({

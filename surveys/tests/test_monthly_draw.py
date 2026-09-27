@@ -3,9 +3,12 @@
 Quick draw : every 2 surveys = 1 attempt, small prize, no winner cap.
 Monthly    : 100 surveys = 1 attempt (200 = 2, ...), its own prize per country
              (10 / 10 GBP / 5 for Nigeria) and 4 winners a month per country.
+             Only playable on the 1st of the month (00:00-23:59 local time).
 """
+import datetime
 import json
 from decimal import Decimal
+from unittest import mock
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -16,8 +19,8 @@ from django.utils import timezone
 
 from surveys.lucky_draw import QUICK_DRAW_NUDGE, LuckyDrawView
 from surveys.models import (
-    Country, CountryLuckyDrawConfig, LuckyDrawEntry, SurveyCategory,
-    UserSurveyProgress, WalletTransaction,
+    Country, CountryLuckyDrawConfig, LuckyDrawEntry, Survey, SurveyCategory,
+    SurveyResponse, UserSurveyProgress, WalletTransaction,
 )
 
 MONTHLY = LuckyDrawEntry.DRAW_TYPE_MONTHLY
@@ -28,6 +31,9 @@ DRAW_CONFIG = {
     'SURVEYS_REQUIRED': 2,
     'POLLS_REQUIRED': 5,
     'MONTHLY_SURVEYS_REQUIRED': 100,
+    # Neutralised here so the tests above don't have to think about it; the
+    # dedicated MonthlyDrawQuorumTests below turns it back on.
+    'MONTHLY_MIN_QUALIFIERS': 0,
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 21,
 }
@@ -35,7 +41,26 @@ DRAW_CONFIG = {
 
 @override_settings(LUCKY_DRAW_CONFIG=DRAW_CONFIG)
 class DrawTestCase(TestCase):
-    """Countries + per-country config shared by the tests below."""
+    """Countries + per-country config shared by the tests below.
+
+    The Monthly draw is only playable on the 1st of the month, so every test
+    here runs with "now" frozen to the 1st unless it explicitly calls
+    `self.freeze(...)` to move to another day (see MonthlyDrawWindowTests).
+    """
+
+    NOW = datetime.datetime(2030, 6, 1, 12, 0, tzinfo=datetime.timezone.utc)
+
+    def setUp(self):
+        super().setUp()
+        self._time_patcher = mock.patch('django.utils.timezone.now', return_value=self.NOW)
+        self._time_patcher.start()
+        self.addCleanup(self._time_patcher.stop)
+
+    def freeze(self, when):
+        """Move the mocked "now" used by timezone.now()/localtime() to `when`."""
+        self._time_patcher.stop()
+        self._time_patcher = mock.patch('django.utils.timezone.now', return_value=when)
+        self._time_patcher.start()
 
     @classmethod
     def setUpTestData(cls):
@@ -53,6 +78,7 @@ class DrawTestCase(TestCase):
         # Australia has a Quick draw config but takes no part in the Monthly draw.
         cls.au = country('Australia', 'AU', '$', 'USD', Decimal('1.00'), None)
         cls.category = SurveyCategory.objects.create(name='General', country=cls.us)
+        cls.survey = Survey.objects.create(name='Milestone Survey', category=cls.category)
 
     counter = 0
 
@@ -98,6 +124,42 @@ class DrawTestCase(TestCase):
             )
             if when:
                 LuckyDrawEntry.objects.filter(pk=entry.pk).update(created_at=when)
+
+    def make_named_monthly_winner(self, country, first_name, last_name):
+        """A Monthly winner with a real name, for tests that check the winner list."""
+        winner = self.make_user(country)
+        winner.first_name, winner.last_name = first_name, last_name
+        winner.save(update_fields=['first_name', 'last_name'])
+        LuckyDrawEntry.objects.create(
+            user=winner, draw_type=MONTHLY, guessed_number=1, winning_number=1,
+            is_winner=True, prize='$10 USD', surveys_at_play=100, polls_at_play=0,
+        )
+        return winner
+
+    def make_banked_qualifier(self, country, total_surveys):
+        """A user whose milestone(s) were reached with real completions dated
+        before this (frozen) month, so they hold a banked Monthly attempt but
+        don't count toward THIS month's newly-reached-milestone quorum.
+        """
+        user = self.make_user(country, total_surveys)
+        before_this_month = self.NOW.replace(day=1) - datetime.timedelta(days=1)
+        SurveyResponse.objects.bulk_create([
+            SurveyResponse(user=user, survey=self.survey, completed_at=before_this_month)
+            for _ in range(total_surveys)
+        ])
+        return user
+
+    def make_new_qualifier(self, country, total_surveys):
+        """A user who newly reaches `total_surveys` (crossing a milestone) with
+        completions dated within this (frozen) month, so they count toward
+        THIS month's quorum.
+        """
+        user = self.make_user(country, total_surveys)
+        SurveyResponse.objects.bulk_create([
+            SurveyResponse(user=user, survey=self.survey, completed_at=self.NOW)
+            for _ in range(total_surveys)
+        ])
+        return user
 
 
 class MonthlyAttemptsTests(DrawTestCase):
@@ -275,6 +337,24 @@ class MonthlyWinnerCapTests(DrawTestCase):
         self.assertFalse(status['monthly_open'])
         self.assertFalse(status['monthly_eligible'])
 
+    def test_blocked_player_sees_who_won_this_months_slots(self):
+        self.make_named_monthly_winner(self.us, 'John', 'Okafor')
+        self.make_named_monthly_winner(self.us, 'Benson', 'Ade')
+        self.fill_monthly_winners(self.us, 2)     # 2 more, unnamed, to reach the cap of 4
+        latecomer = self.make_user(self.us, 100)
+
+        response = self.play(latecomer, MONTHLY)
+        error = response.json()['error']
+
+        self.assertIn('Winners:', error)
+        self.assertIn('A: J. Okafor', error)
+        self.assertIn('B: B. Ade', error)
+
+        self.client.force_login(latecomer)
+        page = self.client.get(reverse('surveys:lucky_draw'))
+        self.assertContains(page, 'Winners:')
+        self.assertContains(page, 'A: J. Okafor')
+
     def test_each_country_has_its_own_four_winners(self):
         self.fill_monthly_winners(self.us, 4)
 
@@ -326,3 +406,106 @@ class MonthlyDrawPageTests(DrawTestCase):
         page = self.get_page(self.make_user(self.au, 500))
 
         self.assertNotContains(page, 'monthly-draw-panel')
+
+
+class MonthlyDrawWindowTests(DrawTestCase):
+    """The Monthly draw only runs on the 1st of the month, 00:00-23:59 local time."""
+
+    def test_eligible_on_the_1st_but_not_on_other_days(self):
+        user = self.make_user(self.uk, 100)
+        self.assertTrue(self.status(user)['monthly_eligible'])          # NOW is the 1st
+
+        self.freeze(self.NOW.replace(day=15))
+        status = self.status(user)
+        self.assertTrue(status['monthly_open'])                        # cap isn't the reason
+        self.assertFalse(status['monthly_window_open'])
+        self.assertFalse(status['monthly_eligible'])
+
+        self.freeze(self.NOW.replace(month=self.NOW.month + 1, day=1))
+        self.assertTrue(self.status(user)['monthly_eligible'])          # open again on the next 1st
+
+    def test_play_is_refused_outside_the_window_and_attempt_is_kept(self):
+        user = self.make_user(self.uk, 100)
+        self.freeze(self.NOW.replace(day=15))
+
+        response = self.play(user, MONTHLY)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('only runs on the 1st', response.json()['error'])
+        self.assertFalse(LuckyDrawEntry.objects.filter(user=user).exists())
+        self.assertEqual(self.status(user)['monthly_plays_available'], 1)
+
+    def test_page_explains_the_window_is_closed(self):
+        user = self.make_user(self.uk, 100)
+        self.freeze(self.NOW.replace(day=15))
+        self.client.force_login(user)
+
+        page = self.client.get(reverse('surveys:lucky_draw'))
+
+        self.assertContains(page, 'only runs on the 1st')
+        self.assertContains(page, 'opens again on')
+
+
+@override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'MONTHLY_MIN_QUALIFIERS': 5})
+class MonthlyDrawQuorumTests(DrawTestCase):
+    """At least MONTHLY_MIN_QUALIFIERS people must newly cross the Monthly
+    milestone in a country during the current month before that country's
+    Monthly draw runs at all this cycle — regardless of anyone's banked
+    attempts from earlier months.
+    """
+
+    def test_below_minimum_blocks_the_whole_countrys_draw(self):
+        for _ in range(4):
+            self.make_new_qualifier(self.us, 100)
+        bystander = self.make_user(self.us, 0)      # hasn't reached the milestone themselves
+
+        status = self.status(bystander)
+
+        self.assertEqual(status['monthly_milestone_qualifiers'], 4)
+        self.assertFalse(status['monthly_quorum_met'])
+        self.assertFalse(status['monthly_eligible'])
+
+    def test_reaching_the_minimum_opens_the_draw(self):
+        for _ in range(5):
+            self.make_new_qualifier(self.us, 100)
+
+        status = self.status(self.make_user(self.us, 0))
+
+        self.assertEqual(status['monthly_milestone_qualifiers'], 5)
+        self.assertTrue(status['monthly_quorum_met'])
+
+    def test_a_banked_attempt_from_before_this_month_does_not_count_toward_quorum(self):
+        for _ in range(4):
+            self.make_new_qualifier(self.us, 100)                      # only 4 new this month
+        blocked_player = self.make_banked_qualifier(self.us, 100)      # personally eligible, but not a new crosser
+
+        self.assertEqual(self.status(blocked_player)['monthly_plays_available'], 1)
+        self.assertFalse(self.status(blocked_player)['monthly_quorum_met'])
+
+        response = self.play(blocked_player, MONTHLY)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('Not enough people', response.json()['error'])
+        self.assertIn('4 of 5 needed', response.json()['error'])
+        self.assertFalse(LuckyDrawEntry.objects.filter(user=blocked_player).exists())
+        self.assertEqual(self.status(blocked_player)['monthly_plays_available'], 1)     # attempt kept
+
+    def test_page_explains_the_quorum_is_not_met(self):
+        for _ in range(4):
+            self.make_new_qualifier(self.us, 100)
+        user = self.make_banked_qualifier(self.us, 100)
+        self.client.force_login(user)
+
+        page = self.client.get(reverse('surveys:lucky_draw'))
+
+        self.assertContains(page, 'Not enough people')
+        self.assertContains(page, '4 of 5 needed')
+
+    def test_other_countries_are_unaffected_by_one_countrys_shortfall(self):
+        for _ in range(4):
+            self.make_new_qualifier(self.us, 100)                      # US: below quorum
+        for _ in range(5):
+            self.make_new_qualifier(self.uk, 100)                      # UK: meets quorum
+
+        self.assertFalse(self.status(self.make_user(self.us, 0))['monthly_quorum_met'])
+        self.assertTrue(self.status(self.make_user(self.uk, 0))['monthly_quorum_met'])
