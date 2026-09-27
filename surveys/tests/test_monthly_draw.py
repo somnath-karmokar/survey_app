@@ -108,6 +108,23 @@ class MonthlyAttemptsTests(DrawTestCase):
                 user = self.make_user(self.uk, surveys)
                 self.assertEqual(self.status(user)['monthly_plays_available'], attempts)
 
+    def test_profile_reports_monthly_milestones_and_qualified_users(self):
+        user = self.make_user(self.us, 200)
+        self.make_user(self.us, 100)
+        self.make_user(self.us, 99)
+
+        self.client.force_login(user)
+        response = self.client.get(reverse('surveys:user_profile'))
+
+        stats = response.context['monthly_draw_stats']
+        self.assertEqual(stats['milestones_completed'], 2)
+        self.assertEqual(stats['attempts_available'], 2)
+        self.assertEqual(stats['qualified_users'], 2)
+
+        dashboard_response = self.client.get(reverse('surveys:dashboard'))
+        dashboard_stats = dashboard_response.context['monthly_draw_stats']
+        self.assertEqual(dashboard_stats, stats)
+
     def test_surplus_carries_over_after_playing_an_attempt(self):
         user = self.make_user(self.uk, 200)
         self.assertEqual(self.status(user)['monthly_plays_available'], 2)

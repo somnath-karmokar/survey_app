@@ -492,7 +492,9 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             )
             level_progress = {p['level']: p['total_completed'] for p in progress_by_level}
         from .lucky_draw import LuckyDrawView
-        lucky_draw_eligible = LuckyDrawView().is_eligible(user)
+        lucky_draw_view = LuckyDrawView()
+        lucky_draw_eligible = lucky_draw_view.is_eligible(user)
+        monthly_draw_stats = lucky_draw_view.get_monthly_profile_stats(user)
 
         # None when the surveys-completed milestone doesn't apply to this
         # user (e.g. Nigeria, or no country set) - the template hides the
@@ -517,6 +519,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             'lucky_draw_eligible': lucky_draw_eligible,
             'LUCKY_DRAW_CONFIG': getattr(django_settings, 'LUCKY_DRAW_CONFIG', {}),
             'survey_milestone': survey_milestone,
+            'monthly_draw_stats': monthly_draw_stats,
         })
 
         return context

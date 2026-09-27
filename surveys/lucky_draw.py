@@ -244,6 +244,31 @@ class LuckyDrawView(View):
             **monthly,
         }
 
+    def get_monthly_profile_stats(self, user):
+        """Monthly Draw milestone figures shared by the profile and dashboard."""
+        eligibility = self.get_eligibility_context(user)
+        profile = getattr(user, 'profile', None)
+        if not eligibility['monthly_available'] or not getattr(profile, 'country_id', None):
+            return None
+
+        required = eligibility['monthly_required']
+        qualified_users = (
+            UserSurveyProgress.objects
+            .filter(user__profile__country_id=profile.country_id)
+            .values('user_id')
+            .annotate(total_completed=Sum('completed_count'))
+            .filter(total_completed__gte=required)
+            .count()
+        )
+        total_completed = eligibility['total_surveys']
+        return {
+            'required': required,
+            'total_completed': total_completed,
+            'milestones_completed': total_completed // required,
+            'attempts_available': eligibility['monthly_plays_available'],
+            'qualified_users': qualified_users,
+        }
+
     def monthly_play_error(self, user):
         """Why the user cannot play the Monthly draw right now, or '' if they can."""
         e = self.get_eligibility_context(user)

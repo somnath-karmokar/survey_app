@@ -782,6 +782,40 @@
         </section>
 
         <aside class="sp-side">
+            {% if monthly_draw_stats %}
+            <section class="sp-card">
+                <div class="sp-section-head">
+                    <div>
+                        <h3 class="sp-title">Monthly Draw Milestone</h3>
+                        <p class="sp-note">Every {{ monthly_draw_stats.required }} completed surveys earns one attempt.</p>
+                    </div>
+                </div>
+                <div class="sp-info-grid">
+                    <article class="sp-info-item">
+                        <div class="sp-info-label">
+                            <span class="sp-mini-icon"><i class="fas fa-trophy"></i></span>
+                            <p class="sp-label">Your Milestones</p>
+                        </div>
+                        <p class="sp-info-value">{{ monthly_draw_stats.milestones_completed }} milestone{{ monthly_draw_stats.milestones_completed|pluralize }}</p>
+                    </article>
+                    <article class="sp-info-item">
+                        <div class="sp-info-label">
+                            <span class="sp-mini-icon"><i class="fas fa-users"></i></span>
+                            <p class="sp-label">Qualified Users</p>
+                        </div>
+                        <p class="sp-info-value">{{ monthly_draw_stats.qualified_users }}</p>
+                    </article>
+                    <article class="sp-info-item sp-info-item-wide">
+                        <div class="sp-info-label">
+                            <span class="sp-mini-icon"><i class="fas fa-ticket"></i></span>
+                            <p class="sp-label">Available Attempts</p>
+                        </div>
+                        <p class="sp-info-value">{{ monthly_draw_stats.attempts_available }}</p>
+                    </article>
+                </div>
+            </section>
+            {% endif %}
+
             <section class="sp-card">
                 <div class="sp-section-head">
                     <div>
