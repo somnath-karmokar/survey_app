@@ -621,6 +621,15 @@ class UserWallet(UserProfile):
         ordering = ['user__username']
 
 
+class MonthlyDrawEligibleUser(UserProfile):
+    """Admin-only view of users who have reached the Monthly draw milestone."""
+    class Meta:
+        proxy = True
+        verbose_name = 'Monthly Draw Eligible User'
+        verbose_name_plural = 'Monthly Draw Eligible Users'
+        ordering = ['user__username']
+
+
 @receiver(post_save, sender=User)
 def create_or_update_user_profile(sender, instance, created, **kwargs):
     """Create or update the user profile when a User is saved."""

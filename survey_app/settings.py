@@ -405,6 +405,9 @@ LUCKY_DRAW_CONFIG = {
     # month for that country's Monthly draw to run at all this month. Below
     # this, the draw simply doesn't happen this cycle. 0/None = no minimum.
     'MONTHLY_MIN_QUALIFIERS': 5,
+    # TEMPORARY, for testing: this date (YYYY-MM-DD, server time zone) also
+    # opens the Monthly draw window, as if it were the 1st. Set to None to remove.
+    'MONTHLY_DRAW_TEST_DATE': '2026-09-29',
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 21,
     'SHOW_NUMBERS_FOR_TESTING': True,  # Set to False after testing to hide lucky draw numbers

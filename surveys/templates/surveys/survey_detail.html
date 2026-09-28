@@ -120,6 +120,9 @@
             <nav aria-label="breadcrumb" class="mb-4">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{% url 'surveys:survey_list' %}">Surveys</a></li>
+                    {% if survey.category.slug %}
+                    <li class="breadcrumb-item"><a href="{% url 'surveys:category_detail' category_slug=survey.category.slug %}">{{ survey.category.name }}</a></li>
+                    {% endif %}
                     <li class="breadcrumb-item active" aria-current="page">{{ survey.name }}</li>
                 </ol>
             </nav>
@@ -137,6 +140,7 @@
 
             <div class="card mb-4">
                 <div class="card-header">
+                    <span class="badge bg-secondary mb-2"><i class="fas fa-folder-open me-1"></i>{{ survey.category.name }}</span>
                     <h1 class="h4 mb-0">{{ survey.name }}</h1>
                     <p class="mb-0 text-muted">Question {{ question_index|add:1 }} of {{ total_questions }}</p>
                 </div>
