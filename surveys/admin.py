@@ -27,6 +27,7 @@ from django.db.models import Count, Max, Q, Sum, F, OuterRef, Subquery, IntegerF
 from django.db.models.functions import Coalesce
 from django.conf import settings
 from django.utils import timezone
+from datetime import timedelta
 
 # Custom Admin Site
 class SurveyAdminSite(AdminSite):
@@ -395,6 +396,45 @@ class UserWalletAdmin(admin.ModelAdmin):
         return False
 
 
+def selected_draw_month(request):
+    """(month_start, next_month_start, is_current_month) for the admin's ?month=YYYY-MM, default this month."""
+    current = timezone.localtime().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_start = current
+    value = request.GET.get('month', '')
+    try:
+        year, month = (int(part) for part in value.split('-'))
+        month_start = current.replace(year=year, month=month)
+    except ValueError:
+        pass
+    if month_start.month == 12:
+        next_month_start = month_start.replace(year=month_start.year + 1, month=1)
+    else:
+        next_month_start = month_start.replace(month=month_start.month + 1)
+    return month_start, next_month_start, month_start == current
+
+
+class MonthlyDrawMonthFilter(admin.SimpleListFilter):
+    """Picks the month the other Monthly-draw columns and filters refer to, and
+    limits the list to that month's qualified users: people who newly reached a
+    milestone in it. Same rule as the draw's minimum-qualifiers count and the
+    profile's "Qualified Users This Month"."""
+    title = 'month'
+    parameter_name = 'month'
+
+    def lookups(self, request, model_admin):
+        month = timezone.localtime().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        choices = []
+        for _ in range(12):
+            choices.append((month.strftime('%Y-%m'), month.strftime('%B %Y')))
+            month = (month - timedelta(days=1)).replace(day=1)
+        return choices
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(milestones_by_month_end__gt=F('milestones_before_month'))
+        return queryset
+
+
 class MonthlyAttemptsFilter(admin.SimpleListFilter):
     title = 'attempts available'
     parameter_name = 'attempts'
@@ -416,14 +456,14 @@ class MonthlyWinnerFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin):
         return (
-            ('this_month', 'Won this month'),
+            ('this_month', 'Won in selected month'),
             ('ever', 'Won ever'),
             ('never', 'Never won'),
         )
 
     def queryset(self, request, queryset):
         if self.value() == 'this_month':
-            return queryset.filter(monthly_wins_this_month__gt=0)
+            return queryset.filter(monthly_wins_in_month__gt=0)
         if self.value() == 'ever':
             return queryset.filter(monthly_wins__gt=0)
         if self.value() == 'never':
@@ -432,8 +472,8 @@ class MonthlyWinnerFilter(admin.SimpleListFilter):
 
 
 class NewMilestoneThisMonthFilter(admin.SimpleListFilter):
-    """Users who count toward this month's MONTHLY_MIN_QUALIFIERS quorum."""
-    title = 'new milestone this month'
+    """Users who count toward the selected month's MONTHLY_MIN_QUALIFIERS quorum."""
+    title = 'new milestone in selected month'
     parameter_name = 'new_milestone'
 
     def lookups(self, request, model_admin):
@@ -441,9 +481,9 @@ class NewMilestoneThisMonthFilter(admin.SimpleListFilter):
 
     def queryset(self, request, queryset):
         if self.value() == 'yes':
-            return queryset.filter(milestones_now__gt=F('milestones_before_month'))
+            return queryset.filter(milestones_by_month_end__gt=F('milestones_before_month'))
         if self.value() == 'no':
-            return queryset.filter(milestones_now__lte=F('milestones_before_month'))
+            return queryset.filter(milestones_by_month_end__lte=F('milestones_before_month'))
         return queryset
 
 
@@ -452,11 +492,12 @@ class MonthlyDrawEligibleUserAdmin(admin.ModelAdmin):
     MONTHLY_SURVEYS_REQUIRED milestone at least once."""
     list_display = (
         'user', 'full_name', 'email', 'country', 'total_surveys_display',
-        'attempts_display', 'new_milestone_this_month', 'monthly_wins_display',
+        'attempts_display', 'new_milestone_this_month', 'played_in_month', 'monthly_wins_display',
         'won_this_month', 'last_monthly_play_display',
     )
     list_filter = (
-        'country', MonthlyAttemptsFilter, MonthlyWinnerFilter, NewMilestoneThisMonthFilter,
+        MonthlyDrawMonthFilter, 'country', MonthlyWinnerFilter, MonthlyAttemptsFilter,
+        NewMilestoneThisMonthFilter,
     )
     search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
     list_select_related = ('user', 'country')
@@ -464,8 +505,9 @@ class MonthlyDrawEligibleUserAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         required = max(1, settings.LUCKY_DRAW_CONFIG.get('MONTHLY_SURVEYS_REQUIRED', 100))
-        month_start = timezone.localtime().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        month_start, next_month_start, is_current_month = selected_draw_month(request)
         monthly = LuckyDrawEntry.objects.filter(user=OuterRef('user'), draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY)
+        monthly_in_month = monthly.filter(created_at__gte=month_start, created_at__lt=next_month_start)
         monthly_wins = monthly.filter(is_winner=True)
 
         def count_of(qs):
@@ -487,6 +529,16 @@ class MonthlyDrawEligibleUserAdmin(admin.ModelAdmin):
                 user=OuterRef('user'), completed_at__isnull=False, completed_at__lt=month_start,
             )
         )
+        # For the current month the quorum counts against the live total (as the
+        # draw does); for a past month, against completions up to that month's end.
+        if is_current_month:
+            surveys_by_month_end = F('total_surveys')
+        else:
+            surveys_by_month_end = count_of(
+                SurveyResponse.objects.filter(
+                    user=OuterRef('user'), completed_at__isnull=False, completed_at__lt=next_month_start,
+                )
+            )
         last_snapshot = Coalesce(
             Subquery(monthly.order_by('-created_at').values('surveys_at_play')[:1], output_field=IntegerField()),
             0,
@@ -503,14 +555,15 @@ class MonthlyDrawEligibleUserAdmin(admin.ModelAdmin):
                 surveys_before_month=surveys_before_month,
                 monthly_snapshot=last_snapshot,
                 monthly_wins=count_of(monthly_wins),
-                monthly_wins_this_month=count_of(monthly_wins.filter(created_at__gte=month_start)),
+                monthly_wins_in_month=count_of(monthly_in_month.filter(is_winner=True)),
+                monthly_plays_in_month=count_of(monthly_in_month),
                 last_monthly_play=Subquery(monthly.order_by('-created_at').values('created_at')[:1]),
             )
             .annotate(
                 attempts_available=ExpressionWrapper(
                     (F('total_surveys') - F('monthly_snapshot')) / required, output_field=IntegerField(),
                 ),
-                milestones_now=ExpressionWrapper(F('total_surveys') / required, output_field=IntegerField()),
+                milestones_by_month_end=ExpressionWrapper(surveys_by_month_end / required, output_field=IntegerField()),
                 milestones_before_month=ExpressionWrapper(
                     F('surveys_before_month') / required, output_field=IntegerField(),
                 ),
@@ -539,18 +592,22 @@ class MonthlyDrawEligibleUserAdmin(admin.ModelAdmin):
     attempts_display.short_description = 'Attempts available'
     attempts_display.admin_order_field = 'attempts_available'
 
-    @admin.display(boolean=True, description='New milestone this month')
+    @admin.display(boolean=True, description='New milestone in month')
     def new_milestone_this_month(self, obj):
-        return obj.milestones_now > obj.milestones_before_month
+        return obj.milestones_by_month_end > obj.milestones_before_month
+
+    @admin.display(description='Monthly plays in month', ordering='monthly_plays_in_month')
+    def played_in_month(self, obj):
+        return obj.monthly_plays_in_month
 
     def monthly_wins_display(self, obj):
         return obj.monthly_wins
     monthly_wins_display.short_description = 'Monthly wins'
     monthly_wins_display.admin_order_field = 'monthly_wins'
 
-    @admin.display(boolean=True, description='Won this month', ordering='monthly_wins_this_month')
+    @admin.display(boolean=True, description='Won in month', ordering='monthly_wins_in_month')
     def won_this_month(self, obj):
-        return obj.monthly_wins_this_month > 0
+        return obj.monthly_wins_in_month > 0
 
     def last_monthly_play_display(self, obj):
         return obj.last_monthly_play
