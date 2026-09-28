@@ -8,8 +8,13 @@
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
                     <h2 class="h4 mb-0">{{ survey.name }}</h2>
+                    <p class="mb-0 mt-1 small text-white-50">Category: {{ survey.category.name }}</p>
                 </div>
                 <div class="card-body">
+                    <div class="alert alert-info d-flex align-items-center gap-2" role="note">
+                        <i class="fas fa-circle-info"></i>
+                        <span>This survey contains advertisements.</span>
+                    </div>
                     <form method="post" class="needs-validation" novalidate>
                         {% csrf_token %}
                         

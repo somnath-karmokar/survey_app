@@ -116,6 +116,10 @@
                         {% endif %}
                     </div>
 
+                    <p class="small text-muted text-center mb-4">
+                        If you win, your initial and surname will be displayed on the website.
+                    </p>
+
 
                     {% if monthly_available %}
                     <div class="card border-warning mb-4" id="monthly-draw-panel">
@@ -127,6 +131,7 @@
                             <p class="small mb-3">
                                 Every {{ monthly_required }} surveys you complete earns one Monthly draw attempt.
                                 {% if monthly_winner_cap %}Up to {{ monthly_winner_cap }} winners each month in your country, first come, first served.{% endif %}
+                                Playable only on the 1st of each month.
                             </p>
                             <div class="d-flex justify-content-between small mb-1">
                                 <span>Progress to your next attempt</span>
@@ -142,9 +147,21 @@
                             {% if monthly_winner_cap %}
                             <p class="mb-0 small text-muted">{{ monthly_winners_this_month }} of {{ monthly_winner_cap }} prizes claimed this month.</p>
                             {% endif %}
-                            {% if not monthly_open %}
+                            {% if not monthly_window_open %}
                             <div class="alert alert-secondary mt-3 mb-0">
-                                All of this month's prizes for your country have been won. The Monthly draw opens again on {{ monthly_resets_on|date:"F j" }}{% if monthly_plays_available %} &mdash; your {{ monthly_plays_available }} attempt{{ monthly_plays_available|pluralize }} will be waiting{% endif %}.
+                                The Monthly draw only runs on the 1st of each month. It opens again on {{ monthly_resets_on|date:"F j" }}{% if monthly_plays_available %} &mdash; your {{ monthly_plays_available }} attempt{{ monthly_plays_available|pluralize }} will be waiting{% endif %}.
+                            </div>
+                            {% elif not monthly_quorum_met %}
+                            <div class="alert alert-secondary mt-3 mb-0">
+                                Not enough people have reached the {{ monthly_required }}-survey milestone in your country this month yet
+                                ({{ monthly_milestone_qualifiers }} of {{ monthly_min_qualifiers }} needed) &mdash; there's no Monthly draw this cycle.
+                                {% if monthly_plays_available %}Your {{ monthly_plays_available }} attempt{{ monthly_plays_available|pluralize }} will be waiting next month.{% endif %}
+                            </div>
+                            {% elif not monthly_open %}
+                            <div class="alert alert-secondary mt-3 mb-0">
+                                All of this month's prizes for your country have been won.
+                                {% if monthly_winner_list %}Winners: {{ monthly_winner_list }}.{% endif %}
+                                The Monthly draw opens again on {{ monthly_resets_on|date:"F j" }}{% if monthly_plays_available %} &mdash; your {{ monthly_plays_available }} attempt{{ monthly_plays_available|pluralize }} will be waiting{% endif %}.
                             </div>
                             {% endif %}
                         </div>

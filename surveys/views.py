@@ -319,6 +319,7 @@ def user_profile(request):
     from .lucky_draw import LuckyDrawView
     lucky_draw_view = LuckyDrawView()
     lucky_draw_context = lucky_draw_view.get_eligibility_context(user)
+    monthly_draw_stats = lucky_draw_view.get_monthly_profile_stats(user)
     
     survey_activities = [
         {
@@ -378,6 +379,7 @@ def user_profile(request):
         'polls_completed_for_draw': lucky_draw_context['polls_completed'],
         'surveys_required_for_draw': lucky_draw_context['surveys_required'],
         'polls_required_for_draw': lucky_draw_context['polls_required'],
+        'monthly_draw_stats': monthly_draw_stats,
     }
     return render(request, 'surveys/profile.html', context)
 

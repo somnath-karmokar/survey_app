@@ -122,6 +122,38 @@
         </div>
     </div>
 
+    {% if monthly_draw_stats %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <section class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+                        <div>
+                            <h5 class="mb-1"><i class="fas fa-calendar-alt text-primary me-2"></i>Monthly Draw Milestone</h5>
+                            <p class="text-muted mb-0">Every {{ monthly_draw_stats.required }} completed surveys earns one attempt.</p>
+                        </div>
+                        <a href="{% url 'surveys:lucky_draw' %}" class="btn btn-sm btn-outline-primary">Open Draw</a>
+                    </div>
+                    <div class="row text-center g-3">
+                        <div class="col-md-4">
+                            <p class="text-muted text-uppercase small mb-1">Your Milestones</p>
+                            <p class="h3 mb-0">{{ monthly_draw_stats.milestones_completed }} milestone{{ monthly_draw_stats.milestones_completed|pluralize }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="text-muted text-uppercase small mb-1">Qualified Users</p>
+                            <p class="h3 mb-0">{{ monthly_draw_stats.qualified_users }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="text-muted text-uppercase small mb-1">Available Attempts</p>
+                            <p class="h3 mb-0">{{ monthly_draw_stats.attempts_available }}</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+    {% endif %}
+
     {% if survey_milestone %}
     <!-- Survey Milestone Reward -->
     <div class="row mb-4">
