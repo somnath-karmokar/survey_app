@@ -17,12 +17,16 @@ from .models import (
     SurveyCategory, Survey, Question, Choice, SurveyResponse, Answer,
     LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement,
     Poll, PollQuestion, PollChoice, PollResponse, PollAnswer, CountryLuckyDrawConfig,
-    WalletTransaction, UserWallet, WalletWithdrawalRequest, JournalPost, JournalCategory, PrivacyPolicy, AboutUs, Advertiser, DirectMarketing
+    WalletTransaction, UserWallet, WalletWithdrawalRequest, JournalPost, JournalCategory, PrivacyPolicy, AboutUs, Advertiser, DirectMarketing,
+    MonthlyDrawEligibleUser, UserSurveyProgress,
 )
 from django.utils.safestring import mark_safe
 from django.urls import path
 from django.http import JsonResponse, HttpResponseRedirect
-from django.db.models import Count, Max, Q
+from django.db.models import Count, Max, Q, Sum, F, OuterRef, Subquery, IntegerField, ExpressionWrapper
+from django.db.models.functions import Coalesce
+from django.conf import settings
+from django.utils import timezone
 
 # Custom Admin Site
 class SurveyAdminSite(AdminSite):
@@ -388,6 +392,178 @@ class UserWalletAdmin(admin.ModelAdmin):
     last_transaction_at.admin_order_field = 'last_transaction'
 
     def has_add_permission(self, request):
+        return False
+
+
+class MonthlyAttemptsFilter(admin.SimpleListFilter):
+    title = 'attempts available'
+    parameter_name = 'attempts'
+
+    def lookups(self, request, model_admin):
+        return (('yes', 'Has attempts'), ('no', 'No attempts left'))
+
+    def queryset(self, request, queryset):
+        if self.value() == 'yes':
+            return queryset.filter(attempts_available__gt=0)
+        if self.value() == 'no':
+            return queryset.filter(attempts_available__lte=0)
+        return queryset
+
+
+class MonthlyWinnerFilter(admin.SimpleListFilter):
+    title = 'monthly winner'
+    parameter_name = 'winner'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('this_month', 'Won this month'),
+            ('ever', 'Won ever'),
+            ('never', 'Never won'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'this_month':
+            return queryset.filter(monthly_wins_this_month__gt=0)
+        if self.value() == 'ever':
+            return queryset.filter(monthly_wins__gt=0)
+        if self.value() == 'never':
+            return queryset.filter(monthly_wins=0)
+        return queryset
+
+
+class NewMilestoneThisMonthFilter(admin.SimpleListFilter):
+    """Users who count toward this month's MONTHLY_MIN_QUALIFIERS quorum."""
+    title = 'new milestone this month'
+    parameter_name = 'new_milestone'
+
+    def lookups(self, request, model_admin):
+        return (('yes', 'Yes (counts toward quorum)'), ('no', 'No'))
+
+    def queryset(self, request, queryset):
+        if self.value() == 'yes':
+            return queryset.filter(milestones_now__gt=F('milestones_before_month'))
+        if self.value() == 'no':
+            return queryset.filter(milestones_now__lte=F('milestones_before_month'))
+        return queryset
+
+
+class MonthlyDrawEligibleUserAdmin(admin.ModelAdmin):
+    """Read-only list of users in Monthly-draw countries who have reached the
+    MONTHLY_SURVEYS_REQUIRED milestone at least once."""
+    list_display = (
+        'user', 'full_name', 'email', 'country', 'total_surveys_display',
+        'attempts_display', 'new_milestone_this_month', 'monthly_wins_display',
+        'won_this_month', 'last_monthly_play_display',
+    )
+    list_filter = (
+        'country', MonthlyAttemptsFilter, MonthlyWinnerFilter, NewMilestoneThisMonthFilter,
+    )
+    search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
+    list_select_related = ('user', 'country')
+    list_per_page = 50
+
+    def get_queryset(self, request):
+        required = max(1, settings.LUCKY_DRAW_CONFIG.get('MONTHLY_SURVEYS_REQUIRED', 100))
+        month_start = timezone.localtime().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        monthly = LuckyDrawEntry.objects.filter(user=OuterRef('user'), draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY)
+        monthly_wins = monthly.filter(is_winner=True)
+
+        def count_of(qs):
+            return Coalesce(
+                Subquery(qs.values('user').annotate(c=Count('id')).values('c'), output_field=IntegerField()),
+                0,
+            )
+
+        total_surveys = Coalesce(
+            Subquery(
+                UserSurveyProgress.objects.filter(user=OuterRef('user'))
+                .values('user').annotate(t=Sum('completed_count')).values('t'),
+                output_field=IntegerField(),
+            ),
+            0,
+        )
+        surveys_before_month = count_of(
+            SurveyResponse.objects.filter(
+                user=OuterRef('user'), completed_at__isnull=False, completed_at__lt=month_start,
+            )
+        )
+        last_snapshot = Coalesce(
+            Subquery(monthly.order_by('-created_at').values('surveys_at_play')[:1], output_field=IntegerField()),
+            0,
+        )
+
+        return (
+            super().get_queryset(request)
+            .filter(
+                country__lucky_draw_config__is_active=True,
+                country__lucky_draw_config__monthly_prize_amount__isnull=False,
+            )
+            .annotate(
+                total_surveys=total_surveys,
+                surveys_before_month=surveys_before_month,
+                monthly_snapshot=last_snapshot,
+                monthly_wins=count_of(monthly_wins),
+                monthly_wins_this_month=count_of(monthly_wins.filter(created_at__gte=month_start)),
+                last_monthly_play=Subquery(monthly.order_by('-created_at').values('created_at')[:1]),
+            )
+            .annotate(
+                attempts_available=ExpressionWrapper(
+                    (F('total_surveys') - F('monthly_snapshot')) / required, output_field=IntegerField(),
+                ),
+                milestones_now=ExpressionWrapper(F('total_surveys') / required, output_field=IntegerField()),
+                milestones_before_month=ExpressionWrapper(
+                    F('surveys_before_month') / required, output_field=IntegerField(),
+                ),
+            )
+            .filter(total_surveys__gte=required)
+            .order_by('-total_surveys')
+        )
+
+    def full_name(self, obj):
+        return obj.user.get_full_name()
+    full_name.short_description = 'Name'
+    full_name.admin_order_field = 'user__last_name'
+
+    def email(self, obj):
+        return obj.user.email
+    email.short_description = 'Email'
+    email.admin_order_field = 'user__email'
+
+    def total_surveys_display(self, obj):
+        return obj.total_surveys
+    total_surveys_display.short_description = 'Surveys completed'
+    total_surveys_display.admin_order_field = 'total_surveys'
+
+    def attempts_display(self, obj):
+        return max(0, obj.attempts_available)
+    attempts_display.short_description = 'Attempts available'
+    attempts_display.admin_order_field = 'attempts_available'
+
+    @admin.display(boolean=True, description='New milestone this month')
+    def new_milestone_this_month(self, obj):
+        return obj.milestones_now > obj.milestones_before_month
+
+    def monthly_wins_display(self, obj):
+        return obj.monthly_wins
+    monthly_wins_display.short_description = 'Monthly wins'
+    monthly_wins_display.admin_order_field = 'monthly_wins'
+
+    @admin.display(boolean=True, description='Won this month', ordering='monthly_wins_this_month')
+    def won_this_month(self, obj):
+        return obj.monthly_wins_this_month > 0
+
+    def last_monthly_play_display(self, obj):
+        return obj.last_monthly_play
+    last_monthly_play_display.short_description = 'Last Monthly play'
+    last_monthly_play_display.admin_order_field = 'last_monthly_play'
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -1371,6 +1547,7 @@ survey_admin_site.register(PollResponse, PollResponseAdmin)
 survey_admin_site.register(PollAnswer, DefaultModelAdmin)
 survey_admin_site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
 survey_admin_site.register(UserWallet, UserWalletAdmin)
+survey_admin_site.register(MonthlyDrawEligibleUser, MonthlyDrawEligibleUserAdmin)
 survey_admin_site.register(WalletTransaction, WalletTransactionAdmin)
 survey_admin_site.register(WalletWithdrawalRequest, WalletWithdrawalRequestAdmin)
 survey_admin_site.register(SurveyResponse, SurveyResponseAdmin)
@@ -1398,6 +1575,7 @@ admin.site.register(PollResponse, PollResponseAdmin)
 admin.site.register(PollAnswer, DefaultModelAdmin)
 admin.site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
 admin.site.register(UserWallet, UserWalletAdmin)
+admin.site.register(MonthlyDrawEligibleUser, MonthlyDrawEligibleUserAdmin)
 admin.site.register(WalletTransaction, WalletTransactionAdmin)
 admin.site.register(WalletWithdrawalRequest, WalletWithdrawalRequestAdmin)
 admin.site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)

@@ -246,7 +246,8 @@ class LuckyDrawView(View):
         # The Monthly draw only runs on the 1st of the month (00:00-23:59 local
         # time) — the rest of the month it's closed even if attempts are banked.
         now = timezone.localtime()
-        window_open = now.day == 1
+        test_date = settings.LUCKY_DRAW_CONFIG.get('MONTHLY_DRAW_TEST_DATE')
+        window_open = now.day == 1 or (bool(test_date) and now.date().isoformat() == test_date)
 
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         if month_start.month == 12:

@@ -31,7 +31,7 @@
                     <h2 class="h4 mb-0">Lucky Draw</h2>
                 </div>
                 <div class="card-body">
-                    {% if not survey_eligible and not poll_eligible %}
+                    {% if not user_eligible %}
                     <div class="alert {% if last_play_date %}alert-warning{% else %}alert-info{% endif %}">
                         <!-- <i class="fas {% if last_play_date %}fa-clock me-2{% else %}fa-info-circle me-2{% endif %}"></i> -->
                         {% if last_play_date %}
@@ -84,34 +84,22 @@
                     <div class="text-center mb-4">
                         <i class="fas fa-gift fa-4x text-warning mb-3"></i>
                         <h3>Lucky Draw</h3>
-                        {% if user_eligible %}
-                            <div class="alert alert-success mt-3">
-                                {% if total_plays_available > 1 %}
-                                    <div class="mb-2">
-                                        <span class="badge bg-warning text-dark fs-6">
-                                            &#x23F3; {{ total_plays_available }} plays available
-                                        </span>
-                                        <small class="d-block text-muted mt-1">
-                                            You have {{ total_plays_available }} pending plays (including any missed due to errors).
-                                        </small>
-                                    </div>
-                                {% endif %}
-                                {% if survey_eligible and poll_eligible %}
-                                    <p class="mb-2">You are eligible for both survey and poll lucky draws. Choose one and play; the other remains available separately.</p>
-                                {% elif survey_eligible %}
-                                    <p class="mb-2">You are eligible from completed surveys.</p>
-                                {% elif poll_eligible %}
-                                    <p class="mb-2">You are eligible from completed polls.</p>
-                                {% endif %}
-                                {% if monthly_eligible %}
-                                    <p class="mb-2">You have {{ monthly_plays_available }} Monthly draw attempt{{ monthly_plays_available|pluralize }} available.</p>
-                                {% endif %}
-                                {% if survey_eligible or poll_eligible %}
-                                    <p class="mb-0">Quick draw prize: {{ prize_display }}</p>
-                                {% endif %}
-                                {% if monthly_eligible %}
-                                    <p class="mb-0">Monthly draw prize: {{ monthly_prize_display }}</p>
-                                {% endif %}
+                        {% if survey_eligible %}
+                            <div class="alert alert-success mt-3 draw-message {% if selected_draw_type != 'survey' %}d-none{% endif %}" data-draw-type="survey">
+                                <p class="mb-2">You are eligible for the <strong>Quick draw</strong> &mdash; {{ survey_plays_available }} play{{ survey_plays_available|pluralize }} available from your completed surveys.</p>
+                                <p class="mb-0">Quick draw prize: {{ prize_display }}</p>
+                            </div>
+                        {% endif %}
+                        {% if poll_eligible %}
+                            <div class="alert alert-success mt-3 draw-message {% if selected_draw_type != 'poll' %}d-none{% endif %}" data-draw-type="poll">
+                                <p class="mb-2">You are eligible for the <strong>Poll draw</strong> &mdash; {{ poll_plays_available }} play{{ poll_plays_available|pluralize }} available from your completed polls.</p>
+                                <p class="mb-0">Poll draw prize: {{ prize_display }}</p>
+                            </div>
+                        {% endif %}
+                        {% if monthly_eligible %}
+                            <div class="alert alert-success mt-3 draw-message {% if selected_draw_type != 'monthly' %}d-none{% endif %}" data-draw-type="monthly">
+                                <p class="mb-2">You are eligible for the <strong>Monthly draw</strong> &mdash; {{ monthly_plays_available }} attempt{{ monthly_plays_available|pluralize }} available.</p>
+                                <p class="mb-0">Monthly draw prize: {{ monthly_prize_display }}</p>
                             </div>
                         {% endif %}
                     </div>
@@ -122,7 +110,7 @@
 
 
                     {% if monthly_available %}
-                    <div class="card border-warning mb-4" id="monthly-draw-panel">
+                    <div class="card border-warning mb-4 {% if monthly_eligible and selected_draw_type != 'monthly' %}d-none{% endif %}" id="monthly-draw-panel" data-monthly-eligible="{% if monthly_eligible %}1{% endif %}">
                         <div class="card-header bg-warning bg-opacity-25 d-flex justify-content-between align-items-center">
                             <strong><i class="fas fa-calendar-alt me-2"></i>Monthly Draw</strong>
                             <span class="badge bg-warning text-dark">{{ monthly_prize_display }} prize</span>
@@ -285,6 +273,19 @@ document.addEventListener('DOMContentLoaded', function() {
             numberGrid.insertBefore(boxes[j], boxes[i]);
         }
     }
+    const drawMessages = document.querySelectorAll('.draw-message');
+    const monthlyPanel = document.getElementById('monthly-draw-panel');
+
+    function showMessagesFor(drawType) {
+        drawMessages.forEach(msg => {
+            msg.classList.toggle('d-none', msg.dataset.drawType !== drawType);
+        });
+        // While Monthly is closed its tab is disabled, so the panel stays visible to explain why.
+        if (monthlyPanel && monthlyPanel.dataset.monthlyEligible) {
+            monthlyPanel.classList.toggle('d-none', drawType !== 'monthly');
+        }
+    }
+
     drawTypeButtons.forEach(button => {
         button.addEventListener('click', function() {
             if (this.disabled || !gameInProgress) return;
@@ -296,6 +297,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             this.classList.add('btn-primary');
             this.classList.remove('btn-outline-primary');
+            showMessagesFor(selectedDrawType);
         });
     });
 
