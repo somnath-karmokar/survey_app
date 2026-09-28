@@ -801,9 +801,9 @@
                     <article class="sp-info-item">
                         <div class="sp-info-label">
                             <span class="sp-mini-icon"><i class="fas fa-users"></i></span>
-                            <p class="sp-label">Qualified Users</p>
+                            <p class="sp-label">Qualified Users This Month</p>
                         </div>
-                        <p class="sp-info-value">{{ monthly_draw_stats.qualified_users }}</p>
+                        <p class="sp-info-value">{{ monthly_draw_stats.qualified_users }}{% if monthly_draw_stats.min_qualifiers %} <small class="text-muted">of {{ monthly_draw_stats.min_qualifiers }} needed</small>{% endif %}</p>
                     </article>
                     <article class="sp-info-item sp-info-item-wide">
                         <div class="sp-info-label">
