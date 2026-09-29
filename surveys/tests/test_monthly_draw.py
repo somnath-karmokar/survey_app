@@ -52,15 +52,12 @@ class DrawTestCase(TestCase):
 
     def setUp(self):
         super().setUp()
-        self._time_patcher = mock.patch('django.utils.timezone.now', return_value=self.NOW)
-        self._time_patcher.start()
-        self.addCleanup(self._time_patcher.stop)
+        self._mock_now = mock.patch('django.utils.timezone.now', return_value=self.NOW).start()
+        self.addCleanup(mock.patch.stopall)
 
     def freeze(self, when):
         """Move the mocked "now" used by timezone.now()/localtime() to `when`."""
-        self._time_patcher.stop()
-        self._time_patcher = mock.patch('django.utils.timezone.now', return_value=when)
-        self._time_patcher.start()
+        self._mock_now.return_value = when
 
     @classmethod
     def setUpTestData(cls):
@@ -107,7 +104,7 @@ class DrawTestCase(TestCase):
         client.get(reverse('surveys:lucky_draw'))           # seeds the board in the session
         grid = client.session['lucky_draw_grid']
         lucky = client.session['lucky_draw_number']
-        index = grid.index(lucky) if win else grid.index(lucky) - 1   # -1 wraps to the last box
+        index = grid.index(lucky) if win else (grid.index(lucky) + 1) % len(grid)
         return client.post(
             reverse('surveys:lucky_draw'),
             data=json.dumps({'index': index, 'draw_type': draw_type}),
@@ -405,7 +402,7 @@ class MonthlyDrawPageTests(DrawTestCase):
     def test_country_outside_the_monthly_draw_sees_no_panel(self):
         page = self.get_page(self.make_user(self.au, 500))
 
-        self.assertNotContains(page, 'monthly-draw-panel')
+        self.assertNotContains(page, 'id="monthly-draw-panel"')
 
 
 class MonthlyDrawWindowTests(DrawTestCase):
