@@ -355,14 +355,7 @@ class LuckyDrawView(View):
         # Same count the draw's minimum-qualifiers rule uses: people in this
         # country who newly reached a milestone this calendar month.
         qualified_users = self.get_monthly_milestone_qualifiers(profile.country, required)
-        milestone_users = (
-            UserSurveyProgress.objects
-            .filter(user__profile__country_id=profile.country_id)
-            .values('user_id')
-            .annotate(total_completed=Sum('completed_count'))
-            .filter(total_completed__gte=required)
-            .count()
-        )
+        milestone_users = self.get_monthly_milestone_user_count(profile.country_id, required)
         total_completed = eligibility['total_surveys']
         return {
             'required': required,
@@ -373,6 +366,21 @@ class LuckyDrawView(View):
             'min_qualifiers': eligibility['monthly_min_qualifiers'],
             'milestone_users': milestone_users,
         }
+
+    def get_monthly_milestone_user_count(self, country_id, required):
+        """Users in a country who have completed at least `required` surveys.
+
+        Shown on the profile/dashboard as "Users Reached Monthly Milestone" and
+        used as N for the Monthly draw board (numbers 1 to N).
+        """
+        return (
+            UserSurveyProgress.objects
+            .filter(user__profile__country_id=country_id)
+            .values('user_id')
+            .annotate(total_completed=Sum('completed_count'))
+            .filter(total_completed__gte=required)
+            .count()
+        )
 
     def monthly_play_error(self, user):
         """Why the user cannot play the Monthly draw right now, or '' if they can."""
@@ -478,7 +486,24 @@ class LuckyDrawView(View):
         # Store both in the session — never expose them in the HTML
         request.session['lucky_draw_grid'] = number_range
         request.session['lucky_draw_number'] = current_lucky_number
-        
+
+        # The Monthly draw gets its own board: numbers 1 to N, where N is how many
+        # users in the player's country have reached the Monthly milestone. Also
+        # session-only. With fewer than 2 such users it falls back to the board above.
+        monthly_range = []
+        monthly_lucky_number = None
+        request.session.pop('lucky_draw_grid_monthly', None)
+        request.session.pop('lucky_draw_number_monthly', None)
+        profile_country_id = getattr(getattr(request.user, 'profile', None), 'country_id', None)
+        if eligibility['monthly_eligible'] and profile_country_id:
+            board_size = self.get_monthly_milestone_user_count(profile_country_id, eligibility['monthly_required'])
+            if board_size >= 2:
+                monthly_range = list(range(1, board_size + 1))
+                random.shuffle(monthly_range)
+                monthly_lucky_number = random.randint(1, board_size)
+                request.session['lucky_draw_grid_monthly'] = monthly_range
+                request.session['lucky_draw_number_monthly'] = monthly_lucky_number
+
         survey_plays_available = eligibility['survey_plays_available']
         poll_plays_available = eligibility['poll_plays_available']
         monthly_plays_playable = (
@@ -494,6 +519,7 @@ class LuckyDrawView(View):
             },
             # grid_range gives the template a safe index sequence (no actual numbers)
             'grid_range': range(len(number_range)),
+            'monthly_grid_range': range(len(monthly_range)),
             # testing_numbered_grid/testing_winning_number are ONLY populated when
             # SHOW_NUMBERS_FOR_TESTING is on — must stay False/unset in production.
             'user_eligible': user_eligible,
@@ -525,6 +551,9 @@ class LuckyDrawView(View):
         if settings.LUCKY_DRAW_CONFIG.get('SHOW_NUMBERS_FOR_TESTING'):
             context['testing_numbered_grid'] = list(enumerate(number_range))
             context['testing_winning_number'] = current_lucky_number
+            if monthly_range:
+                context['testing_monthly_numbered_grid'] = list(enumerate(monthly_range))
+                context['testing_monthly_winning_number'] = monthly_lucky_number
 
         return render(request, 'surveys/lucky_draw.html', context)
 
@@ -581,7 +610,13 @@ class LuckyDrawView(View):
         # Resolve the actual number from the session grid using the client-sent index.
         # The grid and lucky number are never sent to the browser, so they cannot
         # be tampered with from the client side.
-        grid = request.session.get('lucky_draw_grid')
+        # A Monthly play uses its own 1-to-N board when the page built one.
+        uses_monthly_board = (
+            draw_type == LuckyDrawEntry.DRAW_TYPE_MONTHLY and 'lucky_draw_grid_monthly' in request.session
+        )
+        grid_key = 'lucky_draw_grid_monthly' if uses_monthly_board else 'lucky_draw_grid'
+        number_key = 'lucky_draw_number_monthly' if uses_monthly_board else 'lucky_draw_number'
+        grid = request.session.get(grid_key)
         if not grid:
             return JsonResponse({'error': 'Session expired. Please refresh the page.'}, status=400)
 
@@ -628,13 +663,13 @@ class LuckyDrawView(View):
             entry_surveys_at_play = total_surveys
 
         # Winning number comes from the session — never from the client request
-        winning_number = request.session.get('lucky_draw_number')
+        winning_number = request.session.get(number_key)
         if winning_number is None:
             return JsonResponse({'error': 'Session expired. Please refresh the page.'}, status=400)
 
-        # Invalidate the session grid so this draw cannot be replayed
-        request.session.pop('lucky_draw_grid', None)
-        request.session.pop('lucky_draw_number', None)
+        # Invalidate both session boards so this draw cannot be replayed
+        for key in ('lucky_draw_grid', 'lucky_draw_number', 'lucky_draw_grid_monthly', 'lucky_draw_number_monthly'):
+            request.session.pop(key, None)
 
         is_winner = (number == winning_number)
         prize = self.get_prize_for_user(request.user, draw_type) if is_winner else None
