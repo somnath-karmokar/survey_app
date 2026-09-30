@@ -21,6 +21,23 @@ from .emails import send_lucky_draw_winner_email, send_lucky_draw_winner_admin_n
 QUICK_DRAW_NUDGE = 'Please complete one more survey to qualify for the Quick draw.'
 
 
+def monthly_draw_tz(country):
+    """The clock a country's Monthly draw runs on (its config's time zone, else the site's)."""
+    config = CountryLuckyDrawConfig.get_for_country(country)
+    return config.tzinfo if config else timezone.get_current_timezone()
+
+
+def month_bounds(tz, at=None):
+    """(now, start of this month, start of next month), all on the `tz` clock."""
+    now = timezone.localtime(at or timezone.now(), tz)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if month_start.month == 12:
+        next_month_start = month_start.replace(year=month_start.year + 1, month=1)
+    else:
+        next_month_start = month_start.replace(month=month_start.month + 1)
+    return now, month_start, next_month_start
+
+
 class LuckyDrawView(View):
     def quick_draw_nudge(self, user):
         """Text to add to the survey "Thank you" message, or '' for none.
@@ -95,13 +112,13 @@ class LuckyDrawView(View):
         return f"{currency_symbol}{amount_display} {currency_code}".strip()
 
     def get_monthly_winner_count(self, country, at=None):
-        """Monthly draw winners so far this calendar month for one country."""
-        at = at or timezone.now()
+        """Monthly draw winners so far this calendar month (country's own clock) for one country."""
+        _now, month_start, next_month_start = month_bounds(monthly_draw_tz(country), at)
         return LuckyDrawEntry.objects.filter(
             draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY,
             is_winner=True,
-            created_at__year=at.year,
-            created_at__month=at.month,
+            created_at__gte=month_start,
+            created_at__lt=next_month_start,
             user__profile__country=country,
         ).count()
 
@@ -115,8 +132,7 @@ class LuckyDrawView(View):
         SurveyResponse (one row per completion) since UserSurveyProgress only
         keeps a running total, not a history.
         """
-        at = at or timezone.now()
-        month_start = timezone.localtime(at).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        _now, month_start, _next = month_bounds(monthly_draw_tz(country), at)
 
         totals_now = {
             row['user_id']: row['total'] or 0
@@ -140,12 +156,12 @@ class LuckyDrawView(View):
 
     def get_monthly_winners(self, country, at=None):
         """This month's Monthly draw winners for one country, in the order they won."""
-        at = at or timezone.now()
+        _now, month_start, next_month_start = month_bounds(monthly_draw_tz(country), at)
         return LuckyDrawEntry.objects.filter(
             draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY,
             is_winner=True,
-            created_at__year=at.year,
-            created_at__month=at.month,
+            created_at__gte=month_start,
+            created_at__lt=next_month_start,
             user__profile__country=country,
         ).select_related('user').order_by('created_at', 'id')
 
@@ -243,17 +259,12 @@ class LuckyDrawView(View):
             if (config and cap and not is_open) else []
         )
 
-        # The Monthly draw only runs on the 1st of the month (00:00-23:59 local
-        # time) — the rest of the month it's closed even if attempts are banked.
-        now = timezone.localtime()
+        # The Monthly draw only runs on the 1st of the month, 00:00-23:59 on the
+        # country's own clock — the rest of the month it's closed even if attempts are banked.
+        tz = config.tzinfo if config else timezone.get_current_timezone()
+        now, _month_start, resets_on = month_bounds(tz)
         test_date = settings.LUCKY_DRAW_CONFIG.get('MONTHLY_DRAW_TEST_DATE')
         window_open = now.day == 1 or (bool(test_date) and now.date().isoformat() == test_date)
-
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        if month_start.month == 12:
-            resets_on = month_start.replace(year=month_start.year + 1, month=1)
-        else:
-            resets_on = month_start.replace(month=month_start.month + 1)
 
         # The country needs a minimum number of people to newly reach the
         # Monthly milestone this calendar month before the draw runs at all —
@@ -283,7 +294,7 @@ class LuckyDrawView(View):
             'monthly_milestone_qualifiers': milestone_qualifiers,
             'monthly_quorum_met': quorum_met,
             'monthly_eligible': plays > 0 and is_open and window_open and quorum_met,
-            'monthly_resets_on': resets_on,
+            'monthly_resets_on': resets_on.date(),
             'monthly_prize_display': config.get_monthly_prize_display() if config else '',
         }
 

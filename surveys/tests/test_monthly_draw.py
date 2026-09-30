@@ -61,17 +61,18 @@ class DrawTestCase(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        def country(name, code, symbol, currency, quick, monthly):
+        def country(name, code, symbol, currency, quick, monthly, time_zone='UTC'):
             c = Country.objects.create(name=name, code=code)
             CountryLuckyDrawConfig.objects.create(
                 country=c, prize_amount=quick, currency_symbol=symbol, currency_code=currency,
                 monthly_prize_amount=monthly, monthly_winner_cap=4 if monthly is not None else None,
+                time_zone=time_zone,
             )
             return c
 
-        cls.uk = country('United Kingdom', 'GB', '£', 'GBP', Decimal('1.00'), Decimal('10.00'))
-        cls.us = country('United States', 'US', '$', 'USD', Decimal('1.00'), Decimal('10.00'))
-        cls.ng = country('Nigeria', 'NG', '$', 'USD', Decimal('0.50'), Decimal('5.00'))
+        cls.uk = country('United Kingdom', 'GB', '£', 'GBP', Decimal('1.00'), Decimal('10.00'), 'Europe/London')
+        cls.us = country('United States', 'US', '$', 'USD', Decimal('1.00'), Decimal('10.00'), 'America/New_York')
+        cls.ng = country('Nigeria', 'NG', '$', 'USD', Decimal('0.50'), Decimal('5.00'), 'Africa/Lagos')
         # Australia has a Quick draw config but takes no part in the Monthly draw.
         cls.au = country('Australia', 'AU', '$', 'USD', Decimal('1.00'), None)
         cls.category = SurveyCategory.objects.create(name='General', country=cls.us)
@@ -506,3 +507,56 @@ class MonthlyDrawQuorumTests(DrawTestCase):
 
         self.assertFalse(self.status(self.make_user(self.us, 0))['monthly_quorum_met'])
         self.assertTrue(self.status(self.make_user(self.uk, 0))['monthly_quorum_met'])
+
+
+@override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'MONTHLY_DRAW_TEST_DATE': None})
+class MonthlyDrawTimeZoneTests(DrawTestCase):
+    """The Monthly draw opens at 00:00 on the 1st on each country's own clock."""
+
+    def utc(self, *args):
+        return datetime.datetime(*args, tzinfo=datetime.timezone.utc)
+
+    def window_open(self, user, at):
+        self.freeze(at)
+        return self.status(user)['monthly_window_open']
+
+    def test_opens_at_local_midnight_and_closes_at_local_2359(self):
+        cases = [
+            # country, one minute before local 00:00 on 1 Jul, local 00:00 1 Jul, local 23:59 1 Jul, local 00:00 2 Jul
+            (self.uk, self.utc(2030, 6, 30, 22, 59), self.utc(2030, 6, 30, 23, 0),     # London BST = UTC+1
+             self.utc(2030, 7, 1, 22, 59), self.utc(2030, 7, 1, 23, 0)),
+            (self.ng, self.utc(2030, 6, 30, 22, 59), self.utc(2030, 6, 30, 23, 0),     # Lagos = UTC+1
+             self.utc(2030, 7, 1, 22, 59), self.utc(2030, 7, 1, 23, 0)),
+            (self.us, self.utc(2030, 7, 1, 3, 59), self.utc(2030, 7, 1, 4, 0),         # New York EDT = UTC-4
+             self.utc(2030, 7, 2, 3, 59), self.utc(2030, 7, 2, 4, 0)),
+        ]
+        for country, before, midnight, last_minute, next_day in cases:
+            with self.subTest(country=country.code):
+                user = self.make_user(country, 100)
+                self.assertFalse(self.window_open(user, before))
+                self.assertTrue(self.window_open(user, midnight))
+                self.assertTrue(self.window_open(user, last_minute))
+                self.assertFalse(self.window_open(user, next_day))
+
+    def test_playing_just_after_local_midnight_works(self):
+        user = self.make_user(self.ng, 100)
+        self.freeze(self.utc(2030, 6, 30, 23, 5))                      # 00:05 on 1 Jul in Lagos
+
+        response = self.play(user, MONTHLY)
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_win_just_after_local_midnight_counts_toward_the_new_month(self):
+        self.freeze(self.utc(2030, 6, 30, 23, 30))                     # 00:30 on 1 Jul in Lagos, still June in UTC
+        self.fill_monthly_winners(self.ng, 1)
+
+        self.freeze(self.utc(2030, 7, 1, 12, 0))
+        self.assertEqual(self.status(self.make_user(self.ng, 100))['monthly_winners_this_month'], 1)
+
+    def test_reopen_date_is_the_local_1st(self):
+        self.freeze(self.utc(2030, 7, 15, 12, 0))
+
+        status = self.status(self.make_user(self.ng, 100))
+
+        self.assertEqual(status['monthly_resets_on'], datetime.date(2030, 8, 1))
+        self.assertIn('August 1', self.play(self.make_user(self.ng, 100), MONTHLY).json()['error'])
