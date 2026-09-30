@@ -8,7 +8,7 @@ from django.core.management.base import BaseCommand
 from django.db.models import Count, Sum
 from django.utils import timezone
 
-from surveys.lucky_draw import LuckyDrawView
+from surveys.lucky_draw import LuckyDrawView, month_bounds
 from surveys.models import CountryLuckyDrawConfig, LuckyDrawEntry, SurveyResponse, UserSurveyProgress
 
 
@@ -22,12 +22,10 @@ class Command(BaseCommand):
         cfg = settings.LUCKY_DRAW_CONFIG
         required = max(1, cfg.get('MONTHLY_SURVEYS_REQUIRED', 100))
         min_qualifiers = cfg.get('MONTHLY_MIN_QUALIFIERS', 5)
-        now = timezone.localtime()
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         view = LuckyDrawView()
 
         self.stdout.write(
-            f"Now: {now:%Y-%m-%d %H:%M %Z} | milestone every {required} surveys | "
+            f"Now: {timezone.now():%Y-%m-%d %H:%M} UTC | milestone every {required} surveys | "
             f"minimum qualifiers: {min_qualifiers or 'off'} | test date: {cfg.get('MONTHLY_DRAW_TEST_DATE') or 'none'}"
         )
 
@@ -39,6 +37,7 @@ class Command(BaseCommand):
 
         for config in configs:
             country = config.country
+            local_now, month_start, _next = month_bounds(config.tzinfo)
             totals_now = dict(
                 UserSurveyProgress.objects.filter(user__profile__country=country)
                 .values_list('user_id').annotate(t=Sum('completed_count'))
@@ -55,7 +54,8 @@ class Command(BaseCommand):
 
             self.stdout.write('')
             self.stdout.write(self.style.MIGRATE_HEADING(
-                f"{country.name} ({country.code}): {qualifiers} new-milestone user(s) this month"
+                f"{country.name} ({country.code}) [{config.time_zone}, local {local_now:%Y-%m-%d %H:%M}]: "
+                f"{qualifiers} new-milestone user(s) this month"
                 + (f" of {min_qualifiers} needed" if min_qualifiers else '')
                 + f" | winners this month: {view.get_monthly_winner_count(country)}"
                 + f" of {config.monthly_winner_cap or 'no cap'}"

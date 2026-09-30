@@ -23,7 +23,11 @@ from .models import (
 from django.utils.safestring import mark_safe
 from django.urls import path
 from django.http import JsonResponse, HttpResponseRedirect
-from django.db.models import Count, Max, Q, Sum, F, OuterRef, Subquery, IntegerField, ExpressionWrapper
+from django.db.models import (
+    Count, Max, Q, Sum, F, OuterRef, Subquery, IntegerField, ExpressionWrapper,
+    Case, When, Value, DateTimeField, BooleanField,
+)
+from .lucky_draw import month_bounds
 from django.db.models.functions import Coalesce
 from django.conf import settings
 from django.utils import timezone
@@ -174,7 +178,7 @@ class PollResponseAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
 
 
 class CountryLuckyDrawConfigAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('country', 'poll_count_required', 'prize_display', 'monthly_prize_display', 'monthly_winner_cap', 'currency_code', 'is_active', 'updated_at')
+    list_display = ('country', 'poll_count_required', 'prize_display', 'monthly_prize_display', 'monthly_winner_cap', 'time_zone', 'currency_code', 'is_active', 'updated_at')
     list_filter = ('is_active', 'currency_code', 'country')
     search_fields = ('country__name', 'country__code', 'currency_code')
     list_select_related = ('country',)
@@ -397,20 +401,27 @@ class UserWalletAdmin(admin.ModelAdmin):
 
 
 def selected_draw_month(request):
-    """(month_start, next_month_start, is_current_month) for the admin's ?month=YYYY-MM, default this month."""
-    current = timezone.localtime().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    month_start = current
-    value = request.GET.get('month', '')
+    """(year, month) from the admin's ?month=YYYY-MM, or None for "this month"."""
     try:
-        year, month = (int(part) for part in value.split('-'))
-        month_start = current.replace(year=year, month=month)
+        year, month = (int(part) for part in request.GET.get('month', '').split('-'))
+        if 1 <= month <= 12:
+            return year, month
     except ValueError:
         pass
-    if month_start.month == 12:
-        next_month_start = month_start.replace(year=month_start.year + 1, month=1)
-    else:
-        next_month_start = month_start.replace(month=month_start.month + 1)
-    return month_start, next_month_start, month_start == current
+    return None
+
+
+def country_draw_month(config, year_month):
+    """(month_start, next_month_start, is_current_month) for one country, on its own clock."""
+    now, month_start, next_month_start = month_bounds(config.tzinfo)
+    if year_month:
+        year, month = year_month
+        month_start = month_start.replace(year=year, month=month)
+        if month == 12:
+            next_month_start = month_start.replace(year=year + 1, month=1)
+        else:
+            next_month_start = month_start.replace(month=month + 1)
+    return month_start, next_month_start, month_start <= now < next_month_start
 
 
 class MonthlyDrawMonthFilter(admin.SimpleListFilter):
@@ -505,9 +516,24 @@ class MonthlyDrawEligibleUserAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         required = max(1, settings.LUCKY_DRAW_CONFIG.get('MONTHLY_SURVEYS_REQUIRED', 100))
-        month_start, next_month_start, is_current_month = selected_draw_month(request)
+        year_month = selected_draw_month(request)
+        configs = list(CountryLuckyDrawConfig.objects.filter(is_active=True, monthly_prize_amount__isnull=False))
+
+        # Each row's month runs on its own country's clock (see CountryLuckyDrawConfig.time_zone).
+        starts, nexts, currents = [], [], []
+        for config in configs:
+            month_start, next_month_start, is_current = country_draw_month(config, year_month)
+            starts.append(When(country_id=config.country_id, then=Value(month_start)))
+            nexts.append(When(country_id=config.country_id, then=Value(next_month_start)))
+            currents.append(When(country_id=config.country_id, then=Value(is_current)))
+        row_month_start = Case(*starts, default=Value(None), output_field=DateTimeField())
+        row_next_month_start = Case(*nexts, default=Value(None), output_field=DateTimeField())
+        row_is_current_month = Case(*currents, default=Value(False), output_field=BooleanField())
+
         monthly = LuckyDrawEntry.objects.filter(user=OuterRef('user'), draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY)
-        monthly_in_month = monthly.filter(created_at__gte=month_start, created_at__lt=next_month_start)
+        monthly_in_month = monthly.filter(
+            created_at__gte=OuterRef('row_month_start'), created_at__lt=OuterRef('row_next_month_start'),
+        )
         monthly_wins = monthly.filter(is_winner=True)
 
         def count_of(qs):
@@ -526,19 +552,21 @@ class MonthlyDrawEligibleUserAdmin(admin.ModelAdmin):
         )
         surveys_before_month = count_of(
             SurveyResponse.objects.filter(
-                user=OuterRef('user'), completed_at__isnull=False, completed_at__lt=month_start,
+                user=OuterRef('user'), completed_at__isnull=False, completed_at__lt=OuterRef('row_month_start'),
             )
         )
         # For the current month the quorum counts against the live total (as the
         # draw does); for a past month, against completions up to that month's end.
-        if is_current_month:
-            surveys_by_month_end = F('total_surveys')
-        else:
-            surveys_by_month_end = count_of(
+        surveys_by_month_end = Case(
+            When(row_is_current_month=True, then=F('total_surveys')),
+            default=count_of(
                 SurveyResponse.objects.filter(
-                    user=OuterRef('user'), completed_at__isnull=False, completed_at__lt=next_month_start,
+                    user=OuterRef('user'), completed_at__isnull=False,
+                    completed_at__lt=OuterRef('row_next_month_start'),
                 )
-            )
+            ),
+            output_field=IntegerField(),
+        )
         last_snapshot = Coalesce(
             Subquery(monthly.order_by('-created_at').values('surveys_at_play')[:1], output_field=IntegerField()),
             0,
@@ -549,6 +577,11 @@ class MonthlyDrawEligibleUserAdmin(admin.ModelAdmin):
             .filter(
                 country__lucky_draw_config__is_active=True,
                 country__lucky_draw_config__monthly_prize_amount__isnull=False,
+            )
+            .annotate(
+                row_month_start=row_month_start,
+                row_next_month_start=row_next_month_start,
+                row_is_current_month=row_is_current_month,
             )
             .annotate(
                 total_surveys=total_surveys,

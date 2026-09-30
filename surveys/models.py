@@ -8,7 +8,8 @@ from ckeditor.fields import RichTextField
 from ckeditor_uploader.fields import RichTextUploadingField
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from datetime import timedelta
+from datetime import timedelta, timezone as dt_timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
@@ -488,6 +489,11 @@ class CountryLuckyDrawConfig(models.Model):
         null=True, blank=True,
         help_text='Max Monthly draw winners per calendar month for this country. Leave blank for no cap.'
     )
+    time_zone = models.CharField(
+        max_length=64, default='UTC',
+        help_text='IANA time zone, e.g. Europe/London, Africa/Lagos, America/New_York. The Monthly draw '
+                  'opens at 00:00 on the 1st and each month starts at midnight in this time zone.'
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -495,6 +501,20 @@ class CountryLuckyDrawConfig(models.Model):
     class Meta:
         verbose_name = 'Country Lucky Draw Config'
         verbose_name_plural = 'Country Lucky Draw Configs'
+
+    def clean(self):
+        super().clean()
+        try:
+            ZoneInfo(self.time_zone)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ValidationError({'time_zone': f'"{self.time_zone}" is not a valid time zone.'})
+
+    @property
+    def tzinfo(self):
+        try:
+            return ZoneInfo(self.time_zone)
+        except (ZoneInfoNotFoundError, ValueError):
+            return dt_timezone.utc
 
     def __str__(self):
         return f"{self.country.name}: {self.get_prize_display()} every {self.poll_count_required} polls"
