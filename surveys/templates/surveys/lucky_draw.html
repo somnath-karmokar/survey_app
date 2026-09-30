@@ -186,11 +186,38 @@
                     {% if testing_numbered_grid %}
                     <div class="alert alert-warning text-center">
                         <strong>TESTING MODE</strong> — numbers are visible. Winning number: <span class="fw-bold">{{ testing_winning_number }}</span>
+                        {% if testing_monthly_winning_number %} &middot; Monthly board winning number: <span class="fw-bold">{{ testing_monthly_winning_number }}</span>{% endif %}
                         <div class="small">Set <code>SHOW_NUMBERS_FOR_TESTING</code> to False in settings.py to hide this in production.</div>
                     </div>
                     {% endif %}
 
-                    <div id="number-grid" class="row g-2 mb-4">
+                    {% if monthly_grid_range %}
+                    <div id="monthly-number-grid" class="row g-2 mb-4 number-board {% if selected_draw_type != 'monthly' %}d-none{% endif %}" data-board="monthly">
+                        {% if testing_monthly_numbered_grid %}
+                            {% for index, number in testing_monthly_numbered_grid %}
+                                <div class="col-2 col-sm-1 p-1">
+                                    <button class="number-box btn btn-outline-warning d-flex align-items-center justify-content-center w-100"
+                                            data-index="{{ index }}"
+                                            style="aspect-ratio: 1/1;">
+                                        <span class="number-placeholder">{{ number }}</span>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            {% for i in monthly_grid_range %}
+                                <div class="col-2 col-sm-1 p-1">
+                                    <button class="number-box btn btn-outline-warning d-flex align-items-center justify-content-center w-100"
+                                            data-index="{{ forloop.counter0 }}"
+                                            style="aspect-ratio: 1/1;">
+                                        <span class="number-placeholder">?</span>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <div id="number-grid" class="row g-2 mb-4 number-board {% if monthly_grid_range and selected_draw_type == 'monthly' %}d-none{% endif %}" data-board="default">
                         {% if testing_numbered_grid %}
                             {% for index, number in testing_numbered_grid %}
                                 <div class="col-2 col-sm-1 p-1">
@@ -266,13 +293,15 @@ document.addEventListener('DOMContentLoaded', function() {
     let luckyNumber = null;
     // Shuffle number boxes
     const numberGrid = document.getElementById('number-grid');
-    if (numberGrid) {
-        const boxes = Array.from(numberGrid.children);
+    const monthlyNumberGrid = document.getElementById('monthly-number-grid');
+    [numberGrid, monthlyNumberGrid].forEach(grid => {
+        if (!grid) return;
+        const boxes = Array.from(grid.children);
         for (let i = boxes.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            numberGrid.insertBefore(boxes[j], boxes[i]);
+            grid.insertBefore(boxes[j], boxes[i]);
         }
-    }
+    });
     const drawMessages = document.querySelectorAll('.draw-message');
     const monthlyPanel = document.getElementById('monthly-draw-panel');
 
@@ -280,6 +309,11 @@ document.addEventListener('DOMContentLoaded', function() {
         drawMessages.forEach(msg => {
             msg.classList.toggle('d-none', msg.dataset.drawType !== drawType);
         });
+        // The Monthly draw has its own 1-to-N board when there is one.
+        if (monthlyNumberGrid) {
+            monthlyNumberGrid.classList.toggle('d-none', drawType !== 'monthly');
+            numberGrid.classList.toggle('d-none', drawType === 'monthly');
+        }
         // While Monthly is closed its tab is disabled, so the panel stays visible to explain why.
         if (monthlyPanel && monthlyPanel.dataset.monthlyEligible) {
             monthlyPanel.classList.toggle('d-none', drawType !== 'monthly');
@@ -352,9 +386,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     resultText.textContent = `Sorry! You selected ${result.guessed_number}, but the lucky number was ${result.winning_number}. Better luck next time!`;
                 }
 
-                if (numberGrid) {
-                    numberGrid.classList.add('d-none');
-                }
+                [numberGrid, monthlyNumberGrid].forEach(grid => grid && grid.classList.add('d-none'));
                 
                 // Update the lucky number display
                 if (luckyNumberSpan) {

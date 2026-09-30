@@ -102,9 +102,10 @@ class DrawTestCase(TestCase):
         """Play one attempt through the real page + endpoint."""
         client = self.client_class()
         client.force_login(user)
-        client.get(reverse('surveys:lucky_draw'))           # seeds the board in the session
-        grid = client.session['lucky_draw_grid']
-        lucky = client.session['lucky_draw_number']
+        client.get(reverse('surveys:lucky_draw'))           # seeds the board(s) in the session
+        suffix = '_monthly' if draw_type == MONTHLY and 'lucky_draw_grid_monthly' in client.session else ''
+        grid = client.session['lucky_draw_grid' + suffix]
+        lucky = client.session['lucky_draw_number' + suffix]
         index = grid.index(lucky) if win else (grid.index(lucky) + 1) % len(grid)
         return client.post(
             reverse('surveys:lucky_draw'),
@@ -560,3 +561,67 @@ class MonthlyDrawTimeZoneTests(DrawTestCase):
 
         self.assertEqual(status['monthly_resets_on'], datetime.date(2030, 8, 1))
         self.assertIn('August 1', self.play(self.make_user(self.ng, 100), MONTHLY).json()['error'])
+
+
+@override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'SHOW_NUMBERS_FOR_TESTING': False})
+class MonthlyDrawBoardTests(DrawTestCase):
+    """The Monthly draw board is numbered 1 to N, N = users in the country who reached the milestone."""
+
+    def load_page(self, user):
+        self.client.force_login(user)
+        return self.client.get(reverse('surveys:lucky_draw'))
+
+    def test_board_is_1_to_n_milestone_users(self):
+        player = self.make_user(self.uk, 100)
+        for _ in range(4):
+            self.make_user(self.uk, 150)
+        self.make_user(self.uk, 99)                                     # not at the milestone
+        self.make_user(self.us, 300)                                    # other country
+
+        page = self.load_page(player)
+
+        self.assertEqual(sorted(self.client.session['lucky_draw_grid_monthly']), [1, 2, 3, 4, 5])
+        self.assertIn(self.client.session['lucky_draw_number_monthly'], range(1, 6))
+        self.assertEqual(len(page.context['monthly_grid_range']), 5)
+        self.assertEqual(sorted(self.client.session['lucky_draw_grid']), list(range(1, 22)))   # Quick board unchanged
+        self.assertNotContains(page, '<span class="number-placeholder">3</span>')              # numbers stay hidden
+
+    def test_monthly_play_uses_the_monthly_board(self):
+        player = self.make_user(self.uk, 100)
+        for _ in range(2):
+            self.make_user(self.uk, 100)
+
+        result = self.play(player, MONTHLY, win=True).json()
+
+        self.assertTrue(result['is_winner'])
+        self.assertIn(result['guessed_number'], (1, 2, 3))
+        self.assertEqual(LuckyDrawEntry.objects.get(user=player).draw_type, MONTHLY)
+
+    def test_quick_play_still_uses_the_quick_board(self):
+        player = self.make_user(self.uk, 100)
+        for _ in range(2):
+            self.make_user(self.uk, 100)
+
+        self.assertTrue(self.play(player, QUICK, win=True).json()['is_winner'])
+
+    def test_playing_clears_both_boards(self):
+        player = self.make_user(self.uk, 100)
+        self.make_user(self.uk, 100)
+        client = self.client_class()
+        client.force_login(player)
+        client.get(reverse('surveys:lucky_draw'))
+        grid = client.session['lucky_draw_grid_monthly']
+        client.post(reverse('surveys:lucky_draw'), data=json.dumps({'index': 0, 'draw_type': MONTHLY}),
+                    content_type='application/json')
+
+        for key in ('lucky_draw_grid', 'lucky_draw_number', 'lucky_draw_grid_monthly', 'lucky_draw_number_monthly'):
+            self.assertNotIn(key, client.session)
+
+    def test_fewer_than_two_milestone_users_falls_back_to_the_normal_board(self):
+        player = self.make_user(self.uk, 100)                           # the only one
+
+        page = self.load_page(player)
+
+        self.assertNotIn('lucky_draw_grid_monthly', self.client.session)
+        self.assertEqual(len(page.context['monthly_grid_range']), 0)
+        self.assertTrue(self.play(player, MONTHLY, win=True).json()['is_winner'])
