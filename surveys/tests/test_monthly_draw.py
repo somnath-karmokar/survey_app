@@ -625,3 +625,25 @@ class MonthlyDrawBoardTests(DrawTestCase):
         self.assertNotIn('lucky_draw_grid_monthly', self.client.session)
         self.assertEqual(len(page.context['monthly_grid_range']), 0)
         self.assertTrue(self.play(player, MONTHLY, win=True).json()['is_winner'])
+
+
+class NoDrawAvailablePageTests(DrawTestCase):
+    def test_no_board_when_no_draw_is_available(self):
+        user = self.make_user(self.uk, 1)                               # 1 survey: no Quick, Poll or Monthly play
+        self.client.force_login(user)
+
+        page = self.client.get(reverse('surveys:lucky_draw'))
+
+        self.assertFalse(page.context['user_eligible'])
+        self.assertNotContains(page, 'class="number-box')
+        self.assertNotContains(page, 'id="number-grid"')
+        self.assertNotContains(page, 'TESTING MODE')
+        self.assertContains(page, 'You need to complete 2 surveys')     # the explanation is still shown
+
+    def test_board_shown_when_a_draw_is_available(self):
+        self.client.force_login(self.make_user(self.uk, 2))
+
+        page = self.client.get(reverse('surveys:lucky_draw'))
+
+        self.assertContains(page, 'id="number-grid"')
+        self.assertContains(page, 'class="number-box')

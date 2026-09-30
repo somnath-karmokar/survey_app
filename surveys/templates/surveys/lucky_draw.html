@@ -183,6 +183,7 @@
                     
                   
                     
+                    {% if user_eligible %}
                     {% if testing_numbered_grid %}
                     <div class="alert alert-warning text-center">
                         <strong>TESTING MODE</strong> — numbers are visible. Winning number: <span class="fw-bold">{{ testing_winning_number }}</span>
@@ -242,6 +243,7 @@
                             {% endfor %}
                         {% endif %}
                     </div>
+                    {% endif %}
                     <!-- Show result if already played -->
                     {% if has_played %}
                     <div class="alert {% if last_result.is_winner %}alert-success{% else %}alert-danger{% endif %}">
