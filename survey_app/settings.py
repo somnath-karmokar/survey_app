@@ -400,7 +400,7 @@ LUCKY_DRAW_CONFIG = {
     # 200 = 2, and so on; surplus carries over. With the 200-surveys-a-month cap
     # (SURVEY_CONFIG) that is at most 2 new attempts a month. Prize, winner cap
     # and which countries take part are set per country in CountryLuckyDrawConfig.
-    'MONTHLY_SURVEYS_REQUIRED': 100,
+    'MONTHLY_SURVEYS_REQUIRED': 5, #5 for test and 100 for prod
     # Per country, at least this many people must newly cross a
     # MONTHLY_SURVEYS_REQUIRED-survey milestone during the current calendar
     # month for that country's Monthly draw to run at all this month. Below
