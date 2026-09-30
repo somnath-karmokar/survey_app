@@ -179,7 +179,12 @@
 
                     <div class="d-flex justify-content-between align-items-center" style="font-size:0.82rem; opacity:0.85;">
                         <span>{{ survey_milestone.surveys_into_cycle }} / {{ survey_milestone.interval }} surveys completed</span>
-                        {% if survey_milestone.surveys_to_next_reward == survey_milestone.interval %}
+                        {% if survey_milestone.just_reached %}
+                            <span class="text-warning fw-semibold">
+                                Milestone reached &mdash; {{ survey_milestone.currency_symbol }}{{ survey_milestone.reward_amount|floatformat:2 }} added to your wallet!
+                                Next reward at {{ survey_milestone.next_milestone }} surveys.
+                            </span>
+                        {% elif survey_milestone.surveys_to_next_reward == survey_milestone.interval %}
                             <span class="text-warning fw-semibold">Start completing surveys to earn {{ survey_milestone.currency_symbol }}{{ survey_milestone.reward_amount|floatformat:2 }}!</span>
                         {% else %}
                             <span>

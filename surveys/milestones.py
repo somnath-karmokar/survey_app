@@ -151,6 +151,9 @@ def get_survey_milestone_progress(user):
     completed_surveys = get_user_milestone_stats(user)['surveys_completed']
     into_cycle = completed_surveys % interval
     to_next = interval - into_cycle
+    # Landing exactly on a milestone shows it as reached (5/5), not as a fresh 0/5.
+    just_reached = completed_surveys > 0 and into_cycle == 0
+    shown_into_cycle = interval if just_reached else into_cycle
 
     amount, currency_code, currency_symbol = get_wallet_reward_display(
         user, milestone.get('wallet_reward_amount')
@@ -161,10 +164,11 @@ def get_survey_milestone_progress(user):
         'reward_amount': amount,
         'currency_symbol': currency_symbol,
         'surveys_completed': completed_surveys,
-        'surveys_into_cycle': into_cycle,
+        'surveys_into_cycle': shown_into_cycle,
         'surveys_to_next_reward': to_next,
         'next_milestone': completed_surveys + to_next,
-        'progress_pct': int((into_cycle / interval) * 100),
+        'progress_pct': int((shown_into_cycle / interval) * 100),
+        'just_reached': just_reached,
     }
 
 
