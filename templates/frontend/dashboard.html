@@ -140,8 +140,8 @@
                             <p class="h3 mb-0">{{ monthly_draw_stats.milestones_completed }} milestone{{ monthly_draw_stats.milestones_completed|pluralize }}</p>
                         </div>
                         <div class="col-md-4">
-                            <p class="text-muted text-uppercase small mb-1">Qualified Users This Month</p>
-                            <p class="h3 mb-0">{{ monthly_draw_stats.qualified_users }}{% if monthly_draw_stats.min_qualifiers %} <small class="text-muted fs-6">of {{ monthly_draw_stats.min_qualifiers }} needed</small>{% endif %}</p>
+                            <p class="text-muted text-uppercase small mb-1">Users Reached Monthly Milestone</p>
+                            <p class="h3 mb-0">{{ monthly_draw_stats.milestone_users }}</p>
                         </div>
                         <div class="col-md-4">
                             <p class="text-muted text-uppercase small mb-1">Available Attempts</p>
