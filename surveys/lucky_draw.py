@@ -344,6 +344,14 @@ class LuckyDrawView(View):
         # Same count the draw's minimum-qualifiers rule uses: people in this
         # country who newly reached a milestone this calendar month.
         qualified_users = self.get_monthly_milestone_qualifiers(profile.country, required)
+        milestone_users = (
+            UserSurveyProgress.objects
+            .filter(user__profile__country_id=profile.country_id)
+            .values('user_id')
+            .annotate(total_completed=Sum('completed_count'))
+            .filter(total_completed__gte=required)
+            .count()
+        )
         total_completed = eligibility['total_surveys']
         return {
             'required': required,
@@ -352,6 +360,7 @@ class LuckyDrawView(View):
             'attempts_available': eligibility['monthly_plays_available'],
             'qualified_users': qualified_users,
             'min_qualifiers': eligibility['monthly_min_qualifiers'],
+            'milestone_users': milestone_users,
         }
 
     def monthly_play_error(self, user):
