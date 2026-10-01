@@ -11,7 +11,7 @@ from django.urls import reverse
 
 from surveys.lucky_draw import QUICK_DRAW_NUDGE, LuckyDrawView
 from surveys.models import (
-    Country, LuckyDrawEntry, Question, Survey, SurveyCategory, SurveyResponse,
+    Country, LuckyDrawEntry, Poll, PollResponse, Question, Survey, SurveyCategory, SurveyResponse,
     UserSurveyProgress,
 )
 from surveys.views_surveys import thank_you_message
@@ -112,6 +112,16 @@ class SurveyCompletionMessageTests(TestCase):
         self.assertEqual(thank_you_message(self.user), COMBINED)
         self.set_completed(0)
         self.assertEqual(thank_you_message(self.user), THANK_YOU)
+
+    @override_settings(LUCKY_DRAW_CONFIG={**LUCKY_DRAW, 'POLLS_REQUIRED': 1})
+    def test_a_waiting_poll_draw_play_does_not_hide_the_nudge(self):
+        poll = Poll.objects.create(title='A poll', country=self.country)
+        PollResponse.objects.create(user=self.user, poll=poll)          # 1 poll = a Poll draw play waiting
+        self.assertTrue(LuckyDrawView().get_eligibility_context(self.user)['poll_eligible'])
+
+        response = self.complete_paged(self.make_survey('First'))
+
+        self.assertContains(response, COMBINED)
 
     @override_settings(LUCKY_DRAW_CONFIG={**LUCKY_DRAW, 'SURVEYS_REQUIRED': 100})
     def test_follows_the_configured_requirement_not_a_hardcoded_two(self):

@@ -18,7 +18,7 @@ from .models import (
     LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement,
     Poll, PollQuestion, PollChoice, PollResponse, PollAnswer, CountryLuckyDrawConfig,
     WalletTransaction, UserWallet, WalletWithdrawalRequest, JournalPost, JournalCategory, PrivacyPolicy, AboutUs, Advertiser, DirectMarketing,
-    MonthlyDrawEligibleUser, UserSurveyProgress,
+    MonthlyDrawEligibleUser, UserSurveyProgress, MonthlyDrawNumbers, MonthlyDrawSettlement,
 )
 from django.utils.safestring import mark_safe
 from django.urls import path
@@ -654,6 +654,34 @@ class MonthlyDrawEligibleUserAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class MonthlyDrawNumbersAdmin(admin.ModelAdmin):
+    list_display = ('country', 'year', 'month', 'winning_numbers_display', 'created_at')
+    list_filter = ('country', 'year', 'month')
+    readonly_fields = ('country', 'year', 'month', 'winning_numbers', 'created_at')
+
+    def winning_numbers_display(self, obj):
+        return ', '.join(str(n) for n in obj.winning_numbers)
+    winning_numbers_display.short_description = 'Winning numbers'
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+class MonthlyDrawSettlementAdmin(admin.ModelAdmin):
+    list_display = ('country', 'draw_date', 'qualifiers', 'quorum_met', 'paid_users', 'settled_at')
+    list_filter = ('country', 'quorum_met')
+    readonly_fields = ('country', 'draw_date', 'qualifiers', 'quorum_met', 'paid_users', 'settled_at')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
 
@@ -1638,6 +1666,8 @@ survey_admin_site.register(PollAnswer, DefaultModelAdmin)
 survey_admin_site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
 survey_admin_site.register(UserWallet, UserWalletAdmin)
 survey_admin_site.register(MonthlyDrawEligibleUser, MonthlyDrawEligibleUserAdmin)
+survey_admin_site.register(MonthlyDrawNumbers, MonthlyDrawNumbersAdmin)
+survey_admin_site.register(MonthlyDrawSettlement, MonthlyDrawSettlementAdmin)
 survey_admin_site.register(WalletTransaction, WalletTransactionAdmin)
 survey_admin_site.register(WalletWithdrawalRequest, WalletWithdrawalRequestAdmin)
 survey_admin_site.register(SurveyResponse, SurveyResponseAdmin)

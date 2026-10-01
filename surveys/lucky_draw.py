@@ -7,9 +7,14 @@ from django.urls import reverse
 from django.views.generic import View
 from .models import (
     UserSurveyProgress, LuckyDrawEntry, PollResponse, CountryLuckyDrawConfig,
-    SurveyResponse,
+    SurveyResponse, MonthlyDrawNumbers, MonthlyDrawSettlement, UserProfile, WalletTransaction,
 )
-from django.db.models import Sum, Count
+from django.db import transaction
+from datetime import date, datetime, time, timedelta
+
+# Draw days before this are never settled, so turning the payout on doesn't pay out retroactively.
+MONTHLY_PAYOUT_FROM = date(2026, 10, 1)
+from django.db.models import Sum, Count, F
 import random
 from django.utils import timezone
 from django.http import JsonResponse  # Add this line
@@ -49,8 +54,9 @@ class LuckyDrawView(View):
         draw, and users further away get no message.)
         """
         eligibility = self.get_eligibility_context(user)
-        # Quick draw only: attempts held for the Monthly draw don't count here.
-        if eligibility['survey_eligible'] or eligibility['poll_eligible']:
+        # Quick draw only: a Poll draw play or Monthly attempts waiting don't
+        # change how many surveys the Quick draw still needs.
+        if eligibility['survey_eligible']:
             return ''
         if eligibility['surveys_required'] - eligibility['surveys_completed'] == 1:
             return QUICK_DRAW_NUDGE
@@ -367,6 +373,155 @@ class LuckyDrawView(View):
             'milestone_users': milestone_users,
         }
 
+    def get_monthly_period(self, config):
+        """(year, month, month_start, next_month_start) for this month on the country's clock."""
+        _now, month_start, next_month_start = month_bounds(config.tzinfo)
+        return month_start.year, month_start.month, month_start, next_month_start
+
+    def get_monthly_numbers(self, config, board_size=None):
+        """This month's MonthlyDrawNumbers row for the country.
+
+        With `board_size`, draws the winning numbers (as many as the winner cap,
+        default 4) from 1..board_size the first time it's asked; otherwise only
+        returns an existing row, or None.
+        """
+        year, month, _start, _next = self.get_monthly_period(config)
+        lookup = {'country': config.country, 'year': year, 'month': month}
+        if board_size is None:
+            return MonthlyDrawNumbers.objects.filter(**lookup).first()
+        count = min(config.monthly_winner_cap or 4, board_size)
+
+        def draw():
+            return sorted(random.sample(range(1, board_size + 1), count))
+
+        numbers, created = MonthlyDrawNumbers.objects.get_or_create(**lookup, defaults={'winning_numbers': draw()})
+        # Numbers drawn before N was this month's milestone count can lie outside
+        # 1..N; redraw them, but only while nobody has picked a number yet.
+        if not created and max(numbers.winning_numbers, default=0) > board_size and not self.get_monthly_picks(config):
+            numbers.winning_numbers = draw()
+            numbers.save(update_fields=['winning_numbers'])
+        return numbers
+
+    def get_monthly_picks(self, config):
+        """{number: entry} for every Monthly number already picked in the country this month."""
+        _year, _month, month_start, next_month_start = self.get_monthly_period(config)
+        entries = LuckyDrawEntry.objects.filter(
+            draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY,
+            created_at__gte=month_start,
+            created_at__lt=next_month_start,
+            user__profile__country=config.country,
+        ).select_related('user').order_by('created_at', 'id')
+        picks = {}
+        for entry in entries:
+            picks.setdefault(entry.guessed_number, entry)
+        return picks
+
+    def get_monthly_winning_display(self, config):
+        """This month's winning numbers for the page, each with who won it (if anyone)."""
+        numbers = self.get_monthly_numbers(config)
+        if not numbers:
+            return []
+        picks = self.get_monthly_picks(config)
+        return [
+            {
+                'number': n,
+                'won_by': self.format_winner_name(picks[n].user) if n in picks and picks[n].is_winner else '',
+            }
+            for n in numbers.winning_numbers
+        ]
+
+    def monthly_draw_days_to_settle(self, config):
+        """Ended Monthly draw days (the 1st of this and last month, and the test date) not yet settled."""
+        now, month_start, _next = month_bounds(config.tzinfo)
+        days = {month_start.date(), (month_start - timedelta(days=1)).replace(day=1).date()}
+        test_date = settings.LUCKY_DRAW_CONFIG.get('MONTHLY_DRAW_TEST_DATE')
+        if test_date:
+            try:
+                days.add(date.fromisoformat(test_date))
+            except ValueError:
+                pass
+        settled = set(MonthlyDrawSettlement.objects.filter(
+            country=config.country, draw_date__in=days,
+        ).values_list('draw_date', flat=True))
+        return sorted(d for d in days if MONTHLY_PAYOUT_FROM <= d < now.date() and d not in settled)
+
+    def settle_due_monthly_draws(self, config):
+        for draw_date in self.monthly_draw_days_to_settle(config):
+            self.settle_monthly_draw(config, draw_date)
+
+    def settle_monthly_draw(self, config, draw_date):
+        """Settle one ended draw day for a country, once.
+
+        If fewer than MONTHLY_MIN_QUALIFIERS people newly reached the milestone
+        that month by the end of the day, the draw didn't run: everyone who held
+        a Monthly attempt by then is paid the Monthly prize once, and that
+        attempt is used up. Counts come from completed surveys up to the end of
+        the day, so later surveys don't change the outcome.
+        """
+        existing = MonthlyDrawSettlement.objects.filter(country=config.country, draw_date=draw_date).first()
+        if existing:
+            return existing
+
+        tz = config.tzinfo
+        required = max(1, settings.LUCKY_DRAW_CONFIG.get('MONTHLY_SURVEYS_REQUIRED', 100))
+        min_qualifiers = settings.LUCKY_DRAW_CONFIG.get('MONTHLY_MIN_QUALIFIERS', 5)
+        month_start = datetime.combine(draw_date.replace(day=1), time.min, tzinfo=tz)
+        day_end = datetime.combine(draw_date + timedelta(days=1), time.min, tzinfo=tz)
+
+        completed = SurveyResponse.objects.filter(user__profile__country=config.country, completed_at__isnull=False)
+        before_month = dict(completed.filter(completed_at__lt=month_start).values_list('user_id').annotate(c=Count('id')))
+        by_day_end = dict(completed.filter(completed_at__lt=day_end).values_list('user_id').annotate(c=Count('id')))
+        qualifiers = sum(
+            1 for user_id, total in by_day_end.items() if total // required > before_month.get(user_id, 0) // required
+        )
+        quorum_met = (not min_qualifiers) or qualifiers >= min_qualifiers
+
+        with transaction.atomic():
+            settlement, created = MonthlyDrawSettlement.objects.get_or_create(
+                country=config.country, draw_date=draw_date,
+                defaults={'qualifiers': qualifiers, 'quorum_met': quorum_met},
+            )
+            if not created or quorum_met or config.monthly_prize_amount is None:
+                return settlement
+
+            amount = config.monthly_prize_amount
+            paid = 0
+            for user_id, total in by_day_end.items():
+                last = LuckyDrawEntry.objects.filter(
+                    user_id=user_id, draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY, created_at__lt=day_end,
+                ).order_by('-created_at', '-id').first()
+                snapshot = (last.surveys_at_play or 0) if last else 0
+                if (total - snapshot) // required < 1:
+                    continue
+                entry = LuckyDrawEntry.objects.create(
+                    user_id=user_id, draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY,
+                    guessed_number=0, winning_number=0, is_winner=True,
+                    prize=f'{config.get_monthly_prize_display()} (no draw)',
+                    surveys_at_play=snapshot + required,
+                    polls_at_play=PollResponse.objects.filter(user_id=user_id).count(),
+                )
+                # Dated within the draw day, so it never counts toward a later month's winners.
+                LuckyDrawEntry.objects.filter(pk=entry.pk).update(created_at=day_end - timedelta(seconds=1))
+                profile = UserProfile.objects.select_for_update().get(user_id=user_id)
+                UserProfile.objects.filter(pk=profile.pk).update(wallet_balance=F('wallet_balance') + amount)
+                profile.refresh_from_db(fields=['wallet_balance'])
+                WalletTransaction.objects.create(
+                    profile=profile,
+                    transaction_type=WalletTransaction.TRANSACTION_TYPE_CREDIT,
+                    amount=amount,
+                    currency_code=config.currency_code,
+                    currency_symbol=config.currency_symbol,
+                    description=(
+                        f'Monthly draw prize - draw did not run ({qualifiers} of {min_qualifiers} qualified)'
+                    ),
+                    lucky_draw_entry=entry,
+                    balance_after=profile.wallet_balance,
+                )
+                paid += 1
+            settlement.paid_users = paid
+            settlement.save(update_fields=['paid_users'])
+        return settlement
+
     def get_monthly_milestone_user_count(self, country_id, required):
         """Users in a country who have completed at least `required` surveys.
 
@@ -397,8 +552,9 @@ class LuckyDrawView(View):
             return (
                 f"Not enough people have reached the {e['monthly_required']}-survey milestone "
                 f"in your country this month yet ({e['monthly_milestone_qualifiers']} of "
-                f"{e['monthly_min_qualifiers']} needed) — there's no Monthly draw this cycle. "
-                "Your attempts are kept for next month."
+                f"{e['monthly_min_qualifiers']} needed) — there's no Monthly draw this cycle."
+                + (f" Your {e['monthly_prize_display']} will be automatically added to your wallet."
+                   if e['monthly_plays_available'] else '')
             )
         if not e['monthly_open']:
             message = "All of this month's Monthly draw prizes for your country have been won."
@@ -423,6 +579,12 @@ class LuckyDrawView(View):
         # Check if this is a request for the lucky number
         if request.path.endswith('/number/'):
             return self.get_lucky_number(request)
+
+        # Backup for the scheduled settle_monthly_draws job: pay out the user's
+        # country for any ended draw day that couldn't run, before showing attempts.
+        monthly_config = self.get_monthly_draw_config(request.user)
+        if monthly_config:
+            self.settle_due_monthly_draws(monthly_config)
         
         # Get current month and year for play check
         current_date = timezone.now()
@@ -488,21 +650,28 @@ class LuckyDrawView(View):
         request.session['lucky_draw_number'] = current_lucky_number
 
         # The Monthly draw gets its own board: numbers 1 to N, where N is how many
-        # users in the player's country have reached the Monthly milestone. Also
-        # session-only. With fewer than 2 such users it falls back to the board above.
+        # users in the player's country reached the Monthly milestone this month. The
+        # country's winning numbers for the month are shared and shown on the page;
+        # numbers already picked by anyone are shown blocked. Which hidden box holds
+        # which remaining number lives only in the session. With fewer than 2
+        # milestone users it falls back to the board above.
         monthly_range = []
-        monthly_lucky_number = None
+        monthly_taken = []
         request.session.pop('lucky_draw_grid_monthly', None)
         request.session.pop('lucky_draw_number_monthly', None)
-        profile_country_id = getattr(getattr(request.user, 'profile', None), 'country_id', None)
-        if eligibility['monthly_eligible'] and profile_country_id:
-            board_size = self.get_monthly_milestone_user_count(profile_country_id, eligibility['monthly_required'])
+        monthly_config = self.get_monthly_draw_config(request.user)
+        if eligibility['monthly_eligible'] and monthly_config:
+            board_size = self.get_monthly_milestone_qualifiers(monthly_config.country, eligibility['monthly_required'])
             if board_size >= 2:
-                monthly_range = list(range(1, board_size + 1))
+                numbers = self.get_monthly_numbers(monthly_config, board_size)
+                picks = self.get_monthly_picks(monthly_config)
+                board_size = max([board_size, *numbers.winning_numbers, *picks])
+                monthly_taken = [
+                    {'number': n, 'winning': n in numbers.winning_numbers} for n in sorted(picks)
+                ]
+                monthly_range = [n for n in range(1, board_size + 1) if n not in picks]
                 random.shuffle(monthly_range)
-                monthly_lucky_number = random.randint(1, board_size)
                 request.session['lucky_draw_grid_monthly'] = monthly_range
-                request.session['lucky_draw_number_monthly'] = monthly_lucky_number
 
         survey_plays_available = eligibility['survey_plays_available']
         poll_plays_available = eligibility['poll_plays_available']
@@ -520,6 +689,8 @@ class LuckyDrawView(View):
             # grid_range gives the template a safe index sequence (no actual numbers)
             'grid_range': range(len(number_range)),
             'monthly_grid_range': range(len(monthly_range)),
+            'monthly_taken_numbers': monthly_taken,
+            'monthly_winning_numbers': self.get_monthly_winning_display(monthly_config) if monthly_config else [],
             # testing_numbered_grid/testing_winning_number are ONLY populated when
             # SHOW_NUMBERS_FOR_TESTING is on — must stay False/unset in production.
             'user_eligible': user_eligible,
@@ -553,7 +724,6 @@ class LuckyDrawView(View):
             context['testing_winning_number'] = current_lucky_number
             if monthly_range:
                 context['testing_monthly_numbered_grid'] = list(enumerate(monthly_range))
-                context['testing_monthly_winning_number'] = monthly_lucky_number
 
         return render(request, 'surveys/lucky_draw.html', context)
 
@@ -615,7 +785,6 @@ class LuckyDrawView(View):
             draw_type == LuckyDrawEntry.DRAW_TYPE_MONTHLY and 'lucky_draw_grid_monthly' in request.session
         )
         grid_key = 'lucky_draw_grid_monthly' if uses_monthly_board else 'lucky_draw_grid'
-        number_key = 'lucky_draw_number_monthly' if uses_monthly_board else 'lucky_draw_number'
         grid = request.session.get(grid_key)
         if not grid:
             return JsonResponse({'error': 'Session expired. Please refresh the page.'}, status=400)
@@ -662,31 +831,60 @@ class LuckyDrawView(View):
             entry_polls_at_play = polls_baseline + polls_required
             entry_surveys_at_play = total_surveys
 
-        # Winning number comes from the session — never from the client request
-        winning_number = request.session.get(number_key)
-        if winning_number is None:
-            return JsonResponse({'error': 'Session expired. Please refresh the page.'}, status=400)
+        entry_fields = {
+            'user': request.user,
+            'draw_type': draw_type,
+            'survey': qualifying_survey,
+            'poll': qualifying_poll,
+            'guessed_number': number,
+            'surveys_at_play': entry_surveys_at_play,
+            'polls_at_play': entry_polls_at_play,
+        }
+        monthly_winning_numbers = None
 
-        # Invalidate both session boards so this draw cannot be replayed
-        for key in ('lucky_draw_grid', 'lucky_draw_number', 'lucky_draw_grid_monthly', 'lucky_draw_number_monthly'):
-            request.session.pop(key, None)
+        if uses_monthly_board:
+            # Shared Monthly board: the winning numbers are the country's for the
+            # month, and each number can be picked once. The row lock makes two
+            # players clicking the same number at once resolve to one of them.
+            for key in ('lucky_draw_grid', 'lucky_draw_number', 'lucky_draw_grid_monthly', 'lucky_draw_number_monthly'):
+                request.session.pop(key, None)
+            config = self.get_monthly_draw_config(request.user)
+            year, month, _start, _next = self.get_monthly_period(config)
+            with transaction.atomic():
+                numbers = MonthlyDrawNumbers.objects.select_for_update().filter(
+                    country=config.country, year=year, month=month,
+                ).first()
+                if numbers is None:
+                    return JsonResponse({'error': 'Session expired. Please refresh the page.'}, status=400)
+                if number in self.get_monthly_picks(config):
+                    return JsonResponse({
+                        'error': f'Number {number} has just been picked by another player. '
+                                 'Please refresh and choose another number.'
+                    }, status=409)
+                monthly_winning_numbers = numbers.winning_numbers
+                is_winner = number in monthly_winning_numbers
+                prize = self.get_prize_for_user(request.user, draw_type) if is_winner else None
+                entry = LuckyDrawEntry.objects.create(
+                    **entry_fields,
+                    winning_number=number if is_winner else monthly_winning_numbers[0],
+                    is_winner=is_winner,
+                    prize=prize,
+                )
+        else:
+            # Winning number comes from the session — never from the client request
+            winning_number = request.session.get('lucky_draw_number')
+            if winning_number is None:
+                return JsonResponse({'error': 'Session expired. Please refresh the page.'}, status=400)
 
-        is_winner = (number == winning_number)
-        prize = self.get_prize_for_user(request.user, draw_type) if is_winner else None
+            # Invalidate both session boards so this draw cannot be replayed
+            for key in ('lucky_draw_grid', 'lucky_draw_number', 'lucky_draw_grid_monthly', 'lucky_draw_number_monthly'):
+                request.session.pop(key, None)
 
-        # Create entry
-        entry = LuckyDrawEntry.objects.create(
-            user=request.user,
-            draw_type=draw_type,
-            survey=qualifying_survey,
-            poll=qualifying_poll,
-            guessed_number=number,
-            winning_number=winning_number,
-            is_winner=is_winner,
-            prize=prize,
-            surveys_at_play=entry_surveys_at_play,
-            polls_at_play=entry_polls_at_play
-        )
+            is_winner = (number == winning_number)
+            prize = self.get_prize_for_user(request.user, draw_type) if is_winner else None
+            entry = LuckyDrawEntry.objects.create(
+                **entry_fields, winning_number=winning_number, is_winner=is_winner, prize=prize,
+            )
         
         # Send email notifications if user won
         if is_winner:
@@ -722,7 +920,8 @@ class LuckyDrawView(View):
         return JsonResponse({
             'is_winner': is_winner,
             'guessed_number': number,
-            'winning_number': winning_number,
+            'winning_number': entry.winning_number,
+            'winning_numbers': monthly_winning_numbers,
             'prize': prize,
             'draw_type': draw_type,
             'remaining_draw_types': remaining_draw_types,

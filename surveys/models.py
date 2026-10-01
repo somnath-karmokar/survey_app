@@ -728,6 +728,52 @@ class LuckyDrawEntry(models.Model):
         return self.survey
 
 
+class MonthlyDrawNumbers(models.Model):
+    """One country's winning numbers for one month of the Monthly draw.
+
+    Drawn once, the first time an eligible player opens that month's board, and
+    shared by every player in the country. Month/year are on the country's clock.
+    """
+    country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='monthly_draw_numbers')
+    year = models.PositiveSmallIntegerField()
+    month = models.PositiveSmallIntegerField()
+    winning_numbers = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('country', 'year', 'month')
+        ordering = ['-year', '-month']
+        verbose_name = 'Monthly Draw Numbers'
+        verbose_name_plural = 'Monthly Draw Numbers'
+
+    def __str__(self):
+        numbers = ', '.join(str(n) for n in self.winning_numbers)
+        return f"{self.country} {self.year}-{self.month:02d}: {numbers}"
+
+
+class MonthlyDrawSettlement(models.Model):
+    """Records that one country's Monthly draw day has been settled.
+
+    Written once the day has ended on the country's clock. If too few people
+    qualified for the draw to run, everyone holding a Monthly attempt was paid
+    the Monthly prize instead; `paid_users` is how many.
+    """
+    country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='monthly_draw_settlements')
+    draw_date = models.DateField(help_text="The draw day (the 1st, or the test date) on the country's clock.")
+    qualifiers = models.PositiveIntegerField(default=0)
+    quorum_met = models.BooleanField(default=False)
+    paid_users = models.PositiveIntegerField(default=0)
+    settled_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('country', 'draw_date')
+        ordering = ['-draw_date']
+
+    def __str__(self):
+        outcome = 'draw ran' if self.quorum_met else f'no draw, {self.paid_users} paid'
+        return f"{self.country} {self.draw_date}: {outcome}"
+
+
 class WalletTransaction(models.Model):
     TRANSACTION_TYPE_CREDIT = 'credit'
     TRANSACTION_TYPE_DEBIT = 'debit'

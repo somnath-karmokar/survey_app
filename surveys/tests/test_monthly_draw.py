@@ -7,19 +7,21 @@ Monthly    : 100 surveys = 1 attempt (200 = 2, ...), its own prize per country
 """
 import datetime
 import json
+from io import StringIO
 from decimal import Decimal
 from unittest import mock
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from surveys.lucky_draw import QUICK_DRAW_NUDGE, LuckyDrawView
 from surveys.models import (
-    Country, CountryLuckyDrawConfig, LuckyDrawEntry, Survey, SurveyCategory,
+    Country, CountryLuckyDrawConfig, LuckyDrawEntry, MonthlyDrawNumbers, MonthlyDrawSettlement, Survey, SurveyCategory,
     SurveyResponse, UserSurveyProgress, WalletTransaction,
 )
 
@@ -103,10 +105,15 @@ class DrawTestCase(TestCase):
         client = self.client_class()
         client.force_login(user)
         client.get(reverse('surveys:lucky_draw'))           # seeds the board(s) in the session
-        suffix = '_monthly' if draw_type == MONTHLY and 'lucky_draw_grid_monthly' in client.session else ''
-        grid = client.session['lucky_draw_grid' + suffix]
-        lucky = client.session['lucky_draw_number' + suffix]
-        index = grid.index(lucky) if win else (grid.index(lucky) + 1) % len(grid)
+        if draw_type == MONTHLY and 'lucky_draw_grid_monthly' in client.session:
+            grid = client.session['lucky_draw_grid_monthly']
+            winning = set(MonthlyDrawNumbers.objects.filter(country=user.profile.country).first().winning_numbers)
+            wanted = [i for i, n in enumerate(grid) if (n in winning) == win] or list(range(len(grid)))
+            index = wanted[0]
+        else:
+            grid = client.session['lucky_draw_grid']
+            lucky = client.session['lucky_draw_number']
+            index = grid.index(lucky) if win else (grid.index(lucky) + 1) % len(grid)
         return client.post(
             reverse('surveys:lucky_draw'),
             data=json.dumps({'index': index, 'draw_type': draw_type}),
@@ -581,7 +588,9 @@ class MonthlyDrawBoardTests(DrawTestCase):
         page = self.load_page(player)
 
         self.assertEqual(sorted(self.client.session['lucky_draw_grid_monthly']), [1, 2, 3, 4, 5])
-        self.assertIn(self.client.session['lucky_draw_number_monthly'], range(1, 6))
+        winning = MonthlyDrawNumbers.objects.get(country=self.uk).winning_numbers
+        self.assertEqual(len(winning), 4)
+        self.assertTrue(set(winning) <= {1, 2, 3, 4, 5})
         self.assertEqual(len(page.context['monthly_grid_range']), 5)
         self.assertEqual(sorted(self.client.session['lucky_draw_grid']), list(range(1, 22)))   # Quick board unchanged
         self.assertNotContains(page, '<span class="number-placeholder">3</span>')              # numbers stay hidden
@@ -647,3 +656,212 @@ class NoDrawAvailablePageTests(DrawTestCase):
 
         self.assertContains(page, 'id="number-grid"')
         self.assertContains(page, 'class="number-box')
+
+
+@override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'SHOW_NUMBERS_FOR_TESTING': False})
+class MonthlySharedNumbersTests(DrawTestCase):
+    """Each country has 4 winning numbers a month, shown on the page; a picked number is blocked for everyone."""
+
+    def setUp(self):
+        super().setUp()
+        self.players = [self.make_user(self.uk, 100) for _ in range(8)]           # board 1-8
+
+    def open_board(self, user):
+        client = self.client_class()
+        client.force_login(user)
+        page = client.get(reverse('surveys:lucky_draw'))
+        return client, page
+
+    def pick(self, client, number):
+        index = client.session['lucky_draw_grid_monthly'].index(number)
+        return client.post(reverse('surveys:lucky_draw'), data=json.dumps({'index': index, 'draw_type': MONTHLY}),
+                           content_type='application/json')
+
+    def winning(self):
+        return MonthlyDrawNumbers.objects.get(country=self.uk).winning_numbers
+
+    def losing_number(self):
+        return next(n for n in range(1, 9) if n not in self.winning())
+
+    def test_four_winning_numbers_are_drawn_once_and_shown_to_every_player(self):
+        _client, first_page = self.open_board(self.players[0])
+        _client, second_page = self.open_board(self.players[1])
+
+        self.assertEqual(MonthlyDrawNumbers.objects.filter(country=self.uk).count(), 1)
+        self.assertEqual(len(self.winning()), 4)
+        shown = [item['number'] for item in second_page.context['monthly_winning_numbers']]
+        self.assertEqual(shown, self.winning())
+        self.assertContains(first_page, 'id="monthly-winning-numbers"')
+
+    def test_other_countries_get_their_own_numbers(self):
+        for _ in range(8):
+            self.make_user(self.us, 100)
+        self.open_board(self.players[0])
+        self.open_board(self.make_user(self.us, 100))
+
+        self.assertEqual(MonthlyDrawNumbers.objects.count(), 2)
+
+    def test_a_picked_number_is_blocked_for_the_next_player(self):
+        client, _page = self.open_board(self.players[0])
+        number = self.losing_number()
+        self.assertFalse(self.pick(client, number).json()['is_winner'])
+
+        next_client, page = self.open_board(self.players[1])
+
+        self.assertNotIn(number, next_client.session['lucky_draw_grid_monthly'])
+        self.assertEqual([t['number'] for t in page.context['monthly_taken_numbers']], [number])
+        self.assertContains(page, 'monthly-taken-box')
+
+    def test_two_players_cannot_take_the_same_number(self):
+        first, _ = self.open_board(self.players[0])
+        second, _ = self.open_board(self.players[1])
+        number = self.losing_number()
+
+        self.assertEqual(self.pick(first, number).status_code, 200)
+        response = self.pick(second, number)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn('just been picked', response.json()['error'])
+        self.assertFalse(LuckyDrawEntry.objects.filter(user=self.players[1]).exists())
+        self.assertEqual(self.status(self.players[1])['monthly_plays_available'], 1)    # attempt kept
+
+    def test_finding_a_winning_number_wins_and_marks_it_won(self):
+        client, _ = self.open_board(self.players[0])
+        number = self.winning()[0]
+
+        result = self.pick(client, number).json()
+
+        self.assertTrue(result['is_winner'])
+        self.assertEqual(result['winning_numbers'], self.winning())
+        _next, page = self.open_board(self.players[1])
+        won = {item['number']: item['won_by'] for item in page.context['monthly_winning_numbers']}
+        self.assertTrue(won[number])
+        self.assertEqual(sum(1 for name in won.values() if name), 1)
+
+    def test_draw_closes_once_all_four_winning_numbers_are_found(self):
+        self.open_board(self.players[0])                                            # draws the numbers
+        for player, number in zip(self.players, self.winning()):
+            client, _ = self.open_board(player)
+            self.assertTrue(self.pick(client, number).json()['is_winner'])
+
+        status = self.status(self.players[5])
+        self.assertFalse(status['monthly_open'])
+        self.assertIn('have been won', self.play(self.players[5], MONTHLY).json()['error'])
+
+
+@override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'SHOW_NUMBERS_FOR_TESTING': False})
+class MonthlyBoardSizeThisMonthTests(DrawTestCase):
+    """N (board size, and range of the 4 winning numbers) = users who reached the milestone this month."""
+
+    def open_board(self, user):
+        client = self.client_class()
+        client.force_login(user)
+        client.get(reverse('surveys:lucky_draw'))
+        return client
+
+    def test_only_this_months_milestone_users_count(self):
+        player = self.make_new_qualifier(self.uk, 100)
+        for _ in range(5):
+            self.make_new_qualifier(self.uk, 100)                      # 6 this month in total
+        for _ in range(3):
+            self.make_banked_qualifier(self.uk, 100)                   # reached it last month: not counted
+
+        client = self.open_board(player)
+
+        self.assertEqual(sorted(client.session['lucky_draw_grid_monthly']), [1, 2, 3, 4, 5, 6])
+        winning = MonthlyDrawNumbers.objects.get(country=self.uk).winning_numbers
+        self.assertEqual(len(winning), 4)
+        self.assertTrue(all(1 <= n <= 6 for n in winning))
+
+    def test_out_of_range_numbers_are_redrawn_while_nobody_has_picked(self):
+        player = self.make_new_qualifier(self.uk, 100)
+        for _ in range(4):
+            self.make_new_qualifier(self.uk, 100)                      # N = 5
+        MonthlyDrawNumbers.objects.create(country=self.uk, year=2030, month=6, winning_numbers=[2, 9, 14, 20])
+
+        self.open_board(player)
+
+        winning = MonthlyDrawNumbers.objects.get(country=self.uk).winning_numbers
+        self.assertTrue(all(1 <= n <= 5 for n in winning))
+
+
+@override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'MONTHLY_MIN_QUALIFIERS': 5, 'MONTHLY_DRAW_TEST_DATE': None})
+class MonthlyNoDrawPayoutTests(DrawTestCase):
+    """When too few qualify for the draw to run, attempt holders are paid the Monthly prize."""
+
+    def setUp(self):
+        super().setUp()
+        self.holders = [self.make_new_qualifier(self.uk, 100) for _ in range(3)]       # 3 of 5: no draw
+        self.next_day = self.NOW + datetime.timedelta(days=1)
+
+    def settle(self):
+        LuckyDrawView().settle_due_monthly_draws(CountryLuckyDrawConfig.objects.get(country=self.uk))
+
+    def wallet(self, user):
+        return user.profile.__class__.objects.get(user=user).wallet_balance
+
+    def test_message_promises_the_prize_on_the_draw_day(self):
+        response = self.play(self.holders[0], MONTHLY)
+
+        self.assertIn('3 of 5 needed', response.json()['error'])
+        self.assertIn('Your £10 GBP will be automatically added to your wallet.', response.json()['error'])
+        self.client.force_login(self.holders[0])
+        self.assertContains(self.client.get(reverse('surveys:lucky_draw')),
+                            'Your £10 GBP will be automatically added to your wallet.')
+
+    def test_nothing_is_paid_while_the_draw_day_is_still_running(self):
+        self.settle()
+
+        self.assertEqual(self.wallet(self.holders[0]), Decimal('0.00'))
+        self.assertFalse(MonthlyDrawSettlement.objects.filter(draw_date=self.NOW.date()).exists())
+
+    def test_attempt_holders_are_paid_once_the_day_ends(self):
+        self.freeze(self.next_day)
+
+        self.settle()
+        self.settle()                                                   # running again pays nothing more
+
+        for user in self.holders:
+            self.assertEqual(self.wallet(user), Decimal('10.00'))
+            txn = WalletTransaction.objects.get(profile__user=user)
+            self.assertEqual((txn.amount, txn.currency_code), (Decimal('10.00'), 'GBP'))
+            self.assertEqual(self.status(user)['monthly_plays_available'], 0)    # attempt used up
+        settlement = MonthlyDrawSettlement.objects.get(country=self.uk, draw_date=self.NOW.date())
+        self.assertEqual((settlement.quorum_met, settlement.qualifiers, settlement.paid_users), (False, 3, 3))
+
+    def test_people_without_an_attempt_are_not_paid(self):
+        nobody = self.make_new_qualifier(self.uk, 40)
+        self.freeze(self.next_day)
+
+        self.settle()
+
+        self.assertEqual(self.wallet(nobody), Decimal('0.00'))
+
+    def test_other_countries_are_settled_on_their_own(self):
+        for _ in range(5):
+            self.make_new_qualifier(self.us, 100)                       # US meets the minimum
+        self.freeze(self.next_day + datetime.timedelta(hours=6))        # past the 1st in New York too
+
+        call_command('settle_monthly_draws', stdout=StringIO())
+
+        us = MonthlyDrawSettlement.objects.get(country=self.us, draw_date=self.NOW.date())
+        self.assertTrue(us.quorum_met)
+        self.assertEqual(us.paid_users, 0)
+        self.assertEqual(MonthlyDrawSettlement.objects.get(country=self.uk, draw_date=self.NOW.date()).paid_users, 3)
+
+    def test_opening_the_draw_page_settles_as_a_backup(self):
+        self.freeze(self.next_day)
+        self.client.force_login(self.holders[0])
+
+        self.client.get(reverse('surveys:lucky_draw'))
+
+        self.assertEqual(self.wallet(self.holders[0]), Decimal('10.00'))
+
+    def test_payout_does_not_use_up_next_months_prizes(self):
+        self.freeze(self.utc_for(2030, 7, 1, 12))                       # settled late, on the next draw day
+        self.settle()
+
+        self.assertEqual(self.status(self.make_user(self.uk, 100))['monthly_winners_this_month'], 0)
+
+    def utc_for(self, *args):
+        return datetime.datetime(*args, tzinfo=datetime.timezone.utc)

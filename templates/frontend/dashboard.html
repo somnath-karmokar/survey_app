@@ -39,6 +39,32 @@
         background: #fff;
         color: #12343b;
     }
+    .open-draw-btn {
+        background: linear-gradient(135deg, #f7b500 0%, #ff8a00 100%);
+        border: 0;
+        border-radius: 999px;
+        color: #1a1a2e;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        padding: 0.6rem 1.4rem;
+        box-shadow: 0 6px 18px rgba(255, 138, 0, 0.45);
+        animation: open-draw-pulse 2.2s ease-in-out infinite;
+        white-space: nowrap;
+    }
+    .open-draw-btn:hover,
+    .open-draw-btn:focus-visible {
+        color: #1a1a2e;
+        background: linear-gradient(135deg, #ffc727 0%, #ff9d1f 100%);
+        box-shadow: 0 8px 24px rgba(255, 138, 0, 0.6);
+        transform: translateY(-1px);
+    }
+    @keyframes open-draw-pulse {
+        0%, 100% { box-shadow: 0 6px 18px rgba(255, 138, 0, 0.45); }
+        50%      { box-shadow: 0 6px 26px rgba(255, 138, 0, 0.8); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .open-draw-btn { animation: none; }
+    }
 </style>
 {% endblock %}
 
@@ -132,7 +158,9 @@
                             <h5 class="mb-1"><i class="fas fa-calendar-alt text-primary me-2"></i>Monthly Draw Milestone</h5>
                             <p class="text-muted mb-0">Every {{ monthly_draw_stats.required }} completed surveys earns one attempt.</p>
                         </div>
-                        <a href="{% url 'surveys:lucky_draw' %}" class="btn btn-sm btn-outline-primary">Open Draw</a>
+                        <a href="{% url 'surveys:lucky_draw' %}" class="btn open-draw-btn">
+                            <i class="fas fa-trophy me-2"></i>Open Draw
+                        </a>
                     </div>
                     <div class="row text-center g-3">
                         <div class="col-md-4">
