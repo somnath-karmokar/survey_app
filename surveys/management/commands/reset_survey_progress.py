@@ -15,7 +15,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from surveys.models import (
-    Answer, LuckyDrawEntry, MilestoneAchievement, SurveyResponse, UserProfile, UserSurveyProgress,
+    Answer, LuckyDrawEntry, MilestoneAchievement, MonthlyDrawNumbers, MonthlyDrawSettlement, SurveyResponse, UserProfile, UserSurveyProgress,
     WalletTransaction, WalletWithdrawalRequest,
 )
 
@@ -31,6 +31,8 @@ class Command(BaseCommand):
             ('Survey responses', SurveyResponse.objects.all()),
             ('  their answers', Answer.objects.all()),
             ('Draw entries (Quick, Poll, Monthly)', LuckyDrawEntry.objects.all()),
+            ('Monthly draw winning numbers', MonthlyDrawNumbers.objects.all()),
+            ('Monthly draw settlements', MonthlyDrawSettlement.objects.all()),
             ('Milestone achievements (all types)', MilestoneAchievement.objects.all()),
             ('Withdrawal requests (all statuses)', WalletWithdrawalRequest.objects.all()),
             ('Wallet transactions', WalletTransaction.objects.all()),

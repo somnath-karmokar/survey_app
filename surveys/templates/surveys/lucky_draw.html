@@ -135,6 +135,20 @@
                             {% if monthly_winner_cap %}
                             <p class="mb-0 small text-muted">{{ monthly_winners_this_month }} of {{ monthly_winner_cap }} prizes claimed this month.</p>
                             {% endif %}
+                            {% if monthly_winning_numbers %}
+                            <div class="mt-3" id="monthly-winning-numbers">
+                                <p class="small fw-semibold mb-2">This month's winning numbers</p>
+                                <div class="d-flex flex-wrap gap-2">
+                                    {% for item in monthly_winning_numbers %}
+                                    <span class="badge fs-6 {% if item.won_by %}bg-secondary text-decoration-line-through{% else %}bg-success{% endif %}"
+                                          title="{% if item.won_by %}Won by {{ item.won_by }}{% else %}Still to be found{% endif %}">
+                                        {{ item.number }}{% if item.won_by %} <small class="fw-normal">({{ item.won_by }})</small>{% endif %}
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                                <p class="small text-muted mt-2 mb-0">Pick a box on the Monthly board: if it hides one of these numbers, you win. Each number can only be picked once.</p>
+                            </div>
+                            {% endif %}
                             {% if not monthly_window_open %}
                             <div class="alert alert-secondary mt-3 mb-0">
                                 The Monthly draw only runs on the 1st of each month. It opens again on {{ monthly_resets_on|date:"F j" }}{% if monthly_plays_available %} &mdash; your {{ monthly_plays_available }} attempt{{ monthly_plays_available|pluralize }} will be waiting{% endif %}.
@@ -143,7 +157,7 @@
                             <div class="alert alert-secondary mt-3 mb-0">
                                 Not enough people have reached the {{ monthly_required }}-survey milestone in your country this month yet
                                 ({{ monthly_milestone_qualifiers }} of {{ monthly_min_qualifiers }} needed) &mdash; there's no Monthly draw this cycle.
-                                {% if monthly_plays_available %}Your {{ monthly_plays_available }} attempt{{ monthly_plays_available|pluralize }} will be waiting next month.{% endif %}
+                                {% if monthly_plays_available %}Your {{ monthly_prize_display }} will be automatically added to your wallet.{% endif %}
                             </div>
                             {% elif not monthly_open %}
                             <div class="alert alert-secondary mt-3 mb-0">
@@ -187,13 +201,21 @@
                     {% if testing_numbered_grid %}
                     <div class="alert alert-warning text-center">
                         <strong>TESTING MODE</strong> — numbers are visible. Winning number: <span class="fw-bold">{{ testing_winning_number }}</span>
-                        {% if testing_monthly_winning_number %} &middot; Monthly board winning number: <span class="fw-bold">{{ testing_monthly_winning_number }}</span>{% endif %}
                         <div class="small">Set <code>SHOW_NUMBERS_FOR_TESTING</code> to False in settings.py to hide this in production.</div>
                     </div>
                     {% endif %}
 
                     {% if monthly_grid_range %}
                     <div id="monthly-number-grid" class="row g-2 mb-4 number-board {% if selected_draw_type != 'monthly' %}d-none{% endif %}" data-board="monthly">
+                        {% for taken in monthly_taken_numbers %}
+                            <div class="col-2 col-sm-1 p-1">
+                                <button class="btn {% if taken.winning %}btn-success{% else %}btn-secondary{% endif %} d-flex align-items-center justify-content-center w-100 monthly-taken-box"
+                                        style="aspect-ratio: 1/1;" disabled
+                                        title="Already picked{% if taken.winning %} - winning number{% endif %}">
+                                    <span class="number-placeholder text-decoration-line-through">{{ taken.number }}</span>
+                                </button>
+                            </div>
+                        {% endfor %}
                         {% if testing_monthly_numbered_grid %}
                             {% for index, number in testing_monthly_numbered_grid %}
                                 <div class="col-2 col-sm-1 p-1">
@@ -383,6 +405,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (result.is_winner) {
                     resultMessage.className = 'alert alert-success';
                     resultText.innerHTML = `<i class="fas fa-trophy me-2"></i> Congratulations! You selected ${result.guessed_number} and won ${result.prize || 'the lucky draw'}!`;
+                } else if (result.winning_numbers) {
+                    resultMessage.className = 'alert alert-danger';
+                    resultText.textContent = `Sorry! You picked ${result.guessed_number}, which isn't one of this month's winning numbers (${result.winning_numbers.join(', ')}). Better luck next time!`;
                 } else {
                     resultMessage.className = 'alert alert-danger';
                     resultText.textContent = `Sorry! You selected ${result.guessed_number}, but the lucky number was ${result.winning_number}. Better luck next time!`;
