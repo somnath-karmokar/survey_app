@@ -1,5 +1,4 @@
 import random
-from string import ascii_uppercase
 from django.conf import settings
 from django.contrib import messages
 from django.shortcuts import render, redirect
@@ -180,8 +179,8 @@ class LuckyDrawView(View):
         return full_name
 
     def format_winner_list(self, names):
-        """"A: Name, B: Name, ..." so a blocked player can see who took this month's slots."""
-        return ', '.join(f"{letter}: {name}" for letter, name in zip(ascii_uppercase, names))
+        """"1: Name, 2: Name, ..." so a blocked player can see who took this month's slots."""
+        return ', '.join(f"{position}: {name}" for position, name in enumerate(names, start=1))
 
     def credit_winner_wallet(self, entry):
         if not entry.is_winner:
@@ -560,7 +559,6 @@ class LuckyDrawView(View):
             message = "All of this month's Monthly draw prizes for your country have been won."
             if e['monthly_winner_list']:
                 message += f" Winners: {e['monthly_winner_list']}."
-            message += " Your attempts are kept for next month."
             return message
         if not e['monthly_plays_available']:
             return f"You need to complete {e['monthly_required']} surveys for a Monthly draw attempt."
