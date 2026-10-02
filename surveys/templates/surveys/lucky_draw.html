@@ -163,7 +163,7 @@
                             <div class="alert alert-secondary mt-3 mb-0">
                                 All of this month's prizes for your country have been won.
                                 {% if monthly_winner_list %}Winners: {{ monthly_winner_list }}.{% endif %}
-                                The Monthly draw opens again on {{ monthly_resets_on|date:"F j" }}{% if monthly_plays_available %} &mdash; your {{ monthly_plays_available }} attempt{{ monthly_plays_available|pluralize }} will be waiting{% endif %}.
+                                The Monthly draw opens again on {{ monthly_resets_on|date:"F j" }}.
                             </div>
                             {% endif %}
                         </div>
@@ -200,7 +200,9 @@
                     {% if user_eligible %}
                     {% if testing_numbered_grid %}
                     <div class="alert alert-warning text-center">
-                        <strong>TESTING MODE</strong> — numbers are visible. Winning number: <span class="fw-bold">{{ testing_winning_number }}</span>
+                        <strong>TESTING MODE</strong> — numbers are visible.
+                        <span id="testing-quick-winning" class="{% if monthly_grid_range and selected_draw_type == 'monthly' %}d-none{% endif %}">Winning number: <span class="fw-bold">{{ testing_winning_number }}</span></span>
+                        {% if monthly_grid_range %}<span id="testing-monthly-winning" class="{% if selected_draw_type != 'monthly' %}d-none{% endif %}">Monthly winning numbers are shown in the Monthly Draw panel.</span>{% endif %}
                         <div class="small">Set <code>SHOW_NUMBERS_FOR_TESTING</code> to False in settings.py to hide this in production.</div>
                     </div>
                     {% endif %}
@@ -337,6 +339,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (monthlyNumberGrid) {
             monthlyNumberGrid.classList.toggle('d-none', drawType !== 'monthly');
             numberGrid.classList.toggle('d-none', drawType === 'monthly');
+            // Testing banner: the Quick board's winning number isn't the Monthly draw's.
+            const quickWinning = document.getElementById('testing-quick-winning');
+            const monthlyWinning = document.getElementById('testing-monthly-winning');
+            if (quickWinning) quickWinning.classList.toggle('d-none', drawType === 'monthly');
+            if (monthlyWinning) monthlyWinning.classList.toggle('d-none', drawType !== 'monthly');
         }
         // While Monthly is closed its tab is disabled, so the panel stays visible to explain why.
         if (monthlyPanel && monthlyPanel.dataset.monthlyEligible) {

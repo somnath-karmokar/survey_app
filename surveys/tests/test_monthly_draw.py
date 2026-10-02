@@ -353,13 +353,13 @@ class MonthlyWinnerCapTests(DrawTestCase):
         error = response.json()['error']
 
         self.assertIn('Winners:', error)
-        self.assertIn('A: J. Okafor', error)
-        self.assertIn('B: B. Ade', error)
+        self.assertIn('1: J. Okafor', error)
+        self.assertIn('2: B. Ade', error)
 
         self.client.force_login(latecomer)
         page = self.client.get(reverse('surveys:lucky_draw'))
         self.assertContains(page, 'Winners:')
-        self.assertContains(page, 'A: J. Okafor')
+        self.assertContains(page, '1: J. Okafor')
 
     def test_each_country_has_its_own_four_winners(self):
         self.fill_monthly_winners(self.us, 4)
@@ -406,7 +406,8 @@ class MonthlyDrawPageTests(DrawTestCase):
 
         self.assertContains(page, "All of this month")
         self.assertContains(page, 'opens again on')
-        self.assertContains(page, 'attempt will be waiting')
+        self.assertNotContains(page, 'will be waiting')                  # attempts don't carry over
+        self.assertNotIn('kept for next month', self.play(self.make_user(self.us, 100), MONTHLY).json()['error'])
 
     def test_country_outside_the_monthly_draw_sees_no_panel(self):
         page = self.get_page(self.make_user(self.au, 500))
@@ -865,3 +866,31 @@ class MonthlyNoDrawPayoutTests(DrawTestCase):
 
     def utc_for(self, *args):
         return datetime.datetime(*args, tzinfo=datetime.timezone.utc)
+
+
+@override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'SHOW_NUMBERS_FOR_TESTING': True})
+class TestingBannerTests(DrawTestCase):
+    def page_for(self, user):
+        self.client.force_login(user)
+        return self.client.get(reverse('surveys:lucky_draw'))
+
+    def test_monthly_tab_does_not_show_the_quick_winning_number(self):
+        player = self.make_user(self.uk, 100)
+        for _ in range(4):
+            self.make_user(self.uk, 100)
+        LuckyDrawEntry.objects.create(                                  # Quick plays used up: Monthly is selected
+            user=player, draw_type=QUICK, guessed_number=1, winning_number=2,
+            is_winner=False, surveys_at_play=100, polls_at_play=0,
+        )
+
+        page = self.page_for(player)
+
+        self.assertEqual(page.context['selected_draw_type'], MONTHLY)
+        self.assertContains(page, '<span id="testing-quick-winning" class="d-none">')
+        self.assertContains(page, '<span id="testing-monthly-winning" class="">')
+
+    def test_quick_tab_still_shows_its_winning_number(self):
+        page = self.page_for(self.make_user(self.uk, 2))
+
+        self.assertEqual(page.context['selected_draw_type'], QUICK)
+        self.assertContains(page, '<span id="testing-quick-winning" class="">')
