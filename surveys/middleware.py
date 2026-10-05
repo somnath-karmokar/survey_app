@@ -45,6 +45,62 @@ class AutoLogoutMiddleware:
         return response
 
 
+class MonthlyDrawSettlementMiddleware:
+    """Settles ended Monthly draw days from normal site traffic, so no cron job is needed.
+
+    Only active in the few days after a draw day: the 1st-4th of the month in UTC
+    (every country's 1st has ended by the 2nd-ish UTC, depending on its time zone)
+    plus the 3 days after LUCKY_DRAW_CONFIG['MONTHLY_DRAW_TEST_DATE']. On any
+    other day it does nothing. Inside that window, at most once every CHECK_EVERY
+    seconds per server process, every Monthly-draw country is checked on its own
+    clock and any ended draw day is settled (paying out where the draw couldn't
+    run). Each country and day is settled once, so extra checks are harmless. A
+    failure here is logged and never affects the visitor's page.
+    """
+    CHECK_EVERY = 600
+    CACHE_KEY = 'monthly-draw-settlement-check'
+    DAYS_AFTER_DRAW = 3
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if not request.path.startswith(('/static/', '/media/')) and self.in_settlement_window():
+            self.settle_if_due()
+        return response
+
+    def in_settlement_window(self):
+        from django.conf import settings
+        today = timezone.now().date()
+        if today.day <= 1 + self.DAYS_AFTER_DRAW:
+            return True
+        test_date = settings.LUCKY_DRAW_CONFIG.get('MONTHLY_DRAW_TEST_DATE')
+        if test_date:
+            try:
+                days_after = (today - datetime.fromisoformat(test_date).date()).days
+            except ValueError:
+                return False
+            return 0 <= days_after <= self.DAYS_AFTER_DRAW
+        return False
+
+    def settle_if_due(self):
+        from django.core.cache import cache
+        if not cache.add(self.CACHE_KEY, True, self.CHECK_EVERY):
+            return
+        try:
+            from .lucky_draw import LuckyDrawView
+            from .models import CountryLuckyDrawConfig
+            view = LuckyDrawView()
+            configs = CountryLuckyDrawConfig.objects.filter(
+                is_active=True, monthly_prize_amount__isnull=False,
+            ).select_related('country')
+            for config in configs:
+                view.settle_due_monthly_draws(config)
+        except Exception:
+            logger.exception("Monthly draw settlement check failed")
+
+
 class ExceptionRedirectMiddleware:
     """Catch unhandled exceptions and redirect to home instead of showing an error.
 
@@ -62,7 +118,12 @@ class ExceptionRedirectMiddleware:
         try:
             response = self.get_response(request)
         except (Http404, PermissionDenied):
-            logger.warning("Redirecting to home after handled error", exc_info=True)
+            logger.warning(
+                "Redirecting to home after handled error: %s %s (referer: %s, user agent: %s)",
+                request.method, request.get_full_path(),
+                request.META.get('HTTP_REFERER', '-'), request.META.get('HTTP_USER_AGENT', '-'),
+                exc_info=True,
+            )
             return redirect('surveys:home')
         except Exception as exc:
             logger.exception("Unhandled exception caught by ExceptionRedirectMiddleware")
@@ -71,8 +132,9 @@ class ExceptionRedirectMiddleware:
 
         if response.status_code in (403, 404, 500):
             logger.warning(
-                "Redirecting to home after error response with status %s",
-                response.status_code,
+                "Redirecting to home after error response with status %s: %s %s (referer: %s, user agent: %s)",
+                response.status_code, request.method, request.get_full_path(),
+                request.META.get('HTTP_REFERER', '-'), request.META.get('HTTP_USER_AGENT', '-'),
             )
             return redirect('surveys:home')
 

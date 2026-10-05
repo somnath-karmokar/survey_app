@@ -492,8 +492,8 @@ class MonthlyDrawQuorumTests(DrawTestCase):
         response = self.play(blocked_player, MONTHLY)
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn('Not enough people', response.json()['error'])
-        self.assertIn('4 of 5 needed', response.json()['error'])
+        self.assertIn('Not enough users have reached the 100-survey milestone', response.json()['error'])
+        self.assertIn('(at least 5 users needed for the monthly draw to run)', response.json()['error'])
         self.assertFalse(LuckyDrawEntry.objects.filter(user=blocked_player).exists())
         self.assertEqual(self.status(blocked_player)['monthly_plays_available'], 1)     # attempt kept
 
@@ -505,8 +505,8 @@ class MonthlyDrawQuorumTests(DrawTestCase):
 
         page = self.client.get(reverse('surveys:lucky_draw'))
 
-        self.assertContains(page, 'Not enough people')
-        self.assertContains(page, '4 of 5 needed')
+        self.assertContains(page, 'Not enough users have reached the 100-survey milestone')
+        self.assertContains(page, 'at least 5 users needed for the monthly draw to run')
 
     def test_other_countries_are_unaffected_by_one_countrys_shortfall(self):
         for _ in range(4):
@@ -804,7 +804,7 @@ class MonthlyNoDrawPayoutTests(DrawTestCase):
     def test_message_promises_the_prize_on_the_draw_day(self):
         response = self.play(self.holders[0], MONTHLY)
 
-        self.assertIn('3 of 5 needed', response.json()['error'])
+        self.assertIn('at least 5 users needed', response.json()['error'])
         self.assertIn('Your £10 GBP will be automatically added to your wallet.', response.json()['error'])
         self.client.force_login(self.holders[0])
         self.assertContains(self.client.get(reverse('surveys:lucky_draw')),
@@ -894,3 +894,105 @@ class TestingBannerTests(DrawTestCase):
 
         self.assertEqual(page.context['selected_draw_type'], QUICK)
         self.assertContains(page, '<span id="testing-quick-winning" class="">')
+
+
+
+@override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'MONTHLY_MIN_QUALIFIERS': 5, 'MONTHLY_DRAW_TEST_DATE': None})
+class MonthlyDrawRequirementTests(DrawTestCase):
+    """The agreed behaviour, end to end:
+    fewer than 5 qualify -> no draw, the message below, and qualifying users are paid the prize;
+    5 or more qualify   -> they can play the Monthly draw.
+    """
+    MESSAGE = (
+        "Not enough users have reached the 100-survey milestone in your country this month "
+        "(at least 5 users needed for the monthly draw to run). Therefore, there's no monthly draw "
+        "this cycle. Your $10 USD will be automatically added to your wallet."
+    )
+
+    def test_fewer_than_five_no_draw_message_and_payout(self):
+        users = [self.make_new_qualifier(self.us, 100) for _ in range(4)]
+
+        status = self.status(users[0])
+        self.assertFalse(status['monthly_eligible'])                                   # no draw
+        self.assertEqual(self.play(users[0], MONTHLY).json()['error'], self.MESSAGE)  # exact message
+        self.client.force_login(users[0])
+        self.assertContains(self.client.get(reverse('surveys:lucky_draw')), 'Your $10 USD will be automatically added')
+
+        self.freeze(self.NOW + datetime.timedelta(days=1, hours=6))                    # draw day over in New York
+        call_command('settle_monthly_draws', stdout=StringIO())
+
+        for user in users:
+            txn = WalletTransaction.objects.get(profile__user=user)
+            self.assertEqual((txn.amount, txn.currency_code), (Decimal('10.00'), 'USD'))
+
+    def test_five_or_more_can_play(self):
+        users = [self.make_new_qualifier(self.us, 100) for _ in range(5)]
+
+        self.assertTrue(self.status(users[0])['monthly_eligible'])
+        self.assertEqual(self.play(users[0], MONTHLY).status_code, 200)
+
+        self.freeze(self.NOW + datetime.timedelta(days=1, hours=6))
+        call_command('settle_monthly_draws', stdout=StringIO())
+        self.assertFalse(WalletTransaction.objects.filter(
+            profile__user=users[1], description__startswith='Monthly draw prize - draw did not run',
+        ).exists())                                                                    # no automatic payout
+
+
+@override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'MONTHLY_MIN_QUALIFIERS': 5, 'MONTHLY_DRAW_TEST_DATE': None})
+class SettlementFromTrafficTests(DrawTestCase):
+    """No cron job: any page visit settles ended draw days, at most every 10 minutes."""
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.holders = [self.make_new_qualifier(self.us, 100) for _ in range(3)]       # 3 of 5: no draw
+
+    def wallet(self, user):
+        return user.profile.__class__.objects.get(user=user).wallet_balance
+
+    def test_any_visit_after_the_draw_day_pays_out(self):
+        self.freeze(self.NOW + datetime.timedelta(days=1, hours=6))                    # past the 1st in New York
+
+        self.client.get(reverse('surveys:home'))                                       # an anonymous visitor
+
+        for user in self.holders:
+            self.assertEqual(self.wallet(user), Decimal('10.00'))
+
+    def test_checks_at_most_every_ten_minutes(self):
+        self.client.get(reverse('surveys:home'))                                       # still the draw day: checked, nothing due
+        self.freeze(self.NOW + datetime.timedelta(days=1, hours=6))
+
+        self.client.get(reverse('surveys:home'))                                       # within 10 minutes of the last check
+        self.assertEqual(self.wallet(self.holders[0]), Decimal('0.00'))
+
+        from django.core.cache import cache
+        cache.clear()                                                                  # the 10 minutes have passed
+        self.client.get(reverse('surveys:home'))
+        self.assertEqual(self.wallet(self.holders[0]), Decimal('10.00'))
+
+    def test_a_failure_never_breaks_the_page(self):
+        self.freeze(self.NOW + datetime.timedelta(days=1, hours=6))
+        with mock.patch('surveys.lucky_draw.LuckyDrawView.settle_due_monthly_draws', side_effect=RuntimeError('boom')), \
+                self.assertLogs('surveys.middleware', level='ERROR'):
+            response = self.client.get(reverse('surveys:home'))
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_does_nothing_outside_the_days_after_the_draw(self):
+        self.freeze(self.NOW.replace(day=10))                                          # June 10: outside the window
+
+        self.client.get(reverse('surveys:home'))
+
+        self.assertEqual(self.wallet(self.holders[0]), Decimal('0.00'))
+        self.assertFalse(MonthlyDrawSettlement.objects.exists())
+
+    def test_runs_in_the_days_after_the_test_date(self):
+        with override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'MONTHLY_MIN_QUALIFIERS': 5,
+                                                  'MONTHLY_DRAW_TEST_DATE': '2030-06-15'}):
+            from surveys.middleware import MonthlyDrawSettlementMiddleware
+            window = MonthlyDrawSettlementMiddleware(lambda request: None).in_settlement_window
+            for day, expected in ((14, False), (15, True), (18, True), (19, False)):
+                self.freeze(self.NOW.replace(day=day))
+                self.assertEqual(window(), expected, f'June {day}')
