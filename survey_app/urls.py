@@ -90,6 +90,9 @@ urlpatterns = [
     # Serve robots.txt (temporarily allowing all crawling for AdSense bot verification)
     path('robots.txt', robots_txt_view),
 
+    # Browsers ask for /favicon.ico on their own; point them at the site logo instead of a 404.
+    path('favicon.ico', RedirectView.as_view(url='/static/images/sudraw_logo.jpeg', permanent=True)),
+
     # Grappelli URLS
     path('grappelli/', include('grappelli.urls')),
 

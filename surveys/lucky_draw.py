@@ -549,9 +549,9 @@ class LuckyDrawView(View):
             )
         if not e['monthly_quorum_met']:
             return (
-                f"Not enough people have reached the {e['monthly_required']}-survey milestone "
-                f"in your country this month yet ({e['monthly_milestone_qualifiers']} of "
-                f"{e['monthly_min_qualifiers']} needed) — there's no Monthly draw this cycle."
+                f"Not enough users have reached the {e['monthly_required']}-survey milestone "
+                f"in your country this month (at least {e['monthly_min_qualifiers']} users needed for "
+                f"the monthly draw to run). Therefore, there's no monthly draw this cycle."
                 + (f" Your {e['monthly_prize_display']} will be automatically added to your wallet."
                    if e['monthly_plays_available'] else '')
             )
