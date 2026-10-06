@@ -409,7 +409,7 @@ LUCKY_DRAW_CONFIG = {
     'MONTHLY_MIN_QUALIFIERS': 5,
     # TEMPORARY, for testing: this date (YYYY-MM-DD, server time zone) also
     # opens the Monthly draw window, as if it were the 1st. Set to None to remove.
-    'MONTHLY_DRAW_TEST_DATE':  '2026-10-06' , #'2026-09-30' for test,
+    'MONTHLY_DRAW_TEST_DATE':  '2026-10-07' , #'2026-09-30' for test,
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 21,
     'SHOW_NUMBERS_FOR_TESTING': True,  # Set to False after testing to hide lucky draw numbers
