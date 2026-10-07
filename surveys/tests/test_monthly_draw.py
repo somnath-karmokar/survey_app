@@ -996,3 +996,126 @@ class SettlementFromTrafficTests(DrawTestCase):
             for day, expected in ((14, False), (15, True), (18, True), (19, False)):
                 self.freeze(self.NOW.replace(day=day))
                 self.assertEqual(window(), expected, f'June {day}')
+
+
+@override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'SHOW_NUMBERS_FOR_TESTING': False})
+class SeparateResultsTests(DrawTestCase):
+    """A draw's results are only shown with that draw: no Quick results beside the Monthly draw."""
+
+    def page_for(self, user):
+        self.client.force_login(user)
+        return self.client.get(reverse('surveys:lucky_draw')).content.decode()
+
+    def monthly_panel(self, html):
+        start = html.index('id="monthly-draw-panel"')
+        return html[start:html.index('</div>\n                    </div>', start)]
+
+    def test_lost_quick_play_is_labelled_and_kept_out_of_the_monthly_panel(self):
+        user = self.make_user(self.uk, 2)
+        self.play(user, QUICK, win=False)                               # Quick lost; nothing left to play
+
+        html = self.page_for(user)
+
+        self.assertIn('Your last Quick draw:', html)
+        self.assertNotIn('lucky number was', self.monthly_panel(html))
+        self.assertNotIn('Your last Quick draw', self.monthly_panel(html))
+
+    def test_monthly_result_shows_in_the_monthly_panel_with_monthly_wording(self):
+        player = self.make_user(self.uk, 100)
+        for _ in range(7):
+            self.make_user(self.uk, 100)                                # board 1-8, so a losing number exists
+        self.play(player, MONTHLY, win=False)
+        self.play(player, QUICK, win=False)                             # use up Quick plays too
+        LuckyDrawEntry.objects.filter(user=player, draw_type=QUICK).update(surveys_at_play=100)
+
+        panel = self.monthly_panel(self.page_for(player))
+
+        self.assertIn('Your last Monthly draw', panel)
+        self.assertIn("which wasn't a winning number", panel)
+
+    def test_no_draw_payout_reads_as_a_payout_not_lucky_number_zero(self):
+        player = self.make_user(self.uk, 100)
+        LuckyDrawEntry.objects.create(user=player, draw_type=MONTHLY, guessed_number=0, winning_number=0,
+                                      is_winner=True, prize='£10 GBP (no draw)', surveys_at_play=100, polls_at_play=0)
+
+        html = self.page_for(player)
+
+        self.assertIn("the draw didn't run, so your £10 GBP was added to your wallet", html)
+        self.assertNotIn('lucky number 0', html)
+
+    def test_plays_left_after_a_monthly_play_counts_only_monthly_attempts(self):
+        player = self.make_user(self.uk, 200)                           # 2 Monthly attempts, 100 Quick plays
+        self.make_user(self.uk, 200)
+
+        result = self.play(player, MONTHLY, win=False).json()
+
+        self.assertEqual(result['draw_plays_remaining'], 1)
+        self.assertGreater(result['plays_remaining'], 1)                # overall total still drives Play Again
+
+
+@override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'SHOW_NUMBERS_FOR_TESTING': True, 'POLLS_REQUIRED': 1,
+                                      'MONTHLY_DRAW_TEST_DATE': None})
+class DrawTabsLayoutTests(DrawTestCase):
+    """Tabs come first; the Monthly panel belongs to the Monthly tab only."""
+
+    def page_for(self, user):
+        self.client.force_login(user)
+        return self.client.get(reverse('surveys:lucky_draw'))
+
+    def panel_tag(self, html):
+        start = html.index('<div class="card border-warning')
+        return html[start:html.index('>', start)]
+
+    def poll_player_with_closed_monthly(self):
+        from surveys.models import Poll, PollResponse
+        self.freeze(self.NOW.replace(day=15))                           # not a draw day
+        user = self.make_user(self.uk, 100)                             # 1 Monthly attempt held
+        LuckyDrawEntry.objects.create(user=user, draw_type=QUICK, guessed_number=1, winning_number=2,
+                                      is_winner=False, surveys_at_play=100, polls_at_play=0)   # no Quick plays
+        PollResponse.objects.create(user=user, poll=Poll.objects.create(title='P', country=self.uk))
+        return user
+
+    def test_screenshot_case_poll_selected_monthly_closed(self):
+        page = self.page_for(self.poll_player_with_closed_monthly())
+        html = page.content.decode()
+
+        self.assertEqual(page.context['selected_draw_type'], 'poll')
+        self.assertLess(html.index('draw-type-btn'), html.index('id="monthly-draw-panel"'))   # tabs first
+        self.assertIn('d-none', self.panel_tag(html))                                        # panel hidden on Poll tab
+        monthly_tab = html[html.index('data-draw-type="monthly"'):html.index('</button>', html.index('data-draw-type="monthly"'))]
+        self.assertNotIn('disabled', monthly_tab)                                            # can click to see why
+        self.assertIn('Closed', monthly_tab)
+        self.assertNotIn('will be waiting', html)
+
+    def test_monthly_selected_shows_its_panel(self):
+        player = self.make_user(self.uk, 100)
+        for _ in range(4):
+            self.make_user(self.uk, 100)
+        LuckyDrawEntry.objects.create(user=player, draw_type=QUICK, guessed_number=1, winning_number=2,
+                                      is_winner=False, surveys_at_play=100, polls_at_play=0)
+        page = self.page_for(player)
+
+        self.assertEqual(page.context['selected_draw_type'], MONTHLY)
+        self.assertNotIn('d-none', self.panel_tag(page.content.decode()))
+
+    def test_nothing_playable_shows_the_monthly_panel_without_tabs(self):
+        self.freeze(self.NOW.replace(day=15))
+        user = self.make_user(self.uk, 100)
+        LuckyDrawEntry.objects.create(user=user, draw_type=QUICK, guessed_number=1, winning_number=2,
+                                      is_winner=False, surveys_at_play=100, polls_at_play=0)
+        html = self.page_for(user).content.decode()
+
+        self.assertNotIn('draw-type-btn"', html.split('<script>')[0])
+        self.assertNotIn('d-none', self.panel_tag(html))
+        self.assertIn('only runs on the 1st of each month. It opens again on July 1.', html)
+
+    def test_no_closed_label_on_the_draw_day_even_if_this_user_cannot_play(self):
+        from surveys.models import Poll, PollResponse
+        user = self.make_user(self.uk, 0)                               # draw day (NOW is the 1st), no attempt
+        PollResponse.objects.create(user=user, poll=Poll.objects.create(title='P', country=self.uk))
+        html = self.page_for(user).content.decode()
+
+        start = html.index('data-draw-type="monthly"')
+        monthly_tab = html[start:html.index('</button>', start)]
+        self.assertNotIn('Closed', monthly_tab)
+        self.assertNotIn('disabled', monthly_tab)
