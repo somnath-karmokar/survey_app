@@ -598,6 +598,9 @@ class LuckyDrawView(View):
         
         eligibility = self.get_eligibility_context(request.user)
         last_entry = eligibility['last_entry']
+        last_quick_entry = request.user.lucky_draw_entries.filter(
+            draw_type__in=(LuckyDrawEntry.DRAW_TYPE_SURVEY, LuckyDrawEntry.DRAW_TYPE_POLL),
+        ).order_by('-created_at').first()
         
         # Get current month's winning number
         current_winner = LuckyDrawEntry.objects.filter(
@@ -705,9 +708,11 @@ class LuckyDrawView(View):
             'total_plays_available': total_plays_available,
             # current_lucky_number is intentionally excluded — stored in session only
             'current_winner': current_winner,
-            'last_play_date': last_entry.created_at if last_entry else None,
-            'last_result': last_entry,
-            'has_played': bool(last_entry and not user_eligible),
+            'last_play_date': last_quick_entry.created_at if last_quick_entry else None,
+            # Each draw's last result is shown in its own area, so a Quick/Poll
+            # loss never appears beside the Monthly draw (and vice versa).
+            'last_quick_result': last_quick_entry if not user_eligible else None,
+            'last_monthly_result': self.get_last_entry(request.user, LuckyDrawEntry.DRAW_TYPE_MONTHLY),
             'prize_display': self.get_prize_for_user(request.user),
         }
 
@@ -924,6 +929,15 @@ class LuckyDrawView(View):
             'draw_type': draw_type,
             'remaining_draw_types': remaining_draw_types,
             'plays_remaining': plays_remaining,
+            # Plays left for the draw just played only, so a Monthly result never counts Quick plays.
+            'draw_plays_remaining': {
+                LuckyDrawEntry.DRAW_TYPE_SURVEY: post_play_eligibility['survey_plays_available'],
+                LuckyDrawEntry.DRAW_TYPE_POLL: post_play_eligibility['poll_plays_available'],
+                LuckyDrawEntry.DRAW_TYPE_MONTHLY: (
+                    post_play_eligibility['monthly_plays_available']
+                    if post_play_eligibility['monthly_eligible'] else 0
+                ),
+            }[draw_type],
         })
 
     def is_eligible(self, user, draw_type=None):

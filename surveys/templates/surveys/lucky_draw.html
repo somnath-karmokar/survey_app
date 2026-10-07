@@ -78,6 +78,16 @@
                             </small>
                         </div>
                         {% endif %} -->
+                        {% if last_quick_result %}
+                        <div class="mt-2 small" id="last-quick-result">
+                            <strong>Your last {% if last_quick_result.draw_type == 'poll' %}Poll{% else %}Quick{% endif %} draw:</strong>
+                            {% if last_quick_result.is_winner %}
+                                <i class="fas fa-trophy text-warning"></i> you found the lucky number {{ last_quick_result.winning_number }}!
+                            {% else %}
+                                you selected {{ last_quick_result.guessed_number }}, the lucky number was {{ last_quick_result.winning_number }}.
+                            {% endif %}
+                        </div>
+                        {% endif %}
                     </div>
                     {% endif %}
                     
@@ -108,9 +118,35 @@
                         If you win, your initial and surname will be displayed on the website.
                     </p>
 
+                    {% if user_eligible %}
+                    {# Tabs first: everything below them belongs to the selected draw only. #}
+                    <div class="btn-group w-100 mb-3" role="group" aria-label="Lucky draw type">
+                        <button type="button"
+                                class="btn {% if selected_draw_type == 'survey' %}btn-primary{% else %}btn-outline-primary{% endif %} draw-type-btn"
+                                data-draw-type="survey"
+                                {% if not survey_eligible %}disabled{% endif %}>
+                            Quick Draw
+                        </button>
+                        <button type="button"
+                                class="btn {% if selected_draw_type == 'poll' %}btn-primary{% else %}btn-outline-primary{% endif %} draw-type-btn"
+                                data-draw-type="poll"
+                                {% if not poll_eligible %}disabled{% endif %}>
+                            Poll Draw
+                        </button>
+                        {% if monthly_available %}
+                        {# Always clickable, so a closed Monthly draw can still show why it's closed. #}
+                        <button type="button"
+                                class="btn {% if selected_draw_type == 'monthly' %}btn-primary{% else %}btn-outline-primary{% endif %} draw-type-btn"
+                                data-draw-type="monthly">
+                            Monthly Draw{% if not monthly_window_open %} <span class="badge bg-secondary ms-1">Closed</span>{% endif %}
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
 
                     {% if monthly_available %}
-                    <div class="card border-warning mb-4 {% if monthly_eligible and selected_draw_type != 'monthly' %}d-none{% endif %}" id="monthly-draw-panel" data-monthly-eligible="{% if monthly_eligible %}1{% endif %}">
+                    <div class="card border-warning mb-4 {% if user_eligible and selected_draw_type != 'monthly' %}d-none{% endif %}" id="monthly-draw-panel"
+                         data-monthly-eligible="{% if monthly_eligible %}1{% endif %}">
                         <div class="card-header bg-warning bg-opacity-25 d-flex justify-content-between align-items-center">
                             <strong><i class="fas fa-calendar-alt me-2"></i>Monthly Draw</strong>
                             <span class="badge bg-warning text-dark">{{ monthly_prize_display }} prize</span>
@@ -135,6 +171,18 @@
                             {% if monthly_winner_cap %}
                             <p class="mb-0 small text-muted">{{ monthly_winners_this_month }} of {{ monthly_winner_cap }} prizes claimed this month.</p>
                             {% endif %}
+                            {% if last_monthly_result %}
+                            <p class="mb-0 mt-2 small" id="last-monthly-result">
+                                <strong>Your last Monthly draw ({{ last_monthly_result.created_at|date:"F j" }}):</strong>
+                                {% if last_monthly_result.guessed_number == 0 %}
+                                    the draw didn't run, so your {{ monthly_prize_display|default:"prize" }} was added to your wallet.
+                                {% elif last_monthly_result.is_winner %}
+                                    <i class="fas fa-trophy text-warning"></i> you won with number {{ last_monthly_result.guessed_number }}!
+                                {% else %}
+                                    you picked {{ last_monthly_result.guessed_number }}, which wasn't a winning number.
+                                {% endif %}
+                            </p>
+                            {% endif %}
                             {% if monthly_winning_numbers %}
                             <div class="mt-3" id="monthly-winning-numbers">
                                 <p class="small fw-semibold mb-2">This month's winning numbers</p>
@@ -151,7 +199,7 @@
                             {% endif %}
                             {% if not monthly_window_open %}
                             <div class="alert alert-secondary mt-3 mb-0">
-                                The Monthly draw only runs on the 1st of each month. It opens again on {{ monthly_resets_on|date:"F j" }}{% if monthly_plays_available %} &mdash; your {{ monthly_plays_available }} attempt{{ monthly_plays_available|pluralize }} will be waiting{% endif %}.
+                                The Monthly draw only runs on the 1st of each month. It opens again on {{ monthly_resets_on|date:"F j" }}.
                             </div>
                             {% elif not monthly_quorum_met %}
                             <div class="alert alert-secondary mt-3 mb-0">
@@ -172,35 +220,8 @@
                     {% endif %}
 
                     {% if user_eligible %}
-                    <div class="btn-group w-100 mb-3" role="group" aria-label="Lucky draw type">
-                        <button type="button"
-                                class="btn {% if selected_draw_type == 'survey' %}btn-primary{% else %}btn-outline-primary{% endif %} draw-type-btn"
-                                data-draw-type="survey"
-                                {% if not survey_eligible %}disabled{% endif %}>
-                            Quick Draw
-                        </button>
-                        <button type="button"
-                                class="btn {% if selected_draw_type == 'poll' %}btn-primary{% else %}btn-outline-primary{% endif %} draw-type-btn"
-                                data-draw-type="poll"
-                                {% if not poll_eligible %}disabled{% endif %}>
-                            Poll Draw
-                        </button>
-                        {% if monthly_available %}
-                        <button type="button"
-                                class="btn {% if selected_draw_type == 'monthly' %}btn-primary{% else %}btn-outline-primary{% endif %} draw-type-btn"
-                                data-draw-type="monthly"
-                                {% if not monthly_eligible %}disabled{% endif %}>
-                            Monthly Draw
-                        </button>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                    
-                  
-                    
-                    {% if user_eligible %}
                     {% if testing_numbered_grid %}
-                    <div class="alert alert-warning text-center">
+                    <div class="alert alert-warning text-center" id="testing-banner">
                         <strong>TESTING MODE</strong> — numbers are visible.
                         <span id="testing-quick-winning" class="{% if monthly_grid_range and selected_draw_type == 'monthly' %}d-none{% endif %}">Winning number: <span class="fw-bold">{{ testing_winning_number }}</span></span>
                         {% if monthly_grid_range %}<span id="testing-monthly-winning" class="{% if selected_draw_type != 'monthly' %}d-none{% endif %}">Monthly winning numbers are shown in the Monthly Draw panel.</span>{% endif %}
@@ -243,7 +264,8 @@
                     </div>
                     {% endif %}
 
-                    <div id="number-grid" class="row g-2 mb-4 number-board {% if monthly_grid_range and selected_draw_type == 'monthly' %}d-none{% endif %}" data-board="default">
+                    <div id="number-grid" class="row g-2 mb-4 number-board {% if selected_draw_type == 'monthly' and monthly_grid_range %}d-none{% endif %}" data-board="default"
+                         data-monthly-uses-this-board="{% if monthly_eligible and not monthly_grid_range %}1{% endif %}">
                         {% if testing_numbered_grid %}
                             {% for index, number in testing_numbered_grid %}
                                 <div class="col-2 col-sm-1 p-1">
@@ -270,15 +292,6 @@
                     </div>
                     {% endif %}
                     <!-- Show result if already played -->
-                    {% if has_played %}
-                    <div class="alert {% if last_result.is_winner %}alert-success{% else %}alert-danger{% endif %}">
-                        {% if last_result.is_winner %}
-                            <i class="fas fa-trophy me-2"></i> Congratulations! You found the lucky number {{ last_result.winning_number }}!
-                        {% else %}
-                            Sorry! You selected {{ last_result.guessed_number }} but the lucky number was {{ last_result.winning_number }}. Better luck next time!
-                        {% endif %}
-                    </div>
-                    {% endif %}
                     
                     <div id="result-message" class="alert d-none">
                         <p id="result-text"></p>
@@ -336,19 +349,28 @@ document.addEventListener('DOMContentLoaded', function() {
         drawMessages.forEach(msg => {
             msg.classList.toggle('d-none', msg.dataset.drawType !== drawType);
         });
-        // The Monthly draw has its own 1-to-N board when there is one.
-        if (monthlyNumberGrid) {
-            monthlyNumberGrid.classList.toggle('d-none', drawType !== 'monthly');
-            numberGrid.classList.toggle('d-none', drawType === 'monthly');
-            // Testing banner: the Quick board's winning number isn't the Monthly draw's.
-            const quickWinning = document.getElementById('testing-quick-winning');
-            const monthlyWinning = document.getElementById('testing-monthly-winning');
-            if (quickWinning) quickWinning.classList.toggle('d-none', drawType === 'monthly');
-            if (monthlyWinning) monthlyWinning.classList.toggle('d-none', drawType !== 'monthly');
+        const isMonthly = drawType === 'monthly';
+        // The Monthly panel belongs to the Monthly tab only.
+        if (monthlyPanel) {
+            monthlyPanel.classList.toggle('d-none', !isMonthly);
         }
-        // While Monthly is closed its tab is disabled, so the panel stays visible to explain why.
-        if (monthlyPanel && monthlyPanel.dataset.monthlyEligible) {
-            monthlyPanel.classList.toggle('d-none', drawType !== 'monthly');
+        // Boards: Monthly's own 1-to-N board, the shared board (Quick/Poll, or Monthly
+        // when it has too few players for its own), or none while Monthly is closed.
+        const monthlyOnSharedBoard = !!(numberGrid && numberGrid.dataset.monthlyUsesThisBoard);
+        if (monthlyNumberGrid) {
+            monthlyNumberGrid.classList.toggle('d-none', !isMonthly);
+        }
+        if (numberGrid) {
+            numberGrid.classList.toggle('d-none', isMonthly && !monthlyOnSharedBoard);
+        }
+        // Testing banner: the shared board's winning number isn't the Monthly draw's.
+        const testingBanner = document.getElementById('testing-banner');
+        const quickWinning = document.getElementById('testing-quick-winning');
+        const monthlyWinning = document.getElementById('testing-monthly-winning');
+        if (quickWinning) quickWinning.classList.toggle('d-none', isMonthly && !monthlyOnSharedBoard);
+        if (monthlyWinning) monthlyWinning.classList.toggle('d-none', !isMonthly);
+        if (testingBanner) {
+            testingBanner.classList.toggle('d-none', isMonthly && !monthlyNumberGrid && !monthlyOnSharedBoard);
         }
     }
 
@@ -430,7 +452,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (result.plays_remaining && result.plays_remaining > 0) {
                     const playsLeft = result.plays_remaining;
-                    resultText.innerHTML += `<br>You still have <strong>${playsLeft}</strong> lucky draw play${playsLeft > 1 ? 's' : ''} available.`;
+                    const sameDrawLeft = result.draw_plays_remaining || 0;
+                    const drawName = {survey: 'Quick draw', poll: 'Poll draw', monthly: 'Monthly draw'}[result.draw_type] || 'lucky draw';
+                    const unit = result.draw_type === 'monthly' ? 'attempt' : 'play';
+                    if (sameDrawLeft > 0) {
+                        resultText.innerHTML += `<br>You still have <strong>${sameDrawLeft}</strong> ${drawName} ${unit}${sameDrawLeft > 1 ? 's' : ''} available.`;
+                    }
                     playAgainBtn.textContent = playsLeft > 1 ? `Play Again (${playsLeft} left)` : 'Play Again';
                     playAgainBtn.classList.remove('d-none');
                     playAgainBtn.style.display = 'inline-block';
