@@ -23,7 +23,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from surveys.lucky_draw import LuckyDrawView
+from surveys.lucky_draw import LuckyDrawView, draw_cycle
 from surveys.models import (
     CountryLuckyDrawConfig, LuckyDrawEntry, MonthlyDrawNumbers, MonthlyDrawSettlement, PollResponse,
     WalletTransaction,
@@ -145,7 +145,9 @@ class Command(BaseCommand):
             )
             for draw_day in draw_days:
                 day_end = datetime.combine(draw_day + timedelta(days=1), datetime.min.time(), tzinfo=tz)
-                qualifiers = view.get_monthly_milestone_qualifiers(config.country, required, at=day_end)
+                qualifiers = view.get_monthly_qualified_attempts(
+                    config.country, required, draw_cycle(draw_day, tz), until=day_end,
+                )
                 min_qualifiers = settings.LUCKY_DRAW_CONFIG.get('MONTHLY_MIN_QUALIFIERS', 5)
                 MonthlyDrawSettlement.objects.create(
                     country=config.country, draw_date=draw_day, qualifiers=qualifiers,

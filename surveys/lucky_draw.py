@@ -42,6 +42,53 @@ def month_bounds(tz, at=None):
     return now, month_start, next_month_start
 
 
+def monthly_test_date():
+    """LUCKY_DRAW_CONFIG['MONTHLY_DRAW_TEST_DATE'] as a date, or None."""
+    value = settings.LUCKY_DRAW_CONFIG.get('MONTHLY_DRAW_TEST_DATE')
+    try:
+        return date.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
+def is_monthly_draw_day(day):
+    return day.day == 1 or day == monthly_test_date()
+
+
+def previous_draw_day(draw_day):
+    """The regular draw day (a 1st) before `draw_day`."""
+    if draw_day.day == 1:
+        return (draw_day - timedelta(days=1)).replace(day=1)
+    return draw_day.replace(day=1)
+
+
+def current_or_next_draw_day(today):
+    """Today if it's a draw day, otherwise the next one (next 1st, or an upcoming test date)."""
+    if is_monthly_draw_day(today):
+        return today
+    next_first = (today.replace(day=1) + timedelta(days=32)).replace(day=1)
+    test_date = monthly_test_date()
+    return min(next_first, test_date) if test_date and test_date > today else next_first
+
+
+def draw_cycle(draw_day, tz):
+    """(start, end) of the qualifying period for `draw_day`, on the `tz` clock.
+
+    Surveys completed from the day after the previous draw day up to the end of
+    this draw day earn this draw's attempts, e.g. 2 Oct 00:00 - 2 Nov 00:00 for
+    the 1 November draw (so October's surveys count). Attempts not used by the
+    end of the draw day are gone: the next draw starts a new period.
+    """
+    start = datetime.combine(previous_draw_day(draw_day) + timedelta(days=1), time.min, tzinfo=tz)
+    end = datetime.combine(draw_day + timedelta(days=1), time.min, tzinfo=tz)
+    return start, end
+
+
+def format_money(symbol, amount):
+    amount = Decimal(amount)
+    return f"{symbol}{int(amount) if amount == amount.to_integral() else f'{amount:.2f}'}"
+
+
 class LuckyDrawView(View):
     def quick_draw_nudge(self, user):
         """Text to add to the survey "Thank you" message, or '' for none.
@@ -117,7 +164,10 @@ class LuckyDrawView(View):
         return f"{currency_symbol}{amount_display} {currency_code}".strip()
 
     def get_monthly_winner_count(self, country, at=None):
-        """Monthly draw winners so far this calendar month (country's own clock) for one country."""
+        """Monthly draw winners so far this calendar month (country's own clock) for one country.
+
+        No-draw payouts (guessed number 0) aren't draw winners, so they don't use up prizes.
+        """
         _now, month_start, next_month_start = month_bounds(monthly_draw_tz(country), at)
         return LuckyDrawEntry.objects.filter(
             draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY,
@@ -125,39 +175,51 @@ class LuckyDrawView(View):
             created_at__gte=month_start,
             created_at__lt=next_month_start,
             user__profile__country=country,
+        ).exclude(guessed_number=0).count()
+
+    def earned_attempts_by_user(self, country, required, cycle, until=None):
+        """{user_id: Monthly attempts earned in `cycle`} for every user in `country`.
+
+        One attempt per `required`-survey milestone (100, 200, ...) crossed during
+        the cycle: 200 surveys in the cycle = 2 attempts. Completions before the
+        cycle come from SurveyResponse; the total "now" is the live survey count,
+        or, with `until`, the completions before that moment (for settling a day
+        that has ended).
+        """
+        start, _end = cycle
+        completed = SurveyResponse.objects.filter(user__profile__country=country, completed_at__isnull=False)
+        before = dict(completed.filter(completed_at__lt=start).values_list('user_id').annotate(c=Count('id')))
+        if until is None:
+            totals = {
+                row['user_id']: row['total'] or 0
+                for row in UserSurveyProgress.objects.filter(user__profile__country=country)
+                .values('user_id').annotate(total=Sum('completed_count'))
+            }
+        else:
+            totals = dict(completed.filter(completed_at__lt=until).values_list('user_id').annotate(c=Count('id')))
+        earned = {
+            user_id: total // required - before.get(user_id, 0) // required for user_id, total in totals.items()
+        }
+        return {user_id: n for user_id, n in earned.items() if n > 0}
+
+    def get_monthly_qualified_attempts(self, country, required, cycle, until=None):
+        """How many Monthly attempts the country's users earned in `cycle` (the minimum-5 count and board size N)."""
+        return sum(self.earned_attempts_by_user(country, required, cycle, until).values())
+
+    def monthly_attempts_used(self, user_id, cycle):
+        """Monthly attempts used in `cycle`: plays, and attempts paid out when the draw didn't run."""
+        start, end = cycle
+        return LuckyDrawEntry.objects.filter(
+            user_id=user_id, draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY,
+            created_at__gte=start, created_at__lt=end,
         ).count()
 
-    def get_monthly_milestone_qualifiers(self, country, required, at=None):
-        """How many distinct users in `country` newly crossed a `required`-survey
-        milestone (100, 200, ...) during the current calendar month, as of `at`.
-
-        Compares each user's all-time completed-survey total against their total
-        as of just before this month started; a user counts if that crossed a
-        new multiple of `required` in between. The "before" total is read from
-        SurveyResponse (one row per completion) since UserSurveyProgress only
-        keeps a running total, not a history.
-        """
-        _now, month_start, _next = month_bounds(monthly_draw_tz(country), at)
-
-        totals_now = {
-            row['user_id']: row['total'] or 0
-            for row in UserSurveyProgress.objects
-                .filter(user__profile__country=country)
-                .values('user_id')
-                .annotate(total=Sum('completed_count'))
-        }
-        totals_before_month = {
-            row['user_id']: row['total']
-            for row in SurveyResponse.objects
-                .filter(user__profile__country=country, completed_at__lt=month_start)
-                .values('user_id')
-                .annotate(total=Count('id'))
-        }
-
-        return sum(
-            1 for user_id, total_now in totals_now.items()
-            if total_now // required > totals_before_month.get(user_id, 0) // required
-        )
+    def get_monthly_cycle(self, config, at=None):
+        """(draw_day, cycle) for the draw that's on today, or the next one, on the country's clock."""
+        tz = config.tzinfo if config else timezone.get_current_timezone()
+        today = timezone.localtime(at or timezone.now(), tz).date()
+        draw_day = current_or_next_draw_day(today)
+        return draw_day, draw_cycle(draw_day, tz)
 
     def get_monthly_winners(self, country, at=None):
         """This month's Monthly draw winners for one country, in the order they won."""
@@ -168,7 +230,7 @@ class LuckyDrawView(View):
             created_at__gte=month_start,
             created_at__lt=next_month_start,
             user__profile__country=country,
-        ).select_related('user').order_by('created_at', 'id')
+        ).exclude(guessed_number=0).select_related('user').order_by('created_at', 'id')
 
     def format_winner_name(self, user):
         """"F. Surname" — same privacy convention as the homepage's recent-winners list."""
@@ -240,17 +302,21 @@ class LuckyDrawView(View):
     def get_monthly_eligibility(self, user, total_surveys):
         """Where the user stands in the Monthly draw.
 
-        It has its own attempt counter (a snapshot taken at each Monthly play,
-        so it never interferes with the Quick draw's), its own prize and its own
-        per-country winner cap. Only countries with a Monthly prize configured
-        take part. Attempts are kept, not lost, while a country's prizes for the
-        month have all been won: the draw is just closed until the next month.
+        Attempts belong to a draw cycle (see draw_cycle): every
+        MONTHLY_SURVEYS_REQUIRED surveys completed in the cycle is one attempt for
+        that cycle's draw day, minus attempts already used in it. Nothing carries
+        over to the next cycle. Only countries with a Monthly prize configured take
+        part, each with its own prize and per-country winner cap.
         """
         config = self.get_monthly_draw_config(user)
         required = max(1, settings.LUCKY_DRAW_CONFIG.get('MONTHLY_SURVEYS_REQUIRED', 100))
-        last_entry = self.get_last_entry(user, LuckyDrawEntry.DRAW_TYPE_MONTHLY)
-        completed = max(0, total_surveys - (last_entry.surveys_at_play or 0)) if last_entry else total_surveys
-        plays = completed // required if config else 0
+        draw_day, cycle = self.get_monthly_cycle(config)
+        before_cycle = SurveyResponse.objects.filter(
+            user=user, completed_at__isnull=False, completed_at__lt=cycle[0],
+        ).count()
+        completed = max(0, total_surveys - before_cycle)
+        earned = max(0, total_surveys // required - before_cycle // required) if config else 0
+        plays = max(0, earned - self.monthly_attempts_used(user.id, cycle)) if config else 0
 
         cap = config.monthly_winner_cap if config else None
         winners = self.get_monthly_winner_count(config.country) if (config and cap) else 0
@@ -264,31 +330,34 @@ class LuckyDrawView(View):
             if (config and cap and not is_open) else []
         )
 
-        # The Monthly draw only runs on the 1st of the month, 00:00-23:59 on the
-        # country's own clock — the rest of the month it's closed even if attempts are banked.
+        # The Monthly draw only runs on the 1st (or the test date), 00:00-23:59 on
+        # the country's own clock.
         tz = config.tzinfo if config else timezone.get_current_timezone()
-        now, _month_start, resets_on = month_bounds(tz)
-        test_date = settings.LUCKY_DRAW_CONFIG.get('MONTHLY_DRAW_TEST_DATE')
-        window_open = now.day == 1 or (bool(test_date) and now.date().isoformat() == test_date)
+        today = timezone.localtime(timezone.now(), tz).date()
+        window_open = is_monthly_draw_day(today)
+        reopens_on = current_or_next_draw_day(today + timedelta(days=1)) if window_open else draw_day
 
-        # The country needs a minimum number of people to newly reach the
-        # Monthly milestone this calendar month before the draw runs at all —
-        # below that, there's no Monthly draw this cycle regardless of anyone's
-        # banked attempts. Only checked (it's a whole-country scan) when it can
-        # actually matter: the draw window is open and a minimum is configured.
+        # The draw only runs if the country's users earned at least
+        # MONTHLY_MIN_QUALIFIERS attempts this cycle (200 surveys = 2 of them).
+        # Only checked (it's a whole-country scan) while the draw window is open.
         min_qualifiers = settings.LUCKY_DRAW_CONFIG.get('MONTHLY_MIN_QUALIFIERS', 5)
         milestone_qualifiers = (
-            self.get_monthly_milestone_qualifiers(config.country, required)
+            self.get_monthly_qualified_attempts(config.country, required, cycle)
             if (config and min_qualifiers and window_open) else 0
         )
         quorum_met = (not min_qualifiers) or (not window_open) or (milestone_qualifiers >= min_qualifiers)
+        payout = (config.monthly_prize_amount or 0) * plays if config else 0
 
         return {
             'monthly_available': config is not None,
             'monthly_required': required,
             'monthly_surveys_completed': completed,
-            'monthly_progress_to_next': completed % required,
+            'monthly_progress_to_next': total_surveys % required,
             'monthly_plays_available': plays,
+            'monthly_attempts_earned': earned,
+            'monthly_draw_day': draw_day,
+            'monthly_cycle': cycle,
+            'monthly_payout_display': format_money(config.currency_symbol, payout) if config else '',
             'monthly_winner_cap': cap,
             'monthly_winners_this_month': winners,
             'monthly_winner_names': winner_names,
@@ -299,7 +368,7 @@ class LuckyDrawView(View):
             'monthly_milestone_qualifiers': milestone_qualifiers,
             'monthly_quorum_met': quorum_met,
             'monthly_eligible': plays > 0 and is_open and window_open and quorum_met,
-            'monthly_resets_on': resets_on.date(),
+            'monthly_resets_on': reopens_on,
             'monthly_prize_display': config.get_monthly_prize_display() if config else '',
         }
 
@@ -357,9 +426,8 @@ class LuckyDrawView(View):
             return None
 
         required = eligibility['monthly_required']
-        # Same count the draw's minimum-qualifiers rule uses: people in this
-        # country who newly reached a milestone this calendar month.
-        qualified_users = self.get_monthly_milestone_qualifiers(profile.country, required)
+        # Same count the draw's minimum-qualifiers rule uses: attempts earned this cycle.
+        qualified_users = self.get_monthly_qualified_attempts(profile.country, required, eligibility['monthly_cycle'])
         milestone_users = self.get_monthly_milestone_user_count(profile.country_id, required)
         total_completed = eligibility['total_surveys']
         return {
@@ -451,11 +519,11 @@ class LuckyDrawView(View):
     def settle_monthly_draw(self, config, draw_date):
         """Settle one ended draw day for a country, once.
 
-        If fewer than MONTHLY_MIN_QUALIFIERS people newly reached the milestone
-        that month by the end of the day, the draw didn't run: everyone who held
-        a Monthly attempt by then is paid the Monthly prize once, and that
-        attempt is used up. Counts come from completed surveys up to the end of
-        the day, so later surveys don't change the outcome.
+        If the country's users earned fewer than MONTHLY_MIN_QUALIFIERS attempts
+        in the draw's cycle (counted from completed surveys up to the end of the
+        day, so later surveys don't change it), the draw didn't run: every
+        attempt still unused is paid the Monthly prize, so 2 unused attempts =
+        2 x the prize, and those attempts are used up.
         """
         existing = MonthlyDrawSettlement.objects.filter(country=config.country, draw_date=draw_date).first()
         if existing:
@@ -464,15 +532,11 @@ class LuckyDrawView(View):
         tz = config.tzinfo
         required = max(1, settings.LUCKY_DRAW_CONFIG.get('MONTHLY_SURVEYS_REQUIRED', 100))
         min_qualifiers = settings.LUCKY_DRAW_CONFIG.get('MONTHLY_MIN_QUALIFIERS', 5)
-        month_start = datetime.combine(draw_date.replace(day=1), time.min, tzinfo=tz)
-        day_end = datetime.combine(draw_date + timedelta(days=1), time.min, tzinfo=tz)
+        cycle = draw_cycle(draw_date, tz)
+        day_end = cycle[1]
 
-        completed = SurveyResponse.objects.filter(user__profile__country=config.country, completed_at__isnull=False)
-        before_month = dict(completed.filter(completed_at__lt=month_start).values_list('user_id').annotate(c=Count('id')))
-        by_day_end = dict(completed.filter(completed_at__lt=day_end).values_list('user_id').annotate(c=Count('id')))
-        qualifiers = sum(
-            1 for user_id, total in by_day_end.items() if total // required > before_month.get(user_id, 0) // required
-        )
+        earned = self.earned_attempts_by_user(config.country, required, cycle, until=day_end)
+        qualifiers = sum(earned.values())
         quorum_met = (not min_qualifiers) or qualifiers >= min_qualifiers
 
         with transaction.atomic():
@@ -485,37 +549,38 @@ class LuckyDrawView(View):
 
             amount = config.monthly_prize_amount
             paid = 0
-            for user_id, total in by_day_end.items():
-                last = LuckyDrawEntry.objects.filter(
-                    user_id=user_id, draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY, created_at__lt=day_end,
-                ).order_by('-created_at', '-id').first()
-                snapshot = (last.surveys_at_play or 0) if last else 0
-                if (total - snapshot) // required < 1:
+            for user_id, attempts in earned.items():
+                unused = attempts - self.monthly_attempts_used(user_id, cycle)
+                if unused < 1:
                     continue
-                entry = LuckyDrawEntry.objects.create(
-                    user_id=user_id, draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY,
-                    guessed_number=0, winning_number=0, is_winner=True,
-                    prize=f'{config.get_monthly_prize_display()} (no draw)',
-                    surveys_at_play=snapshot + required,
-                    polls_at_play=PollResponse.objects.filter(user_id=user_id).count(),
-                )
-                # Dated within the draw day, so it never counts toward a later month's winners.
-                LuckyDrawEntry.objects.filter(pk=entry.pk).update(created_at=day_end - timedelta(seconds=1))
-                profile = UserProfile.objects.select_for_update().get(user_id=user_id)
-                UserProfile.objects.filter(pk=profile.pk).update(wallet_balance=F('wallet_balance') + amount)
-                profile.refresh_from_db(fields=['wallet_balance'])
-                WalletTransaction.objects.create(
-                    profile=profile,
-                    transaction_type=WalletTransaction.TRANSACTION_TYPE_CREDIT,
-                    amount=amount,
-                    currency_code=config.currency_code,
-                    currency_symbol=config.currency_symbol,
-                    description=(
-                        f'Monthly draw prize - draw did not run ({qualifiers} of {min_qualifiers} qualified)'
-                    ),
-                    lucky_draw_entry=entry,
-                    balance_after=profile.wallet_balance,
-                )
+                surveys_before_end = SurveyResponse.objects.filter(
+                    user_id=user_id, completed_at__isnull=False, completed_at__lt=day_end,
+                ).count()
+                for _ in range(unused):
+                    entry = LuckyDrawEntry.objects.create(
+                        user_id=user_id, draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY,
+                        guessed_number=0, winning_number=0, is_winner=True,
+                        prize=f'{config.get_monthly_prize_display()} (no draw)',
+                        surveys_at_play=surveys_before_end,
+                        polls_at_play=PollResponse.objects.filter(user_id=user_id).count(),
+                    )
+                    # Dated within the draw day, so it uses up this cycle's attempt and no later one.
+                    LuckyDrawEntry.objects.filter(pk=entry.pk).update(created_at=day_end - timedelta(seconds=1))
+                    profile = UserProfile.objects.select_for_update().get(user_id=user_id)
+                    UserProfile.objects.filter(pk=profile.pk).update(wallet_balance=F('wallet_balance') + amount)
+                    profile.refresh_from_db(fields=['wallet_balance'])
+                    WalletTransaction.objects.create(
+                        profile=profile,
+                        transaction_type=WalletTransaction.TRANSACTION_TYPE_CREDIT,
+                        amount=amount,
+                        currency_code=config.currency_code,
+                        currency_symbol=config.currency_symbol,
+                        description=(
+                            f'Monthly draw prize - draw did not run ({qualifiers} of {min_qualifiers} qualified)'
+                        ),
+                        lucky_draw_entry=entry,
+                        balance_after=profile.wallet_balance,
+                    )
                 paid += 1
             settlement.paid_users = paid
             settlement.save(update_fields=['paid_users'])
@@ -549,10 +614,10 @@ class LuckyDrawView(View):
             )
         if not e['monthly_quorum_met']:
             return (
-                f"Not enough users have reached the {e['monthly_required']}-survey milestone "
-                f"in your country this month (at least {e['monthly_min_qualifiers']} users needed for "
-                f"the monthly draw to run). Therefore, there's no monthly draw this cycle."
-                + (f" Your {e['monthly_prize_display']} will be automatically added to your wallet."
+                f"Not enough people have reached the {e['monthly_required']}-survey milestone in your "
+                f"country this month yet (at least {e['monthly_min_qualifiers']} users needed for monthly "
+                f"surveys to run) — there's no monthly draw this cycle."
+                + (f" Your {e['monthly_payout_display']} will be automatically added to your wallet"
                    if e['monthly_plays_available'] else '')
             )
         if not e['monthly_open']:
@@ -662,7 +727,9 @@ class LuckyDrawView(View):
         request.session.pop('lucky_draw_number_monthly', None)
         monthly_config = self.get_monthly_draw_config(request.user)
         if eligibility['monthly_eligible'] and monthly_config:
-            board_size = self.get_monthly_milestone_qualifiers(monthly_config.country, eligibility['monthly_required'])
+            board_size = self.get_monthly_qualified_attempts(
+                monthly_config.country, eligibility['monthly_required'], eligibility['monthly_cycle'],
+            )
             if board_size >= 2:
                 numbers = self.get_monthly_numbers(monthly_config, board_size)
                 picks = self.get_monthly_picks(monthly_config)

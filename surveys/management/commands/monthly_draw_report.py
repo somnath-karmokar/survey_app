@@ -3,6 +3,8 @@
     python manage.py monthly_draw_report
     python manage.py monthly_draw_report --country GB
 """
+from datetime import timedelta
+
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db.models import Count, Sum
@@ -37,7 +39,8 @@ class Command(BaseCommand):
 
         for config in configs:
             country = config.country
-            local_now, month_start, _next = month_bounds(config.tzinfo)
+            local_now = timezone.localtime(timezone.now(), config.tzinfo)
+            draw_day, cycle = view.get_monthly_cycle(config)
             totals_now = dict(
                 UserSurveyProgress.objects.filter(user__profile__country=country)
                 .values_list('user_id').annotate(t=Sum('completed_count'))
@@ -47,47 +50,38 @@ class Command(BaseCommand):
                 .values_list('user_id').annotate(c=Count('id'))
             )
             responses_before = dict(
-                SurveyResponse.objects.filter(user__profile__country=country, completed_at__lt=month_start)
+                SurveyResponse.objects.filter(user__profile__country=country, completed_at__lt=cycle[0])
                 .values_list('user_id').annotate(c=Count('id'))
             )
-            qualifiers = view.get_monthly_milestone_qualifiers(country, required)
+            earned_by_user = view.earned_attempts_by_user(country, required, cycle)
+            qualifiers = sum(earned_by_user.values())
+            cycle_end_day = (cycle[1] - timedelta(days=1)).date()
 
             self.stdout.write('')
             self.stdout.write(self.style.MIGRATE_HEADING(
-                f"{country.name} ({country.code}) [{config.time_zone}, local {local_now:%Y-%m-%d %H:%M}]: "
-                f"{qualifiers} new-milestone user(s) this month"
+                f"{country.name} ({country.code}) [{config.time_zone}, local {local_now:%Y-%m-%d %H:%M}] "
+                f"draw day {draw_day} (surveys {cycle[0]:%d %b} - {cycle_end_day:%d %b}): "
+                f"{qualifiers} qualified attempt(s)"
                 + (f" of {min_qualifiers} needed" if min_qualifiers else '')
                 + f" | winners this month: {view.get_monthly_winner_count(country)}"
                 + f" of {config.monthly_winner_cap or 'no cap'}"
             ))
             self.stdout.write(
-                f"  {'user':30} {'total':>6} {'resp.all':>8} {'resp.<month':>11} {'attempts':>8}  counts?  why"
+                f"  {'user':30} {'total':>6} {'resp.all':>8} {'before':>7} {'earned':>6} {'unused':>6}  note"
             )
 
-            reached = sorted(
-                ((uid, t or 0) for uid, t in totals_now.items() if (t or 0) >= required),
-                key=lambda row: -row[1],
-            )
-            if not reached:
-                self.stdout.write(f"  (nobody in {country.code} has {required}+ surveys)")
-            for user_id, total in reached:
+            listed = sorted(earned_by_user, key=lambda uid: -totals_now.get(uid, 0))
+            if not listed:
+                self.stdout.write(f"  (nobody in {country.code} has passed a {required}-survey milestone this cycle)")
+            for user_id in listed:
+                total = totals_now.get(user_id, 0) or 0
                 before = responses_before.get(user_id, 0)
-                crossed = total // required > before // required
-                last = (
-                    LuckyDrawEntry.objects.filter(user_id=user_id, draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY)
-                    .order_by('-created_at').values_list('surveys_at_play', flat=True).first()
-                ) or 0
-                attempts = max(0, (total - last) // required)
-                if crossed:
-                    why = f"passed {total // required * required} this month"
-                else:
-                    why = f"already had {before} before {month_start:%b %d}"
+                earned = earned_by_user[user_id]
+                unused = max(0, earned - view.monthly_attempts_used(user_id, cycle))
                 all_resp = responses_all.get(user_id, 0)
-                if all_resp != total:
-                    why += f" | NOTE: survey count {total} != {all_resp} responses"
+                note = f"NOTE: survey count {total} != {all_resp} responses" if all_resp != total else ''
                 username = UserSurveyProgress.objects.filter(user_id=user_id).values_list(
                     'user__username', flat=True).first()
                 self.stdout.write(
-                    f"  {username[:30]:30} {total:>6} {all_resp:>8} {before:>11} {attempts:>8}  "
-                    f"{'YES' if crossed else 'no':7}  {why}"
+                    f"  {username[:30]:30} {total:>6} {all_resp:>8} {before:>7} {earned:>6} {unused:>6}  {note}"
                 )

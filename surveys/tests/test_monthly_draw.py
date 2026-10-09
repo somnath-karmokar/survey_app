@@ -143,12 +143,13 @@ class DrawTestCase(TestCase):
         return winner
 
     def make_banked_qualifier(self, country, total_surveys):
-        """A user whose milestone(s) were reached with real completions dated
-        before this (frozen) month, so they hold a banked Monthly attempt but
-        don't count toward THIS month's newly-reached-milestone quorum.
+        """A user whose milestone(s) were reached with completions dated before
+        this draw's qualifying period (1 June draw: 2 May - 1 June), so they earn
+        nothing for this draw and don't count toward its minimum: their old
+        attempt has expired.
         """
         user = self.make_user(country, total_surveys)
-        before_this_month = self.NOW.replace(day=1) - datetime.timedelta(days=1)
+        before_this_month = self.NOW.replace(day=1) - datetime.timedelta(days=31)
         SurveyResponse.objects.bulk_create([
             SurveyResponse(user=user, survey=self.survey, completed_at=before_this_month)
             for _ in range(total_surveys)
@@ -187,7 +188,7 @@ class MonthlyAttemptsTests(DrawTestCase):
         stats = response.context['monthly_draw_stats']
         self.assertEqual(stats['milestones_completed'], 2)
         self.assertEqual(stats['attempts_available'], 2)
-        self.assertEqual(stats['qualified_users'], 2)
+        self.assertEqual(stats['qualified_users'], 3)                 # attempts: 200 surveys = 2, 100 = 1
 
         dashboard_response = self.client.get(reverse('surveys:dashboard'))
         dashboard_stats = dashboard_response.context['monthly_draw_stats']
@@ -481,10 +482,11 @@ class MonthlyDrawQuorumTests(DrawTestCase):
         self.assertEqual(status['monthly_milestone_qualifiers'], 5)
         self.assertTrue(status['monthly_quorum_met'])
 
-    def test_a_banked_attempt_from_before_this_month_does_not_count_toward_quorum(self):
-        for _ in range(4):
-            self.make_new_qualifier(self.us, 100)                      # only 4 new this month
-        blocked_player = self.make_banked_qualifier(self.us, 100)      # personally eligible, but not a new crosser
+    def test_attempts_from_before_this_draws_period_do_not_count_toward_quorum(self):
+        for _ in range(3):
+            self.make_new_qualifier(self.us, 100)                      # 3 attempts this cycle...
+        blocked_player = self.make_new_qualifier(self.us, 100)         # ...plus this player's = 4
+        self.make_banked_qualifier(self.us, 100)                       # earlier period: expired, not counted
 
         self.assertEqual(self.status(blocked_player)['monthly_plays_available'], 1)
         self.assertFalse(self.status(blocked_player)['monthly_quorum_met'])
@@ -492,21 +494,21 @@ class MonthlyDrawQuorumTests(DrawTestCase):
         response = self.play(blocked_player, MONTHLY)
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn('Not enough users have reached the 100-survey milestone', response.json()['error'])
-        self.assertIn('(at least 5 users needed for the monthly draw to run)', response.json()['error'])
+        self.assertIn('Not enough people have reached the 100-survey milestone', response.json()['error'])
+        self.assertIn('(at least 5 users needed for monthly surveys to run)', response.json()['error'])
         self.assertFalse(LuckyDrawEntry.objects.filter(user=blocked_player).exists())
         self.assertEqual(self.status(blocked_player)['monthly_plays_available'], 1)     # attempt kept
 
     def test_page_explains_the_quorum_is_not_met(self):
-        for _ in range(4):
+        for _ in range(3):
             self.make_new_qualifier(self.us, 100)
-        user = self.make_banked_qualifier(self.us, 100)
+        user = self.make_new_qualifier(self.us, 100)                   # 4 attempts in all
         self.client.force_login(user)
 
         page = self.client.get(reverse('surveys:lucky_draw'))
 
-        self.assertContains(page, 'Not enough users have reached the 100-survey milestone')
-        self.assertContains(page, 'at least 5 users needed for the monthly draw to run')
+        self.assertContains(page, 'Not enough people have reached the 100-survey milestone')
+        self.assertContains(page, 'at least 5 users needed for monthly surveys to run')
 
     def test_other_countries_are_unaffected_by_one_countrys_shortfall(self):
         for _ in range(4):
@@ -805,10 +807,10 @@ class MonthlyNoDrawPayoutTests(DrawTestCase):
         response = self.play(self.holders[0], MONTHLY)
 
         self.assertIn('at least 5 users needed', response.json()['error'])
-        self.assertIn('Your £10 GBP will be automatically added to your wallet.', response.json()['error'])
+        self.assertIn('Your £10 will be automatically added to your wallet', response.json()['error'])
         self.client.force_login(self.holders[0])
         self.assertContains(self.client.get(reverse('surveys:lucky_draw')),
-                            'Your £10 GBP will be automatically added to your wallet.')
+                            'Your £10 will be automatically added to your wallet')
 
     def test_nothing_is_paid_while_the_draw_day_is_still_running(self):
         self.settle()
@@ -904,9 +906,9 @@ class MonthlyDrawRequirementTests(DrawTestCase):
     5 or more qualify   -> they can play the Monthly draw.
     """
     MESSAGE = (
-        "Not enough users have reached the 100-survey milestone in your country this month "
-        "(at least 5 users needed for the monthly draw to run). Therefore, there's no monthly draw "
-        "this cycle. Your $10 USD will be automatically added to your wallet."
+        "Not enough people have reached the 100-survey milestone in your country this month yet "
+        "(at least 5 users needed for monthly surveys to run) — there's no monthly draw this cycle. "
+        "Your $10 will be automatically added to your wallet"
     )
 
     def test_fewer_than_five_no_draw_message_and_payout(self):
@@ -916,7 +918,7 @@ class MonthlyDrawRequirementTests(DrawTestCase):
         self.assertFalse(status['monthly_eligible'])                                   # no draw
         self.assertEqual(self.play(users[0], MONTHLY).json()['error'], self.MESSAGE)  # exact message
         self.client.force_login(users[0])
-        self.assertContains(self.client.get(reverse('surveys:lucky_draw')), 'Your $10 USD will be automatically added')
+        self.assertContains(self.client.get(reverse('surveys:lucky_draw')), 'Your $10 will be automatically added')
 
         self.freeze(self.NOW + datetime.timedelta(days=1, hours=6))                    # draw day over in New York
         call_command('settle_monthly_draws', stdout=StringIO())
@@ -1119,3 +1121,93 @@ class DrawTabsLayoutTests(DrawTestCase):
         monthly_tab = html[start:html.index('</button>', start)]
         self.assertNotIn('Closed', monthly_tab)
         self.assertNotIn('disabled', monthly_tab)
+
+
+@override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'MONTHLY_SURVEYS_REQUIRED': 100, 'MONTHLY_MIN_QUALIFIERS': 5,
+                                      'MONTHLY_DRAW_TEST_DATE': None, 'SHOW_NUMBERS_FOR_TESTING': False})
+class MonthlyDrawRequirementExamplesTests(DrawTestCase):
+    """The written requirement's examples, with the real 1 November 2026 draw (New York time).
+
+    O Gbenga 200 surveys, B Johnson 200, J Bloggs 100 in October.
+    """
+    NOW = datetime.datetime(2026, 11, 1, 15, 0, tzinfo=datetime.timezone.utc)          # 1 Nov, 10:00 New York
+
+    def surveyed(self, name, count, day):
+        """A US user who completed `count` surveys on `day` (October 2026)."""
+        user = self.make_user(self.us, count)
+        user.first_name, user.last_name = name.split()
+        user.save(update_fields=['first_name', 'last_name'])
+        when = datetime.datetime(2026, 10, day, 15, 0, tzinfo=datetime.timezone.utc)
+        SurveyResponse.objects.bulk_create([SurveyResponse(user=user, survey=self.survey, completed_at=when)
+                                            for _ in range(count)])
+        return user
+
+    def wallet(self, user):
+        return user.profile.__class__.objects.get(user=user).wallet_balance
+
+    def pick(self, user, number):
+        client = self.client_class()
+        client.force_login(get_user_model().objects.get(pk=user.pk))   # fresh, like a real login
+        client.get(reverse('surveys:lucky_draw'))
+        index = client.session['lucky_draw_grid_monthly'].index(number)
+        return client.post(reverse('surveys:lucky_draw'), data=json.dumps({'index': index, 'draw_type': MONTHLY}),
+                           content_type='application/json').json()
+
+    def test_october_surveys_count_and_200_surveys_is_2_attempts(self):
+        gbenga = self.surveyed('O Gbenga', 200, 15)
+        self.surveyed('B Johnson', 200, 20)
+        self.surveyed('J Bloggs', 100, 25)
+
+        status = self.status(gbenga)
+
+        self.assertTrue(status['monthly_window_open'])
+        self.assertEqual(status['monthly_plays_available'], 2)
+        self.assertEqual(status['monthly_milestone_qualifiers'], 5)              # 2 + 2 + 1 attempts
+        self.assertTrue(status['monthly_eligible'])                             # 5 = draw runs
+        client = self.client_class()
+        client.force_login(gbenga)
+        client.get(reverse('surveys:lucky_draw'))
+        self.assertEqual(sorted(client.session['lucky_draw_grid_monthly']), [1, 2, 3, 4, 5])
+
+    def test_three_attempts_no_draw_message_shows_own_total_and_pays_per_attempt(self):
+        gbenga = self.surveyed('O Gbenga', 200, 15)
+        bloggs = self.surveyed('J Bloggs', 100, 25)
+
+        self.assertIn('Your $20 will be automatically added to your wallet', self.play(gbenga, MONTHLY).json()['error'])
+        self.assertIn('Your $10 will be automatically added to your wallet', self.play(bloggs, MONTHLY).json()['error'])
+        self.client.force_login(gbenga)
+        self.assertContains(self.client.get(reverse('surveys:lucky_draw')), 'id="monthly-draw-panel"')   # console shown
+
+        self.freeze(datetime.datetime(2026, 11, 2, 6, 0, tzinfo=datetime.timezone.utc))   # 1 Nov over in New York
+        LuckyDrawView().settle_due_monthly_draws(CountryLuckyDrawConfig.objects.get(country=self.us))
+
+        self.assertEqual(self.wallet(gbenga), Decimal('20.00'))
+        self.assertEqual(self.wallet(bloggs), Decimal('10.00'))
+        self.assertEqual(WalletTransaction.objects.filter(profile__user=gbenga).count(), 2)
+
+    def test_first_come_two_players_win_twice_each(self):
+        gbenga = self.surveyed('O Gbenga', 200, 15)
+        johnson = self.surveyed('B Johnson', 200, 20)
+        bloggs = self.surveyed('J Bloggs', 100, 25)
+        self.client.force_login(gbenga)
+        self.client.get(reverse('surveys:lucky_draw'))                           # draws the 4 winning numbers
+        winning = MonthlyDrawNumbers.objects.get(country=self.us).winning_numbers
+
+        results = [self.pick(gbenga, winning[0]), self.pick(gbenga, winning[1]),
+                   self.pick(johnson, winning[2]), self.pick(johnson, winning[3])]
+
+        self.assertTrue(all(r['is_winner'] for r in results))
+        self.assertEqual((self.wallet(gbenga), self.wallet(johnson)), (Decimal('20.00'), Decimal('20.00')))
+        self.assertIn('have been won', self.play(bloggs, MONTHLY).json()['error'])
+
+    def test_unused_attempts_expire_and_november_surveys_count_for_december(self):
+        gbenga = self.surveyed('O Gbenga', 200, 15)
+        self.freeze(datetime.datetime(2026, 11, 15, 15, 0, tzinfo=datetime.timezone.utc))
+        self.assertEqual(self.status(gbenga)['monthly_plays_available'], 0)      # October attempts are gone
+
+        SurveyResponse.objects.bulk_create([SurveyResponse(user=gbenga, survey=self.survey, completed_at=timezone.now())
+                                            for _ in range(100)])
+        self.set_surveys(gbenga, 300)
+        status = self.status(gbenga)
+        self.assertEqual(status['monthly_plays_available'], 1)                   # November's 100 -> 1 Dec draw
+        self.assertEqual(status['monthly_draw_day'], datetime.date(2026, 12, 1))

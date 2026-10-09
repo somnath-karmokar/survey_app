@@ -56,10 +56,11 @@ class Command(BaseCommand):
         e = view.get_eligibility_context(user)
         rows = [
             ('Window open now', e['monthly_window_open']),
-            (f"Qualifiers this month ({e['monthly_milestone_qualifiers']} of {e['monthly_min_qualifiers']} needed)",
-             e['monthly_quorum_met']),
+            (f"Qualified attempts this cycle ({e['monthly_milestone_qualifiers']} of {e['monthly_min_qualifiers']} needed;"
+             f" counted while the window is open)", e['monthly_quorum_met']),
             (f"Prizes left ({e['monthly_winners_this_month']} of {e['monthly_winner_cap']} won)", e['monthly_open']),
-            (f"User has an attempt ({e['monthly_plays_available']})", e['monthly_plays_available'] > 0),
+            (f"User has an attempt ({e['monthly_plays_available']} unused of {e['monthly_attempts_earned']} earned"
+             f" for the {e['monthly_draw_day']} draw)", e['monthly_plays_available'] > 0),
         ]
         for label, ok in rows:
             self.stdout.write(f"  {'OK ' if ok else 'NO '} {label}")

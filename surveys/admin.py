@@ -27,7 +27,7 @@ from django.db.models import (
     Count, Max, Q, Sum, F, OuterRef, Subquery, IntegerField, ExpressionWrapper,
     Case, When, Value, DateTimeField, BooleanField,
 )
-from .lucky_draw import month_bounds
+from .lucky_draw import LuckyDrawView, month_bounds
 from django.db.models.functions import Coalesce
 from django.conf import settings
 from django.utils import timezone
@@ -530,6 +530,16 @@ class MonthlyDrawEligibleUserAdmin(admin.ModelAdmin):
         row_next_month_start = Case(*nexts, default=Value(None), output_field=DateTimeField())
         row_is_current_month = Case(*currents, default=Value(False), output_field=BooleanField())
 
+        # Attempts follow each country's current (or next) draw cycle, as on the draw page.
+        cycle_starts, cycle_ends = [], []
+        draw_view = LuckyDrawView()
+        for config in configs:
+            _draw_day, (cycle_start, cycle_end) = draw_view.get_monthly_cycle(config)
+            cycle_starts.append(When(country_id=config.country_id, then=Value(cycle_start)))
+            cycle_ends.append(When(country_id=config.country_id, then=Value(cycle_end)))
+        row_cycle_start = Case(*cycle_starts, default=Value(None), output_field=DateTimeField())
+        row_cycle_end = Case(*cycle_ends, default=Value(None), output_field=DateTimeField())
+
         monthly = LuckyDrawEntry.objects.filter(user=OuterRef('user'), draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY)
         monthly_in_month = monthly.filter(
             created_at__gte=OuterRef('row_month_start'), created_at__lt=OuterRef('row_next_month_start'),
@@ -567,9 +577,13 @@ class MonthlyDrawEligibleUserAdmin(admin.ModelAdmin):
             ),
             output_field=IntegerField(),
         )
-        last_snapshot = Coalesce(
-            Subquery(monthly.order_by('-created_at').values('surveys_at_play')[:1], output_field=IntegerField()),
-            0,
+        surveys_before_cycle = count_of(
+            SurveyResponse.objects.filter(
+                user=OuterRef('user'), completed_at__isnull=False, completed_at__lt=OuterRef('row_cycle_start'),
+            )
+        )
+        attempts_used_in_cycle = count_of(
+            monthly.filter(created_at__gte=OuterRef('row_cycle_start'), created_at__lt=OuterRef('row_cycle_end'))
         )
 
         return (
@@ -582,11 +596,14 @@ class MonthlyDrawEligibleUserAdmin(admin.ModelAdmin):
                 row_month_start=row_month_start,
                 row_next_month_start=row_next_month_start,
                 row_is_current_month=row_is_current_month,
+                row_cycle_start=row_cycle_start,
+                row_cycle_end=row_cycle_end,
             )
             .annotate(
                 total_surveys=total_surveys,
                 surveys_before_month=surveys_before_month,
-                monthly_snapshot=last_snapshot,
+                surveys_before_cycle=surveys_before_cycle,
+                attempts_used_in_cycle=attempts_used_in_cycle,
                 monthly_wins=count_of(monthly_wins),
                 monthly_wins_in_month=count_of(monthly_in_month.filter(is_winner=True)),
                 monthly_plays_in_month=count_of(monthly_in_month),
@@ -594,7 +611,8 @@ class MonthlyDrawEligibleUserAdmin(admin.ModelAdmin):
             )
             .annotate(
                 attempts_available=ExpressionWrapper(
-                    (F('total_surveys') - F('monthly_snapshot')) / required, output_field=IntegerField(),
+                    F('total_surveys') / required - F('surveys_before_cycle') / required - F('attempts_used_in_cycle'),
+                    output_field=IntegerField(),
                 ),
                 milestones_by_month_end=ExpressionWrapper(surveys_by_month_end / required, output_field=IntegerField()),
                 milestones_before_month=ExpressionWrapper(
