@@ -138,6 +138,37 @@ def send_lucky_draw_winner_admin_notification(entry):
     print(f"Admin notification email sent: {result} (to {getattr(settings, 'ADMIN_EMAIL', settings.DEFAULT_FROM_EMAIL)})")
 
 
+def send_monthly_draw_closed_admin_notification(summary):
+    """Tell the admin a country's Monthly draw day has closed, with its outcome.
+
+    `summary` comes from LuckyDrawView.monthly_draw_day_summary().
+    """
+    admin_email = getattr(settings, 'ADMIN_EMAIL', settings.DEFAULT_FROM_EMAIL)
+    outcome = 'draw ran' if summary['quorum_met'] else 'no draw - automatic payouts'
+    subject = (f"Monthly draw closed: {summary['country'].name}, "
+               f"{summary['draw_date']:%d %B %Y} ({outcome})")
+    lines = [
+        f"The Monthly draw for {summary['country'].name} closed at 23:59 {summary['time_zone']} on "
+        f"{summary['draw_date']:%d %B %Y}.",
+        f"Qualified attempts: {summary['qualifiers']} of {summary['min_qualifiers']} needed - {outcome}.",
+    ]
+    if summary['quorum_met']:
+        lines.append(f"Plays: {summary['plays']}. Winners: {len(summary['winners'])}.")
+        lines += [f"  {w['name']} <{w['email']}> - number {w['number']} - {w['prize']}" for w in summary['winners']]
+    else:
+        lines.append(f"Paid automatically: {summary['payout_total']}.")
+        lines += [f"  {p['name']} <{p['email']}> - {p['attempts']} x {summary['prize']} = {p['amount']}"
+                  for p in summary['payouts']]
+
+    context = {**summary, 'outcome': outcome, 'site_name': getattr(settings, 'SITE_NAME', 'Sudraw'),
+               'site_url': getattr(settings, 'SITE_URL', '')}
+    msg = EmailMultiAlternatives(
+        subject=subject, body='\n'.join(lines), from_email=settings.DEFAULT_FROM_EMAIL, to=[admin_email],
+    )
+    msg.attach_alternative(render_to_string('emails/monthly_draw_closed_admin.html', context), 'text/html')
+    return msg.send()
+
+
 def send_milestone_achievement_email(user, achievement):
     """Send email notification when a user reaches a milestone reward."""
     milestone_label = achievement.get_milestone_type_display()

@@ -7,6 +7,7 @@ from django.views.generic import View
 from .models import (
     UserSurveyProgress, LuckyDrawEntry, PollResponse, CountryLuckyDrawConfig,
     SurveyResponse, MonthlyDrawNumbers, MonthlyDrawSettlement, UserProfile, WalletTransaction,
+    MonthlyDrawDay,
 )
 from django.db import transaction
 from datetime import date, datetime, time, timedelta
@@ -19,7 +20,10 @@ from django.utils import timezone
 from django.http import JsonResponse  # Add this line
 import json
 from decimal import Decimal
-from .emails import send_lucky_draw_winner_email, send_lucky_draw_winner_admin_notification
+from .emails import (
+    send_lucky_draw_winner_email, send_lucky_draw_winner_admin_notification,
+    send_monthly_draw_closed_admin_notification,
+)
 
 
 QUICK_DRAW_NUDGE = 'Please complete one more survey to qualify for the Quick draw.'
@@ -335,6 +339,9 @@ class LuckyDrawView(View):
         tz = config.tzinfo if config else timezone.get_current_timezone()
         today = timezone.localtime(timezone.now(), tz).date()
         window_open = is_monthly_draw_day(today)
+        if window_open and today.day != 1:
+            # A test draw day: remember it, so it's settled even after the setting moves on.
+            MonthlyDrawDay.objects.get_or_create(draw_date=today)
         reopens_on = current_or_next_draw_day(today + timedelta(days=1)) if window_open else draw_day
 
         # The draw only runs if the country's users earned at least
@@ -498,15 +505,18 @@ class LuckyDrawView(View):
         ]
 
     def monthly_draw_days_to_settle(self, config):
-        """Ended Monthly draw days (the 1st of this and last month, and the test date) not yet settled."""
+        """Ended Monthly draw days not yet settled: the 1st of this and last month,
+        the current test date, and every earlier test date the draw opened on
+        (recorded in MonthlyDrawDay, so moving the test date on doesn't skip a day).
+        """
         now, month_start, _next = month_bounds(config.tzinfo)
         days = {month_start.date(), (month_start - timedelta(days=1)).replace(day=1).date()}
-        test_date = settings.LUCKY_DRAW_CONFIG.get('MONTHLY_DRAW_TEST_DATE')
+        test_date = monthly_test_date()
         if test_date:
-            try:
-                days.add(date.fromisoformat(test_date))
-            except ValueError:
-                pass
+            days.add(test_date)
+        days.update(MonthlyDrawDay.objects.filter(
+            draw_date__gte=now.date() - timedelta(days=40),
+        ).values_list('draw_date', flat=True))
         settled = set(MonthlyDrawSettlement.objects.filter(
             country=config.country, draw_date__in=days,
         ).values_list('draw_date', flat=True))
@@ -517,7 +527,7 @@ class LuckyDrawView(View):
             self.settle_monthly_draw(config, draw_date)
 
     def settle_monthly_draw(self, config, draw_date):
-        """Settle one ended draw day for a country, once.
+        """Settle one ended draw day for a country, once, and email the admin its outcome.
 
         If the country's users earned fewer than MONTHLY_MIN_QUALIFIERS attempts
         in the draw's cycle (counted from completed surveys up to the end of the
@@ -525,9 +535,68 @@ class LuckyDrawView(View):
         attempt still unused is paid the Monthly prize, so 2 unused attempts =
         2 x the prize, and those attempts are used up.
         """
+        settlement, created = self._settle_monthly_draw(config, draw_date)
+        if created:
+            try:
+                summary = self.monthly_draw_day_summary(config, settlement)
+                # Days where nobody qualified or played have nothing to report.
+                if summary['qualifiers'] or summary['plays'] or summary['payouts']:
+                    send_monthly_draw_closed_admin_notification(summary)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception('Failed to send Monthly draw closed email')
+        return settlement
+
+    def monthly_draw_day_summary(self, config, settlement):
+        """What happened on one settled draw day, for the admin email."""
+        tz = config.tzinfo
+        day_start = datetime.combine(settlement.draw_date, time.min, tzinfo=tz)
+        day_end = datetime.combine(settlement.draw_date + timedelta(days=1), time.min, tzinfo=tz)
+        entries = LuckyDrawEntry.objects.filter(
+            draw_type=LuckyDrawEntry.DRAW_TYPE_MONTHLY, user__profile__country=config.country,
+            created_at__gte=day_start, created_at__lt=day_end,
+        ).select_related('user').order_by('created_at', 'id')
+        plays = [e for e in entries if e.guessed_number != 0]
+        winners = [
+            {'name': e.user.get_full_name() or e.user.username, 'email': e.user.email,
+             'number': e.guessed_number, 'prize': e.prize}
+            for e in plays if e.is_winner
+        ]
+        payouts_by_user = {}
+        for e in entries:
+            if e.guessed_number == 0:
+                payouts_by_user.setdefault(e.user, 0)
+                payouts_by_user[e.user] += 1
+        prize = config.monthly_prize_amount or 0
+        payouts = [
+            {'name': user.get_full_name() or user.username, 'email': user.email, 'attempts': n,
+             'amount': format_money(config.currency_symbol, prize * n)}
+            for user, n in payouts_by_user.items()
+        ]
+        numbers = MonthlyDrawNumbers.objects.filter(
+            country=config.country, year=settlement.draw_date.year, month=settlement.draw_date.month,
+        ).first()
+        won = {e.guessed_number for e in plays if e.is_winner}
+        return {
+            'country': config.country,
+            'draw_date': settlement.draw_date,
+            'time_zone': config.time_zone,
+            'qualifiers': settlement.qualifiers,
+            'min_qualifiers': settings.LUCKY_DRAW_CONFIG.get('MONTHLY_MIN_QUALIFIERS', 5),
+            'quorum_met': settlement.quorum_met,
+            'plays': len(plays),
+            'winners': winners,
+            'winning_numbers': [{'number': n, 'won': n in won} for n in (numbers.winning_numbers if numbers else [])],
+            'prize': config.get_monthly_prize_display(),
+            'payouts': payouts,
+            'payout_total': format_money(config.currency_symbol, prize * sum(payouts_by_user.values())),
+        }
+
+    def _settle_monthly_draw(self, config, draw_date):
+        """settle_monthly_draw's work: returns (settlement, created)."""
         existing = MonthlyDrawSettlement.objects.filter(country=config.country, draw_date=draw_date).first()
         if existing:
-            return existing
+            return existing, False
 
         tz = config.tzinfo
         required = max(1, settings.LUCKY_DRAW_CONFIG.get('MONTHLY_SURVEYS_REQUIRED', 100))
@@ -544,8 +613,10 @@ class LuckyDrawView(View):
                 country=config.country, draw_date=draw_date,
                 defaults={'qualifiers': qualifiers, 'quorum_met': quorum_met},
             )
-            if not created or quorum_met or config.monthly_prize_amount is None:
-                return settlement
+            if not created:
+                return settlement, False
+            if quorum_met or config.monthly_prize_amount is None:
+                return settlement, True
 
             amount = config.monthly_prize_amount
             paid = 0
@@ -584,7 +655,7 @@ class LuckyDrawView(View):
                 paid += 1
             settlement.paid_users = paid
             settlement.save(update_fields=['paid_users'])
-        return settlement
+        return settlement, True
 
     def get_monthly_milestone_user_count(self, country_id, required):
         """Users in a country who have completed at least `required` surveys.
