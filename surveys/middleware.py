@@ -3,7 +3,7 @@ from django.contrib.auth import logout
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.shortcuts import redirect
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 logger = logging.getLogger(__name__)
@@ -79,10 +79,21 @@ class MonthlyDrawSettlementMiddleware:
         if test_date:
             try:
                 days_after = (today - datetime.fromisoformat(test_date).date()).days
+                if 0 <= days_after <= self.DAYS_AFTER_DRAW:
+                    return True
             except ValueError:
-                return False
-            return 0 <= days_after <= self.DAYS_AFTER_DRAW
-        return False
+                pass
+        # Earlier test draw days (the setting may have moved on since): checked
+        # at most every CHECK_EVERY seconds, so most requests skip the query.
+        from django.core.cache import cache
+        recent = cache.get('monthly-draw-recent-test-days')
+        if recent is None:
+            from .models import MonthlyDrawDay
+            recent = MonthlyDrawDay.objects.filter(
+                draw_date__gte=today - timedelta(days=self.DAYS_AFTER_DRAW + 1),
+            ).exists()
+            cache.set('monthly-draw-recent-test-days', recent, self.CHECK_EVERY)
+        return recent
 
     def settle_if_due(self):
         from django.core.cache import cache

@@ -36,6 +36,8 @@ DRAW_CONFIG = {
     # Neutralised here so the tests above don't have to think about it; the
     # dedicated MonthlyDrawQuorumTests below turns it back on.
     'MONTHLY_MIN_QUALIFIERS': 0,
+    # Tests never depend on the real MONTHLY_DRAW_TEST_DATE in settings.py.
+    'MONTHLY_DRAW_TEST_DATE': None,
     'NUMBER_RANGE_START': 1,
     'NUMBER_RANGE_END': 21,
 }
@@ -1211,3 +1213,112 @@ class MonthlyDrawRequirementExamplesTests(DrawTestCase):
         status = self.status(gbenga)
         self.assertEqual(status['monthly_plays_available'], 1)                   # November's 100 -> 1 Dec draw
         self.assertEqual(status['monthly_draw_day'], datetime.date(2026, 12, 1))
+
+
+class TestDateMovesOnTests(DrawTestCase):
+    """Moving MONTHLY_DRAW_TEST_DATE on must not skip settling the earlier test day."""
+
+    def test_earlier_test_day_is_still_paid_after_the_setting_moves_on(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        utc = lambda *a: datetime.datetime(*a, tzinfo=datetime.timezone.utc)
+        base = {**DRAW_CONFIG, 'MONTHLY_MIN_QUALIFIERS': 5, 'MONTHLY_SURVEYS_REQUIRED': 100}
+        self.freeze(utc(2030, 6, 8, 12))
+        holders = []
+        for _ in range(3):
+            user = self.make_user(self.us, 100)
+            SurveyResponse.objects.bulk_create([SurveyResponse(user=user, survey=self.survey, completed_at=timezone.now())
+                                                for _ in range(100)])
+            holders.append(user)
+
+        with override_settings(LUCKY_DRAW_CONFIG={**base, 'MONTHLY_DRAW_TEST_DATE': '2030-06-08'}):
+            self.client.force_login(holders[0])
+            self.client.get(reverse('surveys:lucky_draw'))                      # draw opens on the 8th: recorded
+
+        self.freeze(utc(2030, 6, 9, 12)); cache.clear()                       # 8th over in New York
+        with override_settings(LUCKY_DRAW_CONFIG={**base, 'MONTHLY_DRAW_TEST_DATE': '2030-06-09'}):
+            self.client.get(reverse('surveys:home'))                            # any visit settles
+
+        for user in holders:
+            self.assertEqual(user.profile.__class__.objects.get(user=user).wallet_balance, Decimal('10.00'))
+        self.assertTrue(MonthlyDrawSettlement.objects.filter(country=self.us, draw_date=datetime.date(2030, 6, 8)).exists())
+
+    def test_settle_command_with_date_and_dry_run(self):
+        utc = lambda *a: datetime.datetime(*a, tzinfo=datetime.timezone.utc)
+        self.freeze(utc(2030, 6, 8, 12))
+        user = self.make_user(self.us, 100)
+        SurveyResponse.objects.bulk_create([SurveyResponse(user=user, survey=self.survey, completed_at=timezone.now())
+                                            for _ in range(100)])
+        self.freeze(utc(2030, 6, 10, 12))
+        with override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'MONTHLY_MIN_QUALIFIERS': 5,
+                                                  'MONTHLY_DRAW_TEST_DATE': None}):
+            out = StringIO()
+            call_command('settle_monthly_draws', date=['2030-06-08'], dry_run=True, stdout=out)
+            self.assertIn(f'would pay {user.email}: 1 x $10 USD = $10', out.getvalue())
+            self.assertEqual(user.profile.__class__.objects.get(user=user).wallet_balance, Decimal('0.00'))
+
+            call_command('settle_monthly_draws', date=['2030-06-08'], stdout=StringIO())
+            self.assertEqual(user.profile.__class__.objects.get(user=user).wallet_balance, Decimal('10.00'))
+
+
+@override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'SHOW_NUMBERS_FOR_TESTING': False, 'MONTHLY_MIN_QUALIFIERS': 5,
+                                      'MONTHLY_DRAW_TEST_DATE': None}, ADMIN_EMAIL='admin@example.com')
+class DrawClosedAdminEmailTests(DrawTestCase):
+    """The admin gets one email per country when its Monthly draw day closes."""
+
+    def qualifier(self, country, surveys=100):
+        user = self.make_user(country, surveys)
+        SurveyResponse.objects.bulk_create([SurveyResponse(user=user, survey=self.survey, completed_at=self.NOW)
+                                            for _ in range(surveys)])
+        return user
+
+    def settle(self, country):
+        mail.outbox.clear()
+        LuckyDrawView().settle_due_monthly_draws(CountryLuckyDrawConfig.objects.get(country=country))
+        return [m for m in mail.outbox if m.subject.startswith('Monthly draw closed') and '01 June 2030' in m.subject]
+
+    def test_no_draw_email_lists_the_automatic_payouts(self):
+        users = [self.qualifier(self.us, 200), self.qualifier(self.us, 100)]                    # 3 attempts
+        self.freeze(self.NOW + datetime.timedelta(days=1, hours=6))
+
+        sent = self.settle(self.us)
+
+        self.assertEqual(len(sent), 1)
+        self.assertEqual(sent[0].to, ['admin@example.com'])
+        self.assertIn('Monthly draw closed: United States, 01 June 2030 (no draw - automatic payouts)', sent[0].subject)
+        self.assertIn('Qualified attempts: 3 of 5 needed', sent[0].body)
+        self.assertIn(f'{users[0].email}> - 2 x $10 USD = $20', sent[0].body)
+        self.assertIn('Paid automatically: $30.', sent[0].body)
+
+    def test_draw_ran_email_lists_the_winners_and_is_sent_once(self):
+        players = [self.qualifier(self.uk) for _ in range(6)]
+        self.assertTrue(self.play(players[0], MONTHLY, win=True).json()['is_winner'])
+        self.play(players[1], MONTHLY, win=False)
+        self.freeze(self.NOW + datetime.timedelta(days=1))
+
+        sent = self.settle(self.uk)
+        again = self.settle(self.uk)
+
+        self.assertEqual(len(sent), 1)
+        self.assertEqual(again, [])
+        self.assertIn('(draw ran)', sent[0].subject)
+        self.assertIn('Plays: 2. Winners: 1.', sent[0].body)
+        self.assertIn(players[0].email, sent[0].body)
+        self.assertIn('Winning numbers', sent[0].alternatives[0][0])
+
+    def test_a_failing_email_does_not_stop_the_payout(self):
+        user = self.qualifier(self.us)
+        self.freeze(self.NOW + datetime.timedelta(days=1, hours=6))
+        with mock.patch('surveys.lucky_draw.send_monthly_draw_closed_admin_notification', side_effect=RuntimeError('smtp down')):
+            LuckyDrawView().settle_due_monthly_draws(CountryLuckyDrawConfig.objects.get(country=self.us))
+
+        self.assertEqual(user.profile.__class__.objects.get(user=user).wallet_balance, Decimal('10.00'))
+
+    def test_no_email_for_a_day_where_nothing_happened(self):
+        self.freeze(self.NOW + datetime.timedelta(days=1, hours=6))
+        mail.outbox.clear()
+
+        LuckyDrawView().settle_due_monthly_draws(CountryLuckyDrawConfig.objects.get(country=self.ng))
+
+        self.assertFalse([m for m in mail.outbox if m.subject.startswith('Monthly draw closed')])

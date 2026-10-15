@@ -751,6 +751,22 @@ class MonthlyDrawNumbers(models.Model):
         return f"{self.country} {self.year}-{self.month:02d}: {numbers}"
 
 
+class MonthlyDrawDay(models.Model):
+    """A day the Monthly draw ran on besides the 1st (a MONTHLY_DRAW_TEST_DATE).
+
+    Recorded when the draw opens, so the day is still settled (and no-draw
+    payouts made) after the test date setting has moved on.
+    """
+    draw_date = models.DateField(unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-draw_date']
+
+    def __str__(self):
+        return str(self.draw_date)
+
+
 class MonthlyDrawSettlement(models.Model):
     """Records that one country's Monthly draw day has been settled.
 
