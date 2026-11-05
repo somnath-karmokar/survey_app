@@ -1,0 +1,31 @@
+{
+  "appId": "com.sudraw.app",
+  "appName": "Sudraw",
+  "webDir": "www",
+  "server": {
+    "url": "https://sudraw.com",
+    "cleartext": false,
+    "allowNavigation": ["sudraw.com", "*.sudraw.com"],
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "always",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "launchAutoHide": true,
+      "backgroundColor": "#1d1814",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#1d1814",
+      "overlaysWebView": false
+    }
+  }
+}
