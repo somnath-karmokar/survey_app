@@ -182,8 +182,8 @@ class Survey(models.Model):
                 previous_survey = Survey.objects.filter(id=previous_survey_id).only('name', 'level').first()
                 if previous_survey:
                     if current_completion_count > 0:
-                        return True, f"Retake '{previous_survey.name}' (Level {previous_survey.level}) first"
-                    return True, f"Complete '{previous_survey.name}' (Level {previous_survey.level}) to unlock"
+                        return True, f"Retake '{previous_survey.name}' first"
+                    return True, f"Complete '{previous_survey.name}' to unlock"
                 if current_completion_count > 0:
                     return True, "Retake the previous survey first"
                 return True, "Complete the previous survey to unlock"
@@ -195,7 +195,7 @@ class Survey(models.Model):
             if last_at and now >= last_at + timedelta(days=cooldown_days):
                 previous_survey = Survey.objects.filter(id=previous_survey_id).only('name', 'level').first()
                 if previous_survey:
-                    return True, f"Retake '{previous_survey.name}' (Level {previous_survey.level}) first to continue"
+                    return True, f"Retake '{previous_survey.name}' first to continue"
                 return True, "Retake the previous survey first to continue"
 
         return False, None
@@ -209,6 +209,13 @@ class Survey(models.Model):
         if not user.is_authenticated:
             return False, "You must be logged in to take this survey."
 
+        profile = getattr(user, 'profile', None)
+        if profile is not None and profile.is_suspended:
+            return False, (
+                f"{UserProfile.SUSPENSION_MESSAGE} You can take surveys again from "
+                f"{timezone.localtime(profile.suspended_until):%d %B %Y, %H:%M}."
+            )
+
         # Monthly cap first: it applies to every survey and every user, so it
         # is the most useful thing to tell someone who has hit it. Checked here
         # because every start/continue/finish path goes through this method.
@@ -218,6 +225,26 @@ class Survey(models.Model):
             return False, (
                 f"You've reached this month's limit of {limit['cap']} surveys. "
                 f"You can take surveys again from {resets.strftime('%B')} {resets.day}."
+            )
+
+        # One category at a time: an unfinished survey elsewhere must be finished first.
+        from .survey_progress import open_response, survey_part_count
+        unfinished = open_response(user)
+        if unfinished is not None and unfinished.survey_id != self.id:
+            return False, (
+                f"Please finish all {survey_part_count()} parts of your '{unfinished.survey.category.name}' "
+                f"survey before starting another category."
+            )
+        if unfinished is not None:
+            return True, None          # continuing it: no cooldown check
+
+        # Each category collects a limited number of responses per country (Nigeria unlimited).
+        from .survey_progress import category_sample_status
+        samples = category_sample_status(self, user)
+        if samples['full']:
+            return False, (
+                f"The {self.category.name} survey has already collected all {samples['cap']} responses "
+                f"needed in {getattr(self.category.country, 'name', 'your country')}. Please choose another category."
             )
 
         is_sequence_locked, sequence_lock_message = self.get_sequence_lock_info(user)
@@ -279,6 +306,11 @@ class Question(models.Model):
     question_type = models.CharField(max_length=20, choices=QUESTION_TYPES)
     is_required = models.BooleanField(default=True)
     order = models.PositiveIntegerField(default=0)
+    not_listed_label = models.CharField(
+        max_length=120, blank=True,
+        help_text='Screening question only: what users can type in if theirs is not listed, e.g. '
+                  '"fast food chain" (from the green line in the survey document). Leave blank for no box.',
+    )
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -287,8 +319,13 @@ class Question(models.Model):
 
 class Choice(models.Model):
     question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='choices')
-    choice_text = models.CharField(max_length=200)
-    
+    choice_text = models.CharField(max_length=500)
+    is_disqualifying = models.BooleanField(
+        default=False,
+        help_text='An untruthful answer (e.g. a made-up brand, or "None of the above" in a screening '
+                  'question). Picking it ends the survey and suspends the user for 7 days.',
+    )
+
     def __str__(self):
         return self.choice_text
 
@@ -297,6 +334,10 @@ class SurveyResponse(models.Model):
     survey = models.ForeignKey(Survey, on_delete=models.CASCADE, related_name='responses')
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    time_spent_seconds = models.PositiveIntegerField(
+        default=0,
+        help_text='Time the user spent answering (the survey timer), added question by question.',
+    )
     
     def __str__(self):
         return f"{self.user.username}'s response to {self.survey.name}"
@@ -349,9 +390,11 @@ class SurveyResponse(models.Model):
         """
         if not self.completed_at:
             return "In progress"
-            
-        duration = self.completed_at - self.started_at
-        total_seconds = int(duration.total_seconds())
+
+        if self.time_spent_seconds:
+            total_seconds = self.time_spent_seconds
+        else:
+            total_seconds = int((self.completed_at - self.started_at).total_seconds())
         
         # Format as HH:MM:SS
         hours, remainder = divmod(total_seconds, 3600)
@@ -372,6 +415,9 @@ class SurveyResponse(models.Model):
 class Answer(models.Model):
     response = models.ForeignKey(SurveyResponse, on_delete=models.CASCADE, related_name='answers')
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    answered_at = models.DateTimeField(null=True, blank=True, help_text='When the question was first answered.')
+    time_spent_seconds = models.PositiveIntegerField(
+        null=True, blank=True, help_text='Time spent on this question (survey timer).')
     text_answer = models.TextField(blank=True, null=True)
     selected_choices = models.ManyToManyField(Choice, blank=True)
     rating_value = models.PositiveSmallIntegerField(
@@ -494,6 +540,16 @@ class CountryLuckyDrawConfig(models.Model):
         help_text='IANA time zone, e.g. Europe/London, Africa/Lagos, America/New_York. The Monthly draw '
                   'opens at 00:00 on the 1st and each month starts at midnight in this time zone.'
     )
+    category_sample_cap = models.PositiveIntegerField(
+        null=True, blank=True, default=10,
+        help_text='Most completed responses ("samples") each survey category may collect in this '
+                  'country (10). Empty = unlimited (Nigeria).',
+    )
+    category_completion_reward = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text='Added to the wallet each time a user completes a whole survey category '
+                  '(all parts). Empty = SURVEY_CONFIG["CATEGORY_COMPLETION_REWARD"] (2.00).',
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -597,6 +653,11 @@ class UserProfile(models.Model):
     bio = models.TextField(blank=True, null=True)
     wallet_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     email_verified = models.BooleanField(default=False)
+    suspended_until = models.DateTimeField(
+        null=True, blank=True,
+        help_text='While set and in the future, the user cannot take surveys or play any draw '
+                  '(set automatically when they pick an untruthful survey answer). Clear it to lift the suspension.',
+    )
     last_login_ip = models.GenericIPAddressField(blank=True, null=True)
     last_login_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -608,6 +669,42 @@ class UserProfile(models.Model):
     @property
     def is_frontend_user(self):
         return self.user_type == 'frontend'
+
+    SUSPENSION_DAYS = 7
+    SUSPENSION_MESSAGE = 'Your account has been suspended for 7 days for not being truthful.'
+
+    @property
+    def is_suspended(self):
+        return bool(self.suspended_until and self.suspended_until > timezone.now())
+
+    def suspend_for_untruthful_answer(self, survey=None, question=None, selected=(), untruthful=()):
+        """Block surveys and draws for SUSPENSION_DAYS and record why.
+
+        Writes only suspended_until on the profile, so it can't overwrite a newer
+        wallet balance held elsewhere. `selected` is every option the user ticked,
+        `untruthful` the ones among them that are untruthful (red).
+        """
+        now = timezone.now()
+        self.suspended_until = now + timedelta(days=self.SUSPENSION_DAYS)
+        UserProfile.objects.filter(pk=self.pk).update(suspended_until=self.suspended_until)
+        return SurveySuspension.objects.create(
+            user_id=self.user_id,
+            survey=survey,
+            survey_name=survey.name if survey else '',
+            category_name=survey.category.name if survey else '',
+            question_text=question.question_text if question else '',
+            selected_options='\n'.join(selected),
+            untruthful_options='\n'.join(untruthful),
+            suspended_at=now,
+            suspended_until=self.suspended_until,
+        )
+
+    @property
+    def active_suspension(self):
+        """The SurveySuspension behind the current suspension, or None."""
+        if not self.is_suspended:
+            return None
+        return self.user.survey_suspensions.filter(suspended_until__gt=timezone.now()).order_by('-suspended_at').first()
 
     @property
     def wallet_currency_code(self):
@@ -631,6 +728,47 @@ class UserProfile(models.Model):
     class Meta:
         verbose_name = 'User Profile'
         verbose_name_plural = 'User Profiles'
+
+
+class SurveySuspension(models.Model):
+    """Why and when a user was suspended for an untruthful survey answer."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='survey_suspensions')
+    survey = models.ForeignKey('Survey', on_delete=models.SET_NULL, null=True, blank=True, related_name='suspensions')
+    # Copied, so the record still reads correctly if the survey is later replaced.
+    survey_name = models.CharField(max_length=200, blank=True)
+    category_name = models.CharField(max_length=200, blank=True)
+    question_text = models.TextField(blank=True)
+    selected_options = models.TextField(blank=True, help_text='Every option the user ticked, one per line.')
+    untruthful_options = models.TextField(blank=True, help_text='The untruthful options among them, one per line.')
+    suspended_at = models.DateTimeField(default=timezone.now)
+    suspended_until = models.DateTimeField()
+    lifted_at = models.DateTimeField(null=True, blank=True, help_text='Set when an admin lifts the suspension early.')
+
+    class Meta:
+        ordering = ['-suspended_at']
+        verbose_name = 'Survey suspension'
+        verbose_name_plural = 'Survey suspensions'
+
+    def __str__(self):
+        return f'{self.user} suspended {self.suspended_at:%Y-%m-%d} ({self.category_name})'
+
+    @property
+    def is_active(self):
+        return self.suspended_until > timezone.now()
+
+    @property
+    def selected_list(self):
+        return [line for line in self.selected_options.splitlines() if line.strip()]
+
+    @property
+    def untruthful_list(self):
+        return [line for line in self.untruthful_options.splitlines() if line.strip()]
+
+    def lift(self):
+        """End this suspension now (admin action)."""
+        now = timezone.now()
+        SurveySuspension.objects.filter(pk=self.pk).update(suspended_until=now, lifted_at=now)
+        UserProfile.objects.filter(user_id=self.user_id, suspended_until__gt=now).update(suspended_until=now)
 
 
 class UserWallet(UserProfile):
@@ -811,6 +949,14 @@ class WalletTransaction(models.Model):
         blank=True,
         related_name='wallet_transaction',
     )
+    survey_response = models.OneToOneField(
+        'SurveyResponse',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reward_transaction',
+        help_text='Set on the reward for completing a survey category.',
+    )
     balance_after = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -831,6 +977,29 @@ class WalletTransaction(models.Model):
         return f"{self.currency_symbol}{self.balance_after:.2f} {self.currency_code}"
 
 
+class Charity(models.Model):
+    """A charity users can donate their withdrawals to (managed in the admin)."""
+    name = models.CharField(max_length=160)
+    description = models.TextField(blank=True)
+    website = models.URLField(blank=True)
+    registration_number = models.CharField(max_length=64, blank=True, help_text='Charity registration number, if any.')
+    is_active = models.BooleanField(default=True, help_text='Only active charities are offered to users.')
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'name']
+        verbose_name_plural = 'Charities'
+
+    def __str__(self):
+        return self.name
+
+
+def charity_bonus_percent():
+    """Extra Sudraw adds on top of a donation: CHARITY_CONFIG['BONUS_PERCENT'] (20)."""
+    return Decimal(str(getattr(settings, 'CHARITY_CONFIG', {}).get('BONUS_PERCENT', 20)))
+
+
 class WalletWithdrawalRequest(models.Model):
     STATUS_PENDING = 'pending'
     STATUS_APPROVED = 'approved'
@@ -844,10 +1013,12 @@ class WalletWithdrawalRequest(models.Model):
     PAYMENT_METHOD_PAYPAL = 'paypal'
     PAYMENT_METHOD_BANK = 'bank_transfer'
     PAYMENT_METHOD_GIFT_CARD = 'gift_card'
+    PAYMENT_METHOD_CHARITY = 'charity'
     PAYMENT_METHOD_CHOICES = [
         (PAYMENT_METHOD_PAYPAL, 'PayPal'),
         (PAYMENT_METHOD_BANK, 'Direct Bank Transfer'),
         (PAYMENT_METHOD_GIFT_CARD, 'Gift Card'),
+        (PAYMENT_METHOD_CHARITY, 'Donate to charity (+20% from Sudraw)'),
     ]
 
     profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='withdrawal_requests')
@@ -870,6 +1041,22 @@ class WalletWithdrawalRequest(models.Model):
     institution_number = models.CharField(max_length=32, blank=True)
     gift_card_brand = models.CharField(max_length=80, blank=True)
     gift_card_email = models.EmailField(blank=True)
+    charity = models.ForeignKey(
+        Charity, on_delete=models.PROTECT, null=True, blank=True, related_name='donations',
+        help_text='Donation: the charity the user chose.',
+    )
+    charity_bonus_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text='Donation: the extra Sudraw adds, as a percentage of the amount.',
+    )
+    charity_bonus_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text='Donation: the extra Sudraw adds (not taken from the wallet).',
+    )
+    charity_total_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text='Donation: what the charity receives (amount + bonus).',
+    )
     notes = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
     admin_note = models.TextField(blank=True)
@@ -902,6 +1089,32 @@ class WalletWithdrawalRequest(models.Model):
     @property
     def amount_display(self):
         return f"{self.currency_symbol}{self.amount:.2f} {self.currency_code}"
+
+    @property
+    def is_donation(self):
+        return self.payment_method == self.PAYMENT_METHOD_CHARITY
+
+    def set_charity_bonus(self):
+        """Donation: work out Sudraw's extra and the charity's total (10 + 20% = 12)."""
+        if not self.is_donation:
+            self.charity_bonus_percent = self.charity_bonus_amount = self.charity_total_amount = None
+            return
+        percent = charity_bonus_percent()
+        self.charity_bonus_percent = percent
+        self.charity_bonus_amount = (self.amount * percent / Decimal('100')).quantize(Decimal('0.01'))
+        self.charity_total_amount = self.amount + self.charity_bonus_amount
+
+    @property
+    def charity_bonus_display(self):
+        if self.charity_bonus_amount is None:
+            return ''
+        return f"{self.currency_symbol}{self.charity_bonus_amount:.2f} {self.currency_code}"
+
+    @property
+    def charity_total_display(self):
+        if self.charity_total_amount is None:
+            return ''
+        return f"{self.currency_symbol}{self.charity_total_amount:.2f} {self.currency_code}"
 
     @property
     def country_code(self):
@@ -945,7 +1158,12 @@ class WalletWithdrawalRequest(models.Model):
                 amount=self.amount,
                 currency_code=self.currency_code,
                 currency_symbol=self.currency_symbol,
-                description=f"Withdrawal approved via {self.get_payment_method_display()}",
+                description=(
+                    f"Donation to {self.charity} approved: {self.amount_display} from your wallet "
+                    f"+ {self.charity_bonus_display} from Sudraw = {self.charity_total_display}"
+                    if self.is_donation else
+                    f"Withdrawal approved via {self.get_payment_method_display()}"
+                )[:255],
                 balance_after=profile.wallet_balance,
             )
 

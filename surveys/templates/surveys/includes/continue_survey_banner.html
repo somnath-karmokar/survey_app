@@ -1,0 +1,11 @@
+{% if open_survey %}
+<div class="alert alert-primary d-flex flex-wrap align-items-center justify-content-between gap-2" id="continue-survey-banner" role="alert">
+    <span>
+        <i class="fas fa-play-circle me-1"></i>
+        <strong>{{ open_survey.survey.category.name }}</strong> survey in progress &mdash;
+        Part {{ open_survey.part }} of {{ open_survey.parts }} ({{ open_survey.answered }} of {{ open_survey.total }} questions answered).
+        Finish it before starting another category.
+    </span>
+    <a href="{% url 'surveys:survey_detail' open_survey.survey.id %}" class="btn btn-sm btn-primary">Continue survey</a>
+</div>
+{% endif %}

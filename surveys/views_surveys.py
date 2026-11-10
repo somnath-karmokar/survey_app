@@ -5,6 +5,8 @@ from django.views.decorators.cache import never_cache
 from django.contrib import messages
 from django.db.models import Count, Q, F
 from django import forms
+from datetime import timedelta
+
 from django.utils import timezone
 from django.forms import inlineformset_factory
 from django.http import JsonResponse
@@ -13,11 +15,15 @@ from django.template.loader import render_to_string
 from django.core.mail import send_mail, EmailMultiAlternatives
 from django.utils.html import strip_tags
 
-from .models import Survey, SurveyCategory, Question, UserSurveyProgress, SurveyResponse, Answer, LuckyDrawEntry, Advertiser
+from .models import (
+    Survey, SurveyCategory, Question, UserSurveyProgress, SurveyResponse, Answer, LuckyDrawEntry, Advertiser,
+    Choice, UserProfile,
+)
 from .views import should_show_advertisement
 from .forms import SurveyResponseForm
 from .emails import send_survey_completion_email, send_lucky_draw_entry_email, send_lucky_draw_winner_email
 from .milestones import check_and_award_milestones
+from .survey_progress import full_survey_ids, open_survey_summary
 
 
 def thank_you_message(user):
@@ -59,10 +65,18 @@ def survey_list(request):
         completed_at__isnull=False
     ).select_related('survey')
     
-    # Create a dictionary of survey_id: completed_at for quick lookup
-    completed_surveys = {
-        response.survey_id: response.completed_at 
-        for response in completed_responses
+    # survey_id: latest completed_at
+    completed_surveys = {}
+    for response in completed_responses:
+        if response.survey_id not in completed_surveys or response.completed_at > completed_surveys[response.survey_id]:
+            completed_surveys[response.survey_id] = response.completed_at
+
+    # A completed survey is closed for DEFAULT_COOLDOWN_DAYS (90): survey_id -> days left (0 = can retake).
+    cooldown = timedelta(days=settings.SURVEY_CONFIG.get('DEFAULT_COOLDOWN_DAYS', 90))
+    now = timezone.now()
+    cooldown_days_left = {
+        survey_id: max(0, (completed_at + cooldown - now).days + (1 if completed_at + cooldown > now else 0))
+        for survey_id, completed_at in completed_surveys.items()
     }
     
     # Get categories with completed surveys
@@ -101,212 +115,256 @@ def survey_list(request):
         'completed_categories': completed_categories,
         'all_surveys_completed': all_surveys_completed,
         'show_advertisement': show_advertisement,
-        'cooldown_days': settings.SURVEY_CONFIG.get('DEFAULT_COOLDOWN_DAYS', 1),
+        'cooldown_days': settings.SURVEY_CONFIG.get('DEFAULT_COOLDOWN_DAYS', 90),
+        'cooldown_days_left': cooldown_days_left,
         'now': timezone.now(),  # Add this line
         'monthly_survey_limit': SurveyResponse.monthly_limit_status(request.user),
+        'open_survey': open_survey_summary(request.user),
+        # surveys whose category already has all the responses it needs in this country
+        'full_surveys': full_survey_ids(
+            request.user, Survey.objects.filter(category__in=categories, is_active=True).select_related('category')),
     }
     return render(request, 'surveys/survey_list.html', context)
 
+MAX_SECONDS_PER_QUESTION = 30 * 60      # timer: an idle tab can't add more than this per question
+
+
+def stored_answer_initial(question, answer):
+    """Form initial data for a saved Answer."""
+    field_name = f'question_{question.id}'
+    if answer is None:
+        return {}
+    if question.question_type in ('single_choice', 'multiple_choice'):
+        values = [str(pk) for pk in answer.selected_choices.values_list('id', flat=True)]
+        other = (answer.text_answer or '').strip()
+        if other:
+            values.append(SurveyResponseForm.OTHER_CHOICE_VALUE)
+        value = values if question.question_type == 'multiple_choice' else (values[0] if values else None)
+        return {field_name: value, f'{field_name}_other': other}
+    if question.question_type == 'rating':
+        return {field_name: answer.rating_value}
+    return {field_name: answer.text_answer}
+
+
+def save_answer(response, question, value, other_text, seconds=0):
+    """Create or replace the response's answer to one question, adding the time spent on it."""
+    answer, _ = Answer.objects.get_or_create(response=response, question=question)
+    if answer.answered_at is None:
+        answer.answered_at = timezone.now()
+    answer.time_spent_seconds = (answer.time_spent_seconds or 0) + seconds
+    answer.text_answer = None
+    answer.rating_value = None
+    if question.question_type in ('single_choice', 'multiple_choice'):
+        picked = value if isinstance(value, (list, tuple)) else [value]
+        answer.selected_choices.set([v for v in picked if v and str(v) != SurveyResponseForm.OTHER_CHOICE_VALUE])
+        answer.text_answer = other_text or None
+    elif question.question_type == 'rating':
+        answer.rating_value = int(value) if value not in (None, '') else None
+    else:
+        answer.text_answer = '' if value is None else str(value)
+    answer.save()
+    return answer
+
+
+def elapsed_seconds(request):
+    try:
+        seconds = int(float(request.POST.get('elapsed_seconds') or 0))
+    except (TypeError, ValueError):
+        return 0
+    return max(0, min(seconds, MAX_SECONDS_PER_QUESTION))
+
+
 @never_cache
 @login_required
-def survey_detail(request, survey_id, question_index=0):
-    """Display and handle survey questions with pagination"""
+def survey_detail(request, survey_id, question_index=None):
+    """One question of a survey, in parts, saving each answer as it is given.
+
+    Answers are stored on an unfinished SurveyResponse, so the user continues
+    where they left off (opening the survey goes straight to the first
+    unanswered question). Questions can't be skipped, a survey in another
+    category is blocked until this one is finished, and the time spent is kept.
+    """
+    from .survey_progress import answered_question_ids, open_response, question_parts, screening_question_ids
     survey = get_object_or_404(Survey, id=survey_id, is_active=True)
 
-    # Check if user can take this survey based on level order and cooldown
+    # Suspended (untruthful screening answer): no surveys until the suspension ends.
+    profile = request.user.profile
+    if profile.is_suspended:
+        messages.error(request, (
+            f"{UserProfile.SUSPENSION_MESSAGE} You can't take surveys until "
+            f"{timezone.localtime(profile.suspended_until):%d %B %Y, %H:%M}."
+        ))
+        return redirect('surveys:category_detail', category_slug=survey.category.slug)
+
+    unfinished_elsewhere = open_response(request.user)
+    if unfinished_elsewhere is not None and unfinished_elsewhere.survey_id != survey.id:
+        messages.warning(request, (
+            f"Please finish all the parts of your '{unfinished_elsewhere.survey.category.name}' survey "
+            f"before starting another category. You're continuing where you left off."
+        ))
+        return redirect('surveys:survey_detail', survey_id=unfinished_elsewhere.survey_id)
+
+    # Suspension, monthly cap, cooldown
     can_take, message = survey.can_user_take_survey(request.user)
     if not can_take:
         messages.warning(request, message)
         return redirect('surveys:category_detail', category_slug=survey.category.slug)
 
-    # Allow users to retake surveys by removing the existing response check
-    # Users can now retake surveys regardless of when they last completed them
-    
-    # Get all questions for this survey
     questions = list(survey.questions.all().order_by('order', 'id'))
     total_questions = len(questions)
-    
     if not questions:
         messages.warning(request, 'This survey has no questions yet.')
         return redirect('surveys:survey_list')
-    
-    # Convert question_index to integer and ensure it's within bounds
+
+    response = open_response(request.user, survey)
+    answered = answered_question_ids(response)
+    first_unanswered = next((i for i, q in enumerate(questions) if q.id not in answered), total_questions - 1)
+
+    # Opening the survey resumes it; questions can't be skipped.
+    if question_index is None:
+        if first_unanswered > 0:
+            messages.info(request, 'Welcome back - you are continuing where you left off.')
+            return redirect('surveys:survey_question', survey_id=survey.id, question_index=first_unanswered)
+        question_index = 0
     question_index = max(0, min(int(question_index), total_questions - 1))
+    if question_index > first_unanswered:
+        return redirect('surveys:survey_question', survey_id=survey.id, question_index=first_unanswered)
+
     current_question = questions[question_index]
+    parts = question_parts(questions, screening_question_ids(questions))
     show_ad = False
-    
-    # Handle form submission
+
     if request.method == 'POST':
-        form = SurveyResponseForm(
-            data=request.POST, 
-            survey=survey,
-            question_id=current_question.id
-        )
-        
+        form = SurveyResponseForm(data=request.POST, survey=survey, question_id=current_question.id)
+
         if form.is_valid():
-            # Save the answer to session
-            session_key = f'survey_{survey_id}_answers'
-            answers = request.session.get(session_key, {})
-            
-            # Save current answer to session
             field_name = f'question_{current_question.id}'
             answer_value = form.cleaned_data.get(field_name)
             other_text = (form.cleaned_data.get(f'{field_name}_other') or '').strip()
+
+            # An untruthful answer (e.g. a made-up brand in the screening question)
+            # ends the survey on the spot: nothing is kept and the user is suspended.
             if current_question.question_type in ['single_choice', 'multiple_choice']:
-                answers[str(current_question.id)] = {
-                    'value': answer_value,
-                    'other': other_text,
-                }
-            else:
-                answers[str(current_question.id)] = answer_value
-            request.session[session_key] = answers
-            
-            # Check if we should show an ad based on AD_FREQUENCY setting (after every N questions, but not on first or last question)
-            ad_frequency = getattr(settings, 'SURVEY_CONFIG', {}).get('AD_FREQUENCY', 3)
-            
-            # Check if ad has already been shown for this question
-            ad_shown_key = f'survey_{survey_id}_ad_shown_q{question_index}'
-            ad_already_shown = request.session.get(ad_shown_key, False)
-            
-            show_ad = False
-            if question_index > 0 and (question_index + 1) % ad_frequency == 0 and question_index < total_questions - 1 and not ad_already_shown:
-                show_ad = True
-            
-            # If showing ad, stay on current question but set flag to show ad
-            if show_ad:
-                # Mark that ad has been shown for this question
-                request.session[ad_shown_key] = True
-                request.session.save()
-                
-                return render(request, 'surveys/survey_detail.html', {
-                    'survey': survey,
-                    'form': form,
-                    'current_question': current_question,
-                    'question_index': question_index,
-                    'total_questions': total_questions,
-                    'progress': int(((question_index + 1) / total_questions) * 100),
-                    'is_last_question': question_index == total_questions - 1,
-                    'show_ad': True,
-                    'advertiser': Advertiser.pick_for(survey, request.user),
-                })
-            
-            # If not showing ad, proceed to next question or submit
-            next_index = question_index + 1
-            if next_index < total_questions:
-                # Clear ad flag for current question when moving to next
-                if ad_shown_key in request.session:
-                    del request.session[ad_shown_key]
-                    request.session.save()
-                    
-                return redirect('surveys:survey_question', 
-                              survey_id=survey.id, 
-                              question_index=next_index)
-            else:
-                # All questions answered, save to database
-                survey_response = SurveyResponse.objects.create(
-                    user=request.user,
-                    survey=survey,
-                    completed_at=timezone.now()
-                )
-                
-                # Save all answers from session
-                for q_id, stored_answer in answers.items():
-                    question = Question.objects.get(id=q_id)
-                    other_text = ''
-                    if isinstance(stored_answer, dict):
-                        answer_value = stored_answer.get('value')
-                        other_text = (stored_answer.get('other') or '').strip()
-                    else:
-                        answer_value = stored_answer
-
-                    answer = Answer(
-                        response=survey_response,
-                        question=question
+                picked = answer_value if isinstance(answer_value, (list, tuple)) else [answer_value]
+                picked_ids = [int(v) for v in picked if str(v).isdigit()]
+                picked_choices = list(Choice.objects.filter(question=current_question, id__in=picked_ids).order_by('id'))
+                untruthful = [c.choice_text for c in picked_choices if c.is_disqualifying]
+                if untruthful:
+                    if response is not None:
+                        response.delete()
+                    request.session.pop(f'survey_{survey_id}_answers', None)
+                    selected = [c.choice_text for c in picked_choices]
+                    if other_text:
+                        selected.append(f'{other_text} (typed in)')
+                    request.user.profile.suspend_for_untruthful_answer(
+                        survey=survey, question=current_question, selected=selected, untruthful=untruthful,
                     )
-                    answer.save()
-                    
-                    # Handle different question types
-                    if question.question_type in ['multiple_choice', 'single_choice']:
-                        other_choice_value = SurveyResponseForm.OTHER_CHOICE_VALUE
-                        if isinstance(answer_value, (list, tuple)):
-                            selected_choice_ids = [
-                                value for value in answer_value
-                                if str(value) != other_choice_value
-                            ]
-                            answer.selected_choices.set(selected_choice_ids)
-                        else:
-                            selected_choice_ids = [] if str(answer_value) == other_choice_value else [answer_value]
-                            answer.selected_choices.set(selected_choice_ids)
-                        if other_text:
-                            answer.text_answer = other_text
-                            answer.save(update_fields=['text_answer'])
-                    elif question.question_type == 'text':
-                        answer.text_answer = str(answer_value)
-                        answer.save()
-                    elif question.question_type == 'rating':
-                        answer.rating_value = int(answer_value)
-                        answer.save()
-                
-                # Update or create user's survey progress
-                progress, created = UserSurveyProgress.objects.get_or_create(
-                    user=request.user,
-                    category=survey.category,
-                    level=survey.level,
-                    defaults={'completed_count': 1}
-                )
-                
-                if not created:
-                    # Only increment if the survey wasn't just created
-                    # This ensures we don't double-count if the form is submitted multiple times
-                    progress.completed_count = F('completed_count') + 1
-                    progress.save(update_fields=['completed_count', 'last_completed'])
-                    
-                    # Refresh the instance to get the updated count
-                    progress.refresh_from_db()
-                
-                print(f"Updated progress for {request.user.username} - {survey.category.name} (Level {survey.level}): {progress.completed_count} surveys completed")
-                check_and_award_milestones(request.user)
-                # Clear the session data
-                if session_key in request.session:
-                    del request.session[session_key]
+                    messages.error(request, UserProfile.SUSPENSION_MESSAGE)
+                    return redirect('surveys:user_profile')
 
-                messages.success(request, thank_you_message(request.user))
-                return redirect('surveys:survey_complete', survey_id=survey.id)
-        if not form.is_valid():
+            if response is None:
+                response = SurveyResponse.objects.create(user=request.user, survey=survey)
+            seconds = elapsed_seconds(request)
+            save_answer(response, current_question, answer_value, other_text, seconds)
+            SurveyResponse.objects.filter(pk=response.pk).update(
+                time_spent_seconds=F('time_spent_seconds') + seconds,
+            )
+            response.refresh_from_db(fields=['time_spent_seconds'])
+            answered.add(current_question.id)
+
+            # A commercial after every AD_FREQUENCY (5) questions: after Q5, Q10, Q15 ...
+            # Counted on the main questions (the screening question isn't one), never on the last.
+            ad_frequency = max(1, int(getattr(settings, 'SURVEY_CONFIG', {}).get('AD_FREQUENCY', 5)))
+            question_number = sum(1 for p in parts[:question_index + 1] if p)
+            ad_shown_key = f'survey_{survey_id}_ad_shown_q{question_index}'
+            if (parts[question_index] and question_number % ad_frequency == 0
+                    and question_index < total_questions - 1 and not request.session.get(ad_shown_key)):
+                request.session[ad_shown_key] = True
+                show_ad = True
+            else:
+                request.session.pop(ad_shown_key, None)
+                next_index = next((i for i, q in enumerate(questions) if q.id not in answered), None)
+                if next_index is None:
+                    return finish_survey(request, survey, response)
+                # Going back and re-answering moves on to the next question, not the first gap.
+                if question_index + 1 < total_questions and question_index + 1 <= next_index:
+                    next_index = question_index + 1
+                return redirect('surveys:survey_question', survey_id=survey.id, question_index=next_index)
+        else:
             messages.error(request, 'Please correct the highlighted answer before continuing.')
     else:
-        # For GET requests, ads should not be shown (only triggered during POST)
-        # For GET requests, check if there's a previous answer in session
-        session_key = f'survey_{survey_id}_answers'
         initial_data = {}
-        previous_answer = request.session.get(session_key, {}).get(str(current_question.id))
-        if previous_answer:
-            if isinstance(previous_answer, dict):
-                initial_data[f'question_{current_question.id}'] = previous_answer.get('value')
-                initial_data[f'question_{current_question.id}_other'] = previous_answer.get('other')
-            else:
-                initial_data[f'question_{current_question.id}'] = previous_answer
-            
-        form = SurveyResponseForm(
-            survey=survey,
-            question_id=current_question.id,
-            initial=initial_data
-        )
-    
-    # Calculate progress
-    progress = int(((question_index + 1) / total_questions) * 100) if total_questions > 0 else 0
-    
-    return render(request, 'surveys/survey_detail.html', {
+        if response is not None and current_question.id in answered:
+            initial_data = stored_answer_initial(
+                current_question, response.answers.filter(question=current_question).first(),
+            )
+        form = SurveyResponseForm(survey=survey, question_id=current_question.id, initial=initial_data)
+
+    return render(request, 'surveys/survey_detail.html', survey_page_context(
+        request, survey, response, questions, parts, question_index, form, show_ad,
+    ))
+
+
+def survey_page_context(request, survey, response, questions, parts, question_index, form, show_ad):
+    from .lucky_draw import LuckyDrawView
+    from .survey_progress import survey_part_count
+    total_questions = len(questions)
+    part = parts[question_index]
+    in_part = [i for i, p in enumerate(parts) if p == part]
+    answered_count = response.answers.count() if response is not None else 0
+    parts_total = survey_part_count()
+    return {
         'survey': survey,
         'form': form,
-        'current_question': current_question,
+        'current_question': questions[question_index],
         'question_index': question_index,
         'total_questions': total_questions,
-        'progress': progress,
+        'progress': int(answered_count / total_questions * 100) if total_questions else 0,
         'is_last_question': question_index == total_questions - 1,
         'show_ad': show_ad,
         'advertiser': Advertiser.pick_for(survey, request.user) if show_ad else None,
-    })
+        'part': part,                                   # 0 = screening question
+        'parts_total': parts_total,
+        'part_range': range(1, parts_total + 1),
+        'part_question_number': (in_part.index(question_index) + 1) if part else 0,
+        'part_question_total': len(in_part),
+        'question_number': sum(1 for p in parts[:question_index + 1] if p),
+        'time_spent_seconds': response.time_spent_seconds if response is not None else 0,
+        'quick_draw': LuckyDrawView().quick_draw_progress(request.user),
+        # The screening step has its own layout and needs the bound fields directly.
+        'screening_field': form[f'question_{questions[question_index].id}'] if part == 0 else None,
+        'screening_other_field': (
+            form[f'question_{questions[question_index].id}_other']
+            if part == 0 and f'question_{questions[question_index].id}_other' in form.fields else None
+        ),
+    }
+
+
+def finish_survey(request, survey, response):
+    """All questions answered: mark the survey complete and count it (one per category)."""
+    updated = SurveyResponse.objects.filter(pk=response.pk, completed_at__isnull=True).update(
+        completed_at=timezone.now(),
+    )
+    if updated:
+        progress, created = UserSurveyProgress.objects.get_or_create(
+            user=request.user, category=survey.category, level=survey.level,
+            defaults={'completed_count': 1},
+        )
+        if not created:
+            progress.completed_count = F('completed_count') + 1
+            progress.save(update_fields=['completed_count', 'last_completed'])
+        check_and_award_milestones(request.user)
+        from .rewards import credit_category_completion
+        response.refresh_from_db()
+        reward = credit_category_completion(response)
+        message = thank_you_message(request.user)
+        if reward is not None:
+            message = (f'{message} {reward.amount_display} has been added to your wallet '
+                       f'for completing the {survey.category.name} category.')
+        messages.success(request, message)
+    request.session.pop(f'survey_{survey.id}_answers', None)
+    return redirect('surveys:survey_complete', survey_id=survey.id)
+
 
 @login_required
 def lucky_draw_entry(request):
@@ -399,174 +457,10 @@ def lucky_draw_entry(request):
 
 @login_required
 def take_survey(request, survey_id, question_id=None):
-    survey = get_object_or_404(Survey, id=survey_id, is_active=True)
-    questions = list(survey.questions.all().order_by('order'))
+    """Old survey URL (/surveys/take/<id>/): the survey is taken in parts on survey_detail,
+    which also resumes where the user left off."""
+    return redirect('surveys:survey_detail', survey_id=survey_id)
 
-    can_take, message = survey.can_user_take_survey(request.user)
-    if not can_take:
-        messages.warning(request, message)
-        return redirect('surveys:category_detail', category_slug=survey.category.slug)
-    
-    
-    # Handle form submission
-    if request.method == 'POST':
-        # Get the current question ID from the form data
-        current_question_id = request.POST.get('current_question_id')
-        
-        # If it's the last question, process the entire form
-        if 'submit_survey' in request.POST:
-            form = SurveyResponseForm(survey, request.POST)
-            if form.is_valid():
-                # Process the form
-                response = form.save(commit=False)
-                response.user = request.user
-                response.survey = survey
-                response.completed_at = timezone.now()
-                response.save()
-                form.save_m2m()  # For many-to-many fields if any
-                
-                # Add this line to update the user's progress
-                UserSurveyProgress.objects.update_or_create(
-                    user=request.user,
-                    category=survey.category,
-                    level=survey.level,
-                    defaults={'completed_count': 1},
-                )
-
-                # Or if you want to increment existing count:
-                progress, created = UserSurveyProgress.objects.get_or_create(
-                    user=request.user,
-                    category=survey.category,
-                    level=survey.level,
-                    defaults={'completed_count': 1}
-                )
-
-                if not created:
-                    progress.completed_count += 1
-                    progress.save()
-
-                # Clear the session data
-                if 'survey_answers' in request.session:
-                    del request.session['survey_answers']
-                
-                # Set flag to show ad after redirect
-                request.session['ad_counter'] = request.session.get('ad_counter', 0) + 1
-                AD_FREQUENCY = getattr(settings, 'SURVEY_CONFIG', {}).get('AD_FREQUENCY', 4)
-
-                # Store category slug for redirection after ad
-                request.session['redirect_after_ad'] = {
-                    'url': reverse('surveys:category_detail', kwargs={'category_slug': survey.category.slug}),
-                    'survey_id': survey.id
-                }
-
-                if request.session.get('ad_counter', 0) >= AD_FREQUENCY:
-                    request.session['show_ad_after_redirect'] = True
-
-                request.session.save()  # Explicitly save the session
-                messages.success(request, 'Thank you for completing the survey!')
-                return redirect('surveys:category_detail', category_slug=survey.category.slug)
-        else:
-            # For non-final submissions, just save the data in session
-            if 'survey_answers' not in request.session:
-                request.session['survey_answers'] = {}
-            
-            # Save the current question's answer
-            try:
-                question = Question.objects.get(id=current_question_id, surveys=survey)
-                field_name = f'question_{question.id}'
-                
-                if question.question_type == 'multiple_choice':
-                    request.session['survey_answers'][field_name] = {
-                        'value': request.POST.getlist(field_name, []),
-                        'other': request.POST.get(f'{field_name}_other', '').strip(),
-                    }
-                elif question.question_type == 'single_choice':
-                    request.session['survey_answers'][field_name] = {
-                        'value': request.POST.get(field_name, ''),
-                        'other': request.POST.get(f'{field_name}_other', '').strip(),
-                    }
-                else:
-                    request.session['survey_answers'][field_name] = request.POST.get(field_name, '')
-                
-                request.session.save()
-                
-                # Determine next question
-                current_index = next((i for i, q in enumerate(questions) if str(q.id) == current_question_id), -1)
-                if current_index < len(questions) - 1:
-                    next_question = questions[current_index + 1]
-                    return redirect('surveys:take_survey_with_question', survey_id=survey.id, question_id=next_question.id)
-                else:
-                    # If this was the last question, redirect to the final submission
-                    return redirect('surveys:take_survey', survey_id=survey.id)
-                    
-            except Question.DoesNotExist:
-                messages.error(request, 'Invalid question. Please start the survey again.')
-                return redirect('surveys:survey_detail', survey_id=survey.id)
-    
-    # GET request or form invalid
-    # Get the current question (first one if none specified)
-    current_question = None
-    current_index = 0
-    total_questions = len(questions)
-    
-    if question_id:
-        try:
-            current_question = Question.objects.get(id=question_id, surveys=survey)
-            current_index = next((i for i, q in enumerate(questions) if q.id == current_question.id), 0)
-        except Question.DoesNotExist:
-            messages.error(request, 'Invalid question. Please start the survey again.')
-            return redirect('surveys:survey_detail', survey_id=survey.id)
-    elif questions:
-        current_question = questions[0]
-    else:
-        messages.warning(request, 'This survey has no questions yet.')
-        return redirect('surveys:survey_detail', survey_id=survey.id)
-    
-    # Initialize form with session data if available
-    initial_data = request.session.get('survey_answers', {})
-    form = SurveyResponseForm(survey=survey, initial=initial_data)
-    
-    # For GET requests, we'll only show one question at a time
-    if current_question:
-        # Filter the form to only include the current question
-        question_fields = [f'question_{current_question.id}']
-        
-        # Create a new form with only the current question
-        class SingleQuestionForm(forms.Form):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.fields = {k: v for k, v in form.fields.items() if k in question_fields}
-                other_field_name = f'question_{current_question.id}_other'
-                if other_field_name in form.fields:
-                    self.fields[other_field_name] = form.fields[other_field_name]
-                
-                # Set initial values from session if available
-                for field_name, field in self.fields.items():
-                    if field_name in initial_data:
-                        stored_value = initial_data[field_name]
-                        if isinstance(stored_value, dict):
-                            field.initial = stored_value.get('value')
-                            other_field = self.fields.get(f'{field_name}_other')
-                            if other_field:
-                                other_field.initial = stored_value.get('other')
-                        elif isinstance(field, forms.MultipleChoiceField) and isinstance(stored_value, str):
-                            field.initial = [stored_value]  # Convert single value to list for multiple choice
-                        else:
-                            field.initial = stored_value
-        
-        form = SingleQuestionForm(initial=initial_data)
-    
-    progress = int(((current_index + 1) / total_questions) * 100) if total_questions > 0 else 0
-    
-    return render(request, 'surveys/take_survey.html', {
-        'survey': survey,
-        'form': form,
-        'current_question': current_question,
-        'current_index': current_index + 1,  # 1-based index for display
-        'total_questions': total_questions,
-        'progress': progress,
-        'is_last_question': current_index == total_questions - 1
-    })
 
 @login_required
 def survey_complete(request, survey_id):

@@ -82,6 +82,16 @@
         </div>
     </div>
 
+    {% if suspended_until %}
+    <div class="alert alert-danger d-flex flex-wrap align-items-center justify-content-between gap-2" id="dashboard-suspension" role="alert">
+        <span><i class="fas fa-user-lock me-1"></i><strong>{{ suspension_message }}</strong>
+            Surveys and draws unlock on {{ suspended_until|date:"j F Y, H:i" }}.</span>
+        <a href="{% url 'surveys:user_profile' %}#suspension-details" class="btn btn-sm btn-outline-danger">See why</a>
+    </div>
+    {% else %}
+    {% include 'surveys/includes/continue_survey_banner.html' %}
+    {% endif %}
+
     <!-- Quick Stats -->
     <div class="row mb-4">
         <div class="col-md-6 col-xl-3 mb-3">
@@ -267,7 +277,7 @@
                     {% if available_surveys_list %}
                         <div class="list-group list-group-flush">
                             {% for survey in available_surveys_list %}
-                                <a href="{% url 'surveys:take_survey' survey.id %}" 
+                                <a href="{% url 'surveys:survey_detail' survey.id %}" 
                                    class="list-group-item list-group-item-action border-0 px-0">
                                     <div class="d-flex w-100 justify-content-between">
                                         <h6 class="mb-1">{{ survey.title }}</h6>

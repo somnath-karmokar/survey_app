@@ -95,6 +95,7 @@
                   </td>
                   <td style="padding:14px 20px;border-bottom:1px solid #e9ecef;color:#212529;">
                     {{ withdrawal.get_payment_method_display }}
+                    {% if withdrawal.is_donation %}<br><span style="color:#146c43;">{{ withdrawal.charity }}: {{ withdrawal.amount_display }} + {{ withdrawal.charity_bonus_display }} from Sudraw = {{ withdrawal.charity_total_display }}</span>{% endif %}
                   </td>
                 </tr>
                 <tr>

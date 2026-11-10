@@ -354,7 +354,9 @@ MilestoneAchievement
 - Custom admin site: `SurveyAdminSite` registered in `surveys/admin.py`
 - Custom branding via `templates/admin/base_site.html`
 - Custom CSS: `static/admin/css/sudraw_admin.css` (flexbox layout, cross-browser)
-- Grappelli is installed but the custom site bypasses Grappelli styling on `/admin/`
+- Grappelli is listed before `django.contrib.admin`, so `/admin/` uses **Grappelli's templates and page structure** (`#grp-header`, `#grp-content`, `.grp-module`, `#grp-changelist`, `footer.grp-submit-row`); `sudraw_admin.css` restyles them
+- Admin home (`templates/admin/index.html`): key figures, latest completed surveys and models grouped into sections — data from `surveys/admin_dashboard.py` via `SurveyAdminSite.index()`
+- Survey responses (`SurveyResponseAdmin`): who / country / category / status / progress / time taken (`time_spent_seconds`) / reward, status-country-category filters, CSV export; the change page is a read-only report (`templates/admin/surveys/surveyresponse/report.html`) of every question and answer
 
 ### Key admin customisations
 
@@ -368,12 +370,7 @@ MilestoneAchievement
 | `Country` | `populate_countries` action from django-countries |
 
 ### Admin CSS layout notes
-The filter sidebar (`.#content-related`) and main list (`#content-main`) use **flexbox** layout defined in `sudraw_admin.css`. Do not add `float` or `width: 100%` to `#content-main` — that breaks the filter panel. Key rules:
-```css
-#content          { display: flex; flex-wrap: wrap; align-items: flex-start; }
-#content-main     { flex: 1 1 0%; min-width: 0; }
-#content-related  { flex: 0 0 210px; position: sticky; top: 16px; }
-```
+`sudraw_admin.css` is a theme on top of **Grappelli** (deep-navy header, white cards, indigo accent; `--sd-*` variables in `:root`). Grappelli's own CSS uses specific selectors and `!important`, so overrides often need matching specificity (e.g. `footer.grp-submit-row.grp-fixed-footer > div > div` for the save-button wrappers). Filters are Grappelli's "Filter" pulldown, not a sidebar. Shared classes for admin columns/templates: `.sd-badge(-success|-warning|-danger|-muted|-info)`, `.sd-sub` (grey second line), `.sd-progress`, `.sd-card`, `.sd-btn`. Check visual changes with screenshots; `#grp-content` top padding clears the fixed header.
 
 ---
 
@@ -482,7 +479,6 @@ lxml==6.0.2
 - `current_lucky_number` must not appear in the template context or JavaScript source
 
 ### CSS rules (do not break)
-- Admin `#content-main` must not have `width: 100%` or `float` — it will break the filter sidebar
 - All admin cards use `overflow: visible` (not `overflow: hidden`) so date-picker popups are not clipped
 - `box-sizing: border-box` is set globally via `*, *::before, *::after`
 

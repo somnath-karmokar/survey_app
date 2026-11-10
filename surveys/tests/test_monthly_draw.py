@@ -16,10 +16,11 @@ from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.management import call_command
 from django.test import TestCase, override_settings
+from django.db.models import Sum
 from django.urls import reverse
 from django.utils import timezone
 
-from surveys.lucky_draw import QUICK_DRAW_NUDGE, LuckyDrawView
+from surveys.lucky_draw import LuckyDrawView, quick_draw_nudge_text
 from surveys.models import (
     Country, CountryLuckyDrawConfig, LuckyDrawEntry, MonthlyDrawNumbers, MonthlyDrawSettlement, Survey, SurveyCategory,
     SurveyResponse, UserSurveyProgress, WalletTransaction,
@@ -31,7 +32,12 @@ QUICK = LuckyDrawEntry.DRAW_TYPE_SURVEY
 DRAW_CONFIG = {
     **settings.LUCKY_DRAW_CONFIG,
     'SURVEYS_REQUIRED': 2,
+    # The Quick draw counts survey questions answered (30 per play in production).
+    # These tests count one completed survey as one answered question (see
+    # DrawTestCase.setUp), so 2 here keeps "every 2 surveys = 1 Quick play".
+    'QUESTIONS_REQUIRED': 2,
     'POLLS_REQUIRED': 5,
+    'MONTHLY_DRAW_ENABLED': True,          # switched off in settings.py; these tests cover the draw itself
     'MONTHLY_SURVEYS_REQUIRED': 100,
     # Neutralised here so the tests above don't have to think about it; the
     # dedicated MonthlyDrawQuorumTests below turns it back on.
@@ -57,6 +63,9 @@ class DrawTestCase(TestCase):
     def setUp(self):
         super().setUp()
         self._mock_now = mock.patch('django.utils.timezone.now', return_value=self.NOW).start()
+        mock.patch('surveys.survey_progress.survey_questions_answered', side_effect=lambda user: (
+            UserSurveyProgress.objects.filter(user=user).aggregate(t=Sum('completed_count'))['t'] or 0
+        )).start()
         self.addCleanup(mock.patch.stopall)
 
     def freeze(self, when):
@@ -269,11 +278,11 @@ class SeparateFromQuickDrawTests(DrawTestCase):
         self.assertTrue(self.status(self.make_user(self.us, 100))['monthly_open'])
 
     def test_nudge_is_about_the_quick_draw_even_when_monthly_attempts_are_held(self):
-        with override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'SURVEYS_REQUIRED': 101}):
+        with override_settings(LUCKY_DRAW_CONFIG={**DRAW_CONFIG, 'QUESTIONS_REQUIRED': 101}):
             user = self.make_user(self.uk, 100)                     # 1 Monthly attempt, 1 short of Quick
 
             self.assertTrue(self.status(user)['user_eligible'])      # eligible (Monthly)...
-            self.assertEqual(LuckyDrawView().quick_draw_nudge(user), QUICK_DRAW_NUDGE)   # ...but not for Quick
+            self.assertEqual(LuckyDrawView().quick_draw_nudge(user), quick_draw_nudge_text(1))   # ...but not for Quick
 
 
 class MonthlyPrizeTests(DrawTestCase):
@@ -652,7 +661,7 @@ class NoDrawAvailablePageTests(DrawTestCase):
         self.assertNotContains(page, 'class="number-box')
         self.assertNotContains(page, 'id="number-grid"')
         self.assertNotContains(page, 'TESTING MODE')
-        self.assertContains(page, 'You need to complete 2 surveys')     # the explanation is still shown
+        self.assertContains(page, 'Answer 2 survey questions')     # the explanation is still shown
 
     def test_board_shown_when_a_draw_is_available(self):
         self.client.force_login(self.make_user(self.uk, 2))

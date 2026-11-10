@@ -126,7 +126,7 @@ class SearchView(TemplateView):
             results.append({
                 'type': 'Survey',
                 'title': survey.name,
-                'description': survey.description or f'{survey.category.name} - Level {survey.level}',
+                'description': survey.description or survey.category.name,
                 'url': reverse('surveys:survey_detail', kwargs={'survey_id': survey.id}),
             })
 
@@ -297,7 +297,7 @@ class CustomLoginView(BaseLoginView):
                     return JsonResponse({
                         'success': True,
                         'message': 'Login successful!',
-                        'redirect': next_url or reverse_lazy('surveys:dashboard')
+                        'redirect': next_url or self.get_success_url()
                     })
                 
                 # Get the next URL from POST or GET
@@ -391,6 +391,17 @@ class CustomLoginView(BaseLoginView):
         return self.render_to_response(self.get_context_data(form=form))
     
     def get_success_url(self):
+        """Back into an unfinished survey if there is one (it resumes where they left off), else the dashboard."""
+        user = self.request.user
+        if user.is_authenticated:
+            from .survey_progress import open_response
+            profile = getattr(user, 'profile', None)
+            unfinished = open_response(user)
+            if unfinished is not None and not (profile and profile.is_suspended):
+                messages.info(self.request, (
+                    f"You're continuing your {unfinished.survey.category.name} survey where you left off."
+                ))
+                return reverse_lazy('surveys:survey_detail', kwargs={'survey_id': unfinished.survey_id})
         return reverse_lazy('surveys:dashboard')
     
     def get_context_data(self, **kwargs):
@@ -522,6 +533,10 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             'monthly_draw_stats': monthly_draw_stats,
         })
 
+        from .survey_progress import open_survey_summary
+        context['open_survey'] = open_survey_summary(user)
+        context['suspended_until'] = profile.suspended_until if profile.is_suspended else None
+        context['suspension_message'] = UserProfile.SUSPENSION_MESSAGE
         return context
 
 
@@ -556,7 +571,8 @@ class WalletWithdrawalRequestView(LoginRequiredMixin, CreateView):
     template_name = 'frontend/wallet_withdrawal_form.html'
     login_url = 'surveys:login'
 
-    MINIMUM_WITHDRAWAL_BALANCE = Decimal('5.00')
+    # Users can only withdraw once their wallet reaches 10 (in their wallet currency).
+    MINIMUM_WITHDRAWAL_BALANCE = Decimal('10.00')
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -566,7 +582,7 @@ class WalletWithdrawalRequestView(LoginRequiredMixin, CreateView):
             symbol = profile.wallet_currency_symbol
             messages.warning(
                 request,
-                f'You need at least {symbol}5.00 in your wallet to request a withdrawal. '
+                f'You need at least {symbol}{self.MINIMUM_WITHDRAWAL_BALANCE:.2f} in your wallet to request a withdrawal. '
                 f'Your current balance is {profile.wallet_display}.'
             )
             return redirect(reverse_lazy('surveys:wallet_history'))
@@ -601,6 +617,15 @@ class WalletWithdrawalRequestView(LoginRequiredMixin, CreateView):
             'active_page': 'wallet',
             'lucky_draw_eligible': LuckyDrawView().is_eligible(self.request.user),
         })
+        from .models import Charity, charity_bonus_percent
+        percent = charity_bonus_percent()
+        bonus_on_ten = (Decimal('10') * percent / Decimal('100')).quantize(Decimal('0.01'))
+        context.update({
+            'charity_available': Charity.objects.filter(is_active=True).exists(),
+            'charity_bonus_percent': (int(percent) if percent == int(percent) else percent),
+            'charity_example_bonus': f'{bonus_on_ten:.2f}',
+            'charity_example_total': f'{Decimal("10") + bonus_on_ten:.2f}',
+        })
         return context
 
     def form_valid(self, form):
@@ -609,7 +634,14 @@ class WalletWithdrawalRequestView(LoginRequiredMixin, CreateView):
             send_withdrawal_request_admin_notification(self.object)
         except Exception:
             logger.exception('Failed to send withdrawal request admin email for request %s', self.object.pk)
-        messages.success(self.request, 'Your withdrawal request has been submitted for admin approval.')
+        if self.object.is_donation:
+            messages.success(self.request, (
+                f'Thank you! Your donation of {self.object.amount_display} to {self.object.charity} has been '
+                f'submitted. Sudraw adds {self.object.charity_bonus_display}, so the charity will receive '
+                f'{self.object.charity_total_display} once it is approved.'
+            ))
+        else:
+            messages.success(self.request, 'Your withdrawal request has been submitted for admin approval.')
         return response
 
     def get_success_url(self):
@@ -621,6 +653,10 @@ class HomePageView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        from .models import charity_bonus_percent
+        percent = charity_bonus_percent()
+        context['charity_bonus_percent'] = (int(percent) if percent == int(percent) else percent)
+        context['charity_example_total'] = f'{Decimal("10") + Decimal("10") * percent / Decimal("100"):.0f}'
 
         categories = SurveyCategory.objects.filter(
             surveys__is_active=True,

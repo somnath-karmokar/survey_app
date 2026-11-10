@@ -6,7 +6,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from .models import (
     Country, Choice, SurveyResponse, Answer, LuckyDrawEntry, UserProfile,
-    Question, PollResponse, PollAnswer, WalletWithdrawalRequest
+    Question, PollResponse, PollAnswer, WalletWithdrawalRequest, Charity
 )
 from django.contrib.auth.forms import UserChangeForm
 from django.contrib.auth import get_user_model
@@ -60,7 +60,7 @@ class WalletWithdrawalRequestForm(forms.ModelForm):
             'paypal_email', 'bank_account_name', 'bank_name', 'bank_account_number',
             'routing_number', 'sort_code', 'iban', 'nuban_number',
             'transit_number', 'institution_number', 'gift_card_brand',
-            'gift_card_email', 'notes'
+            'gift_card_email', 'charity', 'notes'
         )
         widgets = {
             # inputmode gives phones a numeric keypad; data-format/-label/-length
@@ -83,6 +83,7 @@ class WalletWithdrawalRequestForm(forms.ModelForm):
             'institution_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '3 digit institution number', 'inputmode': 'numeric', 'title': '3 digits', 'data-format': 'digits', 'data-label': 'Institution number', 'data-length': '3'}),
             'gift_card_brand': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Amazon, Flipkart, etc.'}),
             'gift_card_email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email for gift card delivery'}),
+            'charity': forms.Select(attrs={'class': 'form-select', 'data-charity-select': 'true'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Optional notes for admin'}),
         }
 
@@ -98,11 +99,22 @@ class WalletWithdrawalRequestForm(forms.ModelForm):
         if self.profile.country_id:
             self.fields['country'].initial = self.profile.country_id
 
+        # Donating to charity: offered whenever there is an active charity to choose.
+        charities = Charity.objects.filter(is_active=True)
+        self.fields['charity'].queryset = charities
+        self.fields['charity'].empty_label = 'Select a charity'
+        self.fields['charity'].required = False
+        self.charity_available = charities.exists()
+        method_choices = [c for c in WalletWithdrawalRequest.PAYMENT_METHOD_CHOICES
+                          if self.charity_available or c[0] != WalletWithdrawalRequest.PAYMENT_METHOD_CHARITY]
+
         if self.is_first_withdrawal:
+            # The first withdrawal can only go into a bank account (donations from the second on).
             self.fields['payment_method'].choices = [
-                (WalletWithdrawalRequest.PAYMENT_METHOD_BANK, 'Direct Bank Transfer'),
-            ]
+                c for c in method_choices if c[0] == WalletWithdrawalRequest.PAYMENT_METHOD_BANK]
             self.fields['payment_method'].initial = WalletWithdrawalRequest.PAYMENT_METHOD_BANK
+        else:
+            self.fields['payment_method'].choices = [('', 'Select payment method')] + method_choices
 
         for field in self.fields.values():
             field.widget.attrs.setdefault('class', 'form-control')
@@ -166,7 +178,13 @@ class WalletWithdrawalRequestForm(forms.ModelForm):
         payment_method = cleaned_data.get('payment_method')
 
         if self.is_first_withdrawal and payment_method != WalletWithdrawalRequest.PAYMENT_METHOD_BANK:
-            self.add_error('payment_method', 'Your first withdrawal must be via bank transfer.')
+            self.add_error('payment_method', 'Your first withdrawal must be into a bank account.')
+
+        if payment_method == WalletWithdrawalRequest.PAYMENT_METHOD_CHARITY:
+            if not cleaned_data.get('charity'):
+                self.add_error('charity', 'Please choose the charity to donate to.')
+        else:
+            cleaned_data['charity'] = None
 
         country = cleaned_data.get('country')
         country_code = str(getattr(country, 'code', '') or '').upper()
@@ -209,6 +227,7 @@ class WalletWithdrawalRequestForm(forms.ModelForm):
         request.profile = self.profile
         request.currency_code = self.profile.wallet_currency_code
         request.currency_symbol = self.profile.wallet_currency_symbol
+        request.set_charity_bonus()          # donation: Sudraw adds 20% (10 -> charity gets 12)
         if commit:
             request.save()
         return request
@@ -553,6 +572,7 @@ class EditProfileForm(forms.ModelForm):
 
 class SurveyResponseForm(forms.Form):
     OTHER_CHOICE_VALUE = '__other__'
+    OTHER_LABEL = 'Other (please specify)'
 
     def __init__(self, *args, **kwargs):
         self.survey = kwargs.pop('survey', None)
@@ -578,8 +598,15 @@ class SurveyResponseForm(forms.Form):
                 help_text=help_text
             )
         elif question.question_type == 'single_choice':
-            choices = [(str(c.id), c.choice_text) for c in question.choices.all()]
-            choices.append((self.OTHER_CHOICE_VALUE, 'Other'))
+            options = list(question.choices.all())
+            screening = any(c.is_disqualifying for c in options)
+            # Every question offers "Other"; a screening question only when its
+            # document gives a "not listed - type yours" (green) line.
+            # Screening questions get a type-your-own box instead (see add_not_listed_field).
+            allow_other = not screening
+            choices = [(str(c.id), c.choice_text) for c in options]
+            if allow_other:
+                choices.append((self.OTHER_CHOICE_VALUE, self.other_choice_label(question, screening)))
             self.fields[field_name] = forms.ChoiceField(
                 label=question.question_text,
                 required=question.is_required,
@@ -587,18 +614,29 @@ class SurveyResponseForm(forms.Form):
                 widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
                 help_text=help_text
             )
-            self.add_other_text_field(question, field_name)
+            if allow_other:
+                self.add_other_text_field(question, field_name)
         elif question.question_type == 'multiple_choice':
-            choices = [(str(c.id), c.choice_text) for c in question.choices.all()]
-            choices.append((self.OTHER_CHOICE_VALUE, 'Other'))
+            options = list(question.choices.all())
+            screening = any(c.is_disqualifying for c in options)
+            # Every question offers "Other (please specify)", except screening questions,
+            # which get an always-visible type-your-own box instead (add_not_listed_field).
+            allow_other = not screening
+            choices = [(str(c.id), c.choice_text) for c in options]
+            if allow_other:
+                choices.append((self.OTHER_CHOICE_VALUE, self.OTHER_LABEL))
             self.fields[field_name] = forms.MultipleChoiceField(
                 label=question.question_text,
-                required=question.is_required,
+                # With a type-your-own box, ticking nothing is fine if something is typed (see clean).
+                required=question.is_required and not (screening and question.not_listed_label),
                 choices=choices,
                 widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
                 help_text=help_text
             )
-            self.add_other_text_field(question, field_name)
+            if allow_other:
+                self.add_other_text_field(question, field_name)
+            elif question.not_listed_label:
+                self.add_not_listed_field(question, field_name)
         elif question.question_type == 'rating':
             self.fields[field_name] = forms.IntegerField(
                 label=question.question_text,
@@ -612,14 +650,36 @@ class SurveyResponseForm(forms.Form):
         if field_name in self.fields:
             self.fields[field_name].question = question
 
+    def other_choice_label(self, question, screening):
+        return self.OTHER_LABEL
+
+    def add_not_listed_field(self, question, choice_field_name):
+        """Screening question: an always-visible box to type an answer that isn't listed."""
+        label = question.not_listed_label
+        field = forms.CharField(
+            label=f'Not listed? Type the name of the {label} you use',
+            required=False,
+            max_length=500,
+            widget=forms.TextInput(attrs={
+                'class': 'form-control not-listed-input',
+                'placeholder': f'e.g. your local {label}',
+                'autocomplete': 'off',
+            }),
+        )
+        field.question = question
+        field.not_listed = True
+        self.fields[f'{choice_field_name}_other'] = field
+
     def add_other_text_field(self, question, choice_field_name):
         other_field_name = f'{choice_field_name}_other'
+        label, placeholder = 'Please specify', 'Please specify'
         self.fields[other_field_name] = forms.CharField(
-            label='Other',
+            label=label,
             required=False,
+            max_length=500,
             widget=forms.TextInput(attrs={
                 'class': 'form-control other-answer-input',
-                'placeholder': 'Please specify',
+                'placeholder': placeholder,
                 'data_other_for': choice_field_name,
                 'data-other-for': choice_field_name,
                 'data_question_type': 'other_text',
@@ -647,7 +707,13 @@ class SurveyResponseForm(forms.Form):
                 other_selected = answer_value == self.OTHER_CHOICE_VALUE
 
             if other_selected and not other_text:
-                self.add_error(f'{field_name}_other', 'Please give value for Other.')
+                self.add_error(f'{field_name}_other', 'Please type your "Other" answer.')
+
+            # Screening question with a type-your-own box: tick an option or type one.
+            other_field = self.fields.get(f'{field_name}_other')
+            if (getattr(other_field, 'not_listed', False) and question.is_required
+                    and not answer_value and not other_text and field_name not in self.errors):
+                self.add_error(field_name, 'Please select at least one option, or type yours in the box below.')
 
         return cleaned_data
 

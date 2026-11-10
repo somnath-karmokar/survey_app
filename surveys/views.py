@@ -380,6 +380,10 @@ def user_profile(request):
         'surveys_required_for_draw': lucky_draw_context['surveys_required'],
         'polls_required_for_draw': lucky_draw_context['polls_required'],
         'monthly_draw_stats': monthly_draw_stats,
+        'suspension': user_profile.active_suspension,
+        'suspended_until': user_profile.suspended_until if user_profile.is_suspended else None,
+        'suspension_message': UserProfile.SUSPENSION_MESSAGE,
+        'suspension_history': list(user.survey_suspensions.all()[:10]),
     }
     return render(request, 'surveys/profile.html', context)
 
