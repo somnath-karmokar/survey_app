@@ -31,6 +31,13 @@
                     <h2 class="h4 mb-0">Lucky Draw</h2>
                 </div>
                 <div class="card-body">
+                    {% if suspended %}
+                    <div class="alert alert-danger" id="suspension-notice">
+                        <strong>{{ suspension_message }}</strong>
+                        <div class="small mt-1">You can take surveys and play draws again from {{ suspended_until|date:"j F Y, H:i" }}.</div>
+                    </div>
+                    {% endif %}
+                    {% include 'surveys/includes/continue_survey_banner.html' %}
                     {% if not user_eligible %}
                     <div class="alert {% if last_play_date %}alert-warning{% else %}alert-info{% endif %}">
                         <!-- <i class="fas {% if last_play_date %}fa-clock me-2{% else %}fa-info-circle me-2{% endif %}"></i> -->
@@ -38,14 +45,14 @@
                             <!-- You've already played the lucky draw. Complete {{ surveys_required }} more surveys to play again. -->
                             <div class="mt-2">
                                 <small class="text-muted">
-                                    You've completed {{ surveys_completed }} of {{ surveys_required }} required surveys or {{ polls_completed }} of {{ polls_required }} required polls since your last play.
+                                    You've answered {{ surveys_completed }} of {{ surveys_required }} survey questions or completed {{ polls_completed }} of {{ polls_required }} required polls since your last play.
                                 </small>
                             </div>
                         {% else %}
-                            You need to complete {{ surveys_required }} surveys or {{ polls_required }} polls to play the Quick draw.
+                            Answer {{ surveys_required }} survey questions or complete {{ polls_required }} poll{{ polls_required|pluralize }} to play the Quick draw.
                             <div class="mt-2">
                                 <small class="text-muted">
-                                    You've completed {{ surveys_completed }} of {{ surveys_required }} required surveys and {{ polls_completed }} of {{ polls_required }} required polls.
+                                    You've answered {{ surveys_completed }} of {{ surveys_required }} survey questions and completed {{ polls_completed }} of {{ polls_required }} required polls.
                                 </small>
                             </div>
                         {% endif %}
@@ -57,7 +64,7 @@
                                  aria-valuenow="{{ surveys_completed }}" 
                                  aria-valuemin="0" 
                                  aria-valuemax="{{ surveys_required }}">
-                                {{ surveys_completed }}/{{ surveys_required }}
+                                Questions {{ surveys_completed }}/{{ surveys_required }}
                             </div>
                         </div>
                         <div class="progress mt-2" style="height: 20px;">
@@ -96,7 +103,7 @@
                         <h3>Lucky Draw</h3>
                         {% if survey_eligible %}
                             <div class="alert alert-success mt-3 draw-message {% if selected_draw_type != 'survey' %}d-none{% endif %}" data-draw-type="survey">
-                                <p class="mb-2">You are eligible for the <strong>Quick draw</strong> &mdash; {{ survey_plays_available }} play{{ survey_plays_available|pluralize }} available from your completed surveys.</p>
+                                <p class="mb-2">You are eligible for the <strong>Quick draw</strong> &mdash; {{ survey_plays_available }} play{{ survey_plays_available|pluralize }} available (one for every {{ surveys_required }} survey questions answered).</p>
                                 <p class="mb-0">Quick draw prize: {{ prize_display }}</p>
                             </div>
                         {% endif %}

@@ -113,6 +113,8 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'surveys.context_processors.categories_processor',
                 'surveys.context_processors.bitlabs_processor',
+                'surveys.context_processors.suspension_processor',
+                'surveys.context_processors.open_survey_processor',
             ],
         },
     },
@@ -381,11 +383,28 @@ CORS_ALLOW_CREDENTIALS = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SURVEY_CONFIG = {
-    'DEFAULT_COOLDOWN_DAYS': 2,  # Default cooldown period in days
-    'AD_FREQUENCY': 4,  # Show ad after every 4 surveys
+    'DEFAULT_COOLDOWN_DAYS': 90,  # a completed survey can't be taken again for 90 days
+    'AD_FREQUENCY': 5,  # show a commercial after every 5 survey questions (screening not counted)
     # Max surveys a user can complete per calendar month (UTC). Applies to every
     # user, retakes included. Set to None (or 0) to remove the limit.
     'MONTHLY_SURVEY_CAP': 10, #for test make it 10, for production set it to 200
+    'SURVEY_PARTS': 8,  # each category's survey is shown as this many equal parts
+    # Added to the wallet for every completed category (all 120 questions). Per country in the
+    # admin (Lucky draw configs -> Category completion reward); Nigeria is set to 1.00.
+    'CATEGORY_COMPLETION_REWARD': '2.00',
+    'CATEGORY_COMPLETION_REWARD_BY_COUNTRY': {'NG': '1.00'},  # used when the country has no config value
+    # Each category collects at most this many completed responses ("samples") per country.
+    # Set per country in the admin (Lucky draw configs -> Category sample cap; empty = unlimited).
+    # These two values apply only to countries without a config. Subject to change.
+    'CATEGORY_SAMPLE_CAP': 10,
+    'CATEGORY_SAMPLE_CAP_EXEMPT': ['NG'],  # Nigeria: unlimited
+    # Answers more than this many minutes apart count as separate attempts (admin timing report).
+    'ATTEMPT_GAP_MINUTES': 30,
+}
+
+# Donating a withdrawal to charity: Sudraw adds this % on top (10 donated -> charity gets 12).
+CHARITY_CONFIG = {
+    'BONUS_PERCENT': 20,
 }
 
 # BitLabs (bitlabs.ai) offerwall widget — shown in the advertisement modal
@@ -396,11 +415,15 @@ LUCKY_DRAW_CONFIG = {
     # the survey "Thank you" message nudges users who are one survey away.
     # Surplus carries over.
     'SURVEYS_REQUIRED': 2,
+    'QUESTIONS_REQUIRED': 30,  # Quick draw: one play per 30 survey questions answered (4 per 120-question category)
     'POLLS_REQUIRED': 1,  # Number of completed polls required to play the lucky draw
     # Monthly draw (a separate draw on the same page): 100 surveys = 1 attempt,
     # 200 = 2, and so on; surplus carries over. With the 200-surveys-a-month cap
     # (SURVEY_CONFIG) that is at most 2 new attempts a month. Prize, winner cap
     # and which countries take part are set per country in CountryLuckyDrawConfig.
+    # The Monthly draw is switched off: no Monthly tab, cards, attempts, payouts or admin pages.
+    # Its data is kept; set True to bring it back.
+    'MONTHLY_DRAW_ENABLED': False,
     'MONTHLY_SURVEYS_REQUIRED': 5, #5 for test and 100 for prod
     # Per country, at least this many people must newly cross a
     # MONTHLY_SURVEYS_REQUIRED-survey milestone during the current calendar

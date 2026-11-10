@@ -511,6 +511,119 @@
         border-color: #f3c7c3;
     }
 
+    .sp-eyebrow-suspended {
+        color: #fff;
+        background: rgba(201, 50, 40, 0.9);
+        padding: 4px 10px;
+        border-radius: 999px;
+    }
+
+    .sp-suspension {
+        border: 1px solid #f3c7c3;
+        border-left: 5px solid var(--sp-danger);
+        overflow: visible;
+    }
+
+    .sp-suspension-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 20px 22px;
+        border-bottom: 1px solid #f7d9d6;
+        background: #fff7f6;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .sp-suspension-icon {
+        flex: 0 0 44px;
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        background: var(--sp-danger);
+        font-size: 18px;
+    }
+
+    .sp-suspension-title {
+        margin: 0 0 4px;
+        color: var(--sp-danger);
+        font-size: 18px;
+        font-weight: 800;
+    }
+
+    .sp-suspension-sub,
+    .sp-suspension-text {
+        margin: 0 0 10px;
+        color: #3b4650;
+        font-size: 14px;
+        line-height: 1.55;
+    }
+
+    .sp-suspension-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+        gap: 0;
+    }
+
+    .sp-suspension-block {
+        min-width: 0;
+        padding: 18px 22px;
+    }
+
+    .sp-suspension-block + .sp-suspension-block {
+        border-left: 1px solid var(--sp-line);
+    }
+
+    .sp-untruthful {
+        color: var(--sp-danger);
+    }
+
+    .sp-suspension-facts {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        gap: 6px 14px;
+        margin: 12px 0 0;
+        font-size: 13px;
+    }
+
+    .sp-suspension-facts dt {
+        color: var(--sp-muted);
+        font-weight: 600;
+    }
+
+    .sp-suspension-facts dd {
+        margin: 0;
+        color: #1f2a33;
+        overflow-wrap: anywhere;
+    }
+
+    .sp-suspension-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        font-size: 14px;
+    }
+
+    .sp-suspension-list li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 3px 0;
+    }
+
+    .sp-suspension-list li.no i { color: var(--sp-danger); width: 16px; }
+    .sp-suspension-list li.yes i { color: #198754; width: 16px; }
+
+    @media (max-width: 767.98px) {
+        .sp-suspension-grid { grid-template-columns: minmax(0, 1fr); }
+        .sp-suspension-block + .sp-suspension-block { border-left: 0; border-top: 1px solid var(--sp-line); }
+        .sp-suspension-facts { grid-template-columns: minmax(0, 1fr); }
+        .sp-suspension-facts dd { margin-bottom: 6px; }
+    }
+
     .sp-danger .sp-section-head {
         border-bottom-color: #f7d9d6;
         background: #fffafa;
@@ -618,10 +731,17 @@
             </div>
 
             <div class="sp-heading">
+                {% if suspended_until %}
+                <div class="sp-eyebrow sp-eyebrow-suspended">
+                    <i class="fas fa-ban"></i>
+                    Suspended until {{ suspended_until|date:"j M Y, H:i" }}
+                </div>
+                {% else %}
                 <div class="sp-eyebrow">
                     <i class="fas fa-circle-check"></i>
                     Active account
                 </div>
+                {% endif %}
                 <h2 class="sp-name" id="profile-heading">{{ user.get_full_name|default:user.username }}</h2>
                 <div class="sp-subline">
                     <span class="sp-pill"><i class="far fa-calendar"></i>Joined {{ user.date_joined|date:"F Y" }}</span>
@@ -659,6 +779,61 @@
             </div>
         </aside>
     </div>
+
+    {% if suspended_until %}
+    <section class="sp-card sp-suspension" id="suspension-details" aria-labelledby="suspension-heading">
+        <div class="sp-suspension-head">
+            <span class="sp-suspension-icon" aria-hidden="true"><i class="fas fa-user-lock"></i></span>
+            <div>
+                <h3 class="sp-suspension-title" id="suspension-heading">{{ suspension_message }}</h3>
+                <p class="sp-suspension-sub">
+                    Surveys and draws are paused until <strong>{{ suspended_until|date:"l j F Y, H:i" }}</strong>
+                    ({{ suspended_until|timeuntil }} left).
+                </p>
+            </div>
+        </div>
+
+        <div class="sp-suspension-grid">
+            <div class="sp-suspension-block">
+                <p class="sp-label">Why this happened</p>
+                {% if suspension %}
+                <p class="sp-suspension-text">
+                    In the screening question of the <strong>{{ suspension.category_name }}</strong> survey you selected
+                    {% for option in suspension.untruthful_list %}<strong class="sp-untruthful">&ldquo;{{ option }}&rdquo;</strong>{% if not forloop.last %}, {% endif %}{% endfor %}.
+                    {% if suspension.untruthful_list|length > 1 %}These are not genuine answers{% else %}This is not a genuine answer{% endif %}
+                    to that question, so the survey was ended and your answers were not saved.
+                </p>
+                <dl class="sp-suspension-facts">
+                    <dt>Question</dt>
+                    <dd>{{ suspension.question_text|linebreaksbr }}</dd>
+                    <dt>Your selection</dt>
+                    <dd>{{ suspension.selected_list|join:", " }}</dd>
+                    <dt>Suspended on</dt>
+                    <dd>{{ suspension.suspended_at|date:"j F Y, H:i" }}</dd>
+                    <dt>Suspension ends</dt>
+                    <dd>{{ suspension.suspended_until|date:"j F Y, H:i" }}</dd>
+                </dl>
+                {% else %}
+                <p class="sp-suspension-text">An untruthful answer was given in a survey screening question.</p>
+                {% endif %}
+            </div>
+
+            <div class="sp-suspension-block">
+                <p class="sp-label">While suspended</p>
+                <ul class="sp-suspension-list">
+                    <li class="no"><i class="fas fa-xmark"></i> Start or continue surveys</li>
+                    <li class="no"><i class="fas fa-xmark"></i> Play the Quick or Poll draw</li>
+                    <li class="yes"><i class="fas fa-check"></i> Log in and view your profile</li>
+                    <li class="yes"><i class="fas fa-check"></i> View your wallet and request withdrawals</li>
+                </ul>
+                <p class="sp-label mt-3">Next time</p>
+                <p class="sp-suspension-text">Only tick the options that are true for you. If yours isn't listed, choose
+                    &ldquo;Not listed&rdquo; and type it in. Everything unlocks automatically when the suspension ends.</p>
+                <p class="sp-suspension-text mb-0">Think this is a mistake? <a href="{% url 'surveys:contact' %}">Contact us</a>.</p>
+            </div>
+        </div>
+    </section>
+    {% endif %}
 
     <section class="sp-metrics" aria-label="Profile statistics">
         <article class="sp-card sp-metric">

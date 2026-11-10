@@ -109,6 +109,165 @@
     .question-card {
         -webkit-touch-callout: none;
     }
+    .survey-parts {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 0.75rem;
+    }
+    .survey-parts .part-step {
+        flex: 1 1 0%;
+        min-width: 0;
+        text-align: center;
+        font-size: 0.75rem;
+        padding: 0.3rem 0;
+        border-radius: 0.25rem;
+        background: #e9ecef;
+        color: #6c757d;
+        white-space: nowrap;
+    }
+    .survey-parts .part-step.done { background: #198754; color: #fff; }
+    .survey-parts .part-step.current { background: #0d6efd; color: #fff; font-weight: 600; }
+    .survey-timer {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+    }
+    @media (max-width: 575.98px) {
+        .survey-parts .part-step .part-word { display: none; }
+    }
+    /* Screening Gate */
+    .screening-gate {
+        border: 1px solid #dbe3ec;
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        background: #fff;
+        box-shadow: 0 10px 28px rgba(15, 35, 60, 0.07);
+        margin-bottom: 1.5rem;
+    }
+    .sg-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .sg-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        background: #0b3d5c;
+        color: #fff;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+    }
+    .sg-step {
+        color: #6c757d;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .sg-question {
+        font-size: 1.3rem;
+        line-height: 1.4;
+        font-weight: 700;
+        color: #1f2937;
+        margin: 0 0 0.35rem;
+    }
+    .sg-hint {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+    .sg-honesty {
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+        padding: 0.85rem 1rem;
+        margin-bottom: 1.25rem;
+        border-radius: 0.5rem;
+        background: #f1f6fb;
+        border: 1px solid #d6e4f2;
+        color: #29435c;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+    .sg-honesty > i { color: #0d6efd; margin-top: 0.2rem; }
+    .sg-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 0.75rem;
+    }
+    .sg-option {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-width: 0;
+        margin: 0;
+        padding: 0.85rem 1rem;
+        border: 1.5px solid #d9e1ea;
+        border-radius: 0.6rem;
+        background: #fff;
+        cursor: pointer;
+        transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    .sg-option:hover { border-color: #8db4e2; background: #f8fbff; }
+    .sg-option input {
+        position: absolute;
+        opacity: 0;
+        width: 1px;
+        height: 1px;
+        margin: 0;
+    }
+    .sg-tick {
+        flex: 0 0 22px;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        border: 2px solid #b5c2d0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: transparent;
+        font-size: 0.7rem;
+        background: #fff;
+    }
+    .sg-option-text {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        color: #1f2937;
+        font-weight: 500;
+    }
+    .sg-option input:focus-visible ~ .sg-tick { box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.3); }
+    .sg-option input:checked ~ .sg-tick { background: #0d6efd; border-color: #0d6efd; color: #fff; }
+    .sg-option.is-checked { border-color: #0d6efd; background: #eef5ff; box-shadow: 0 0 0 1px #0d6efd inset; }
+    .sg-not-listed {
+        margin-top: 1rem;
+        padding: 0.85rem;
+        border: 1.5px dashed #9fd3ae;
+        border-radius: 0.6rem;
+        background: #f3fbf5;
+    }
+    .sg-not-listed-label {
+        display: block;
+        margin-bottom: 0.4rem;
+        color: #146c43;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+    .sg-not-listed .form-control { border: 1.5px solid #75c191; color: #146c43; margin-top: 0; background: #fff; }
+    .sg-not-listed .form-control::placeholder { color: #5fa97a; }
+    .sg-not-listed .form-control:focus { border-color: #198754; box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.2); }
+    .sg-not-listed-help { display: block; margin-top: 0.35rem; color: #4f7a5e; font-size: 0.8rem; }
+    @media (max-width: 575.98px) {
+        .screening-gate { padding: 1rem; }
+        .sg-question { font-size: 1.1rem; }
+        .sg-options { grid-template-columns: minmax(0, 1fr); }
+    }
 </style>
 {% endblock %}
 
@@ -127,6 +286,26 @@
                 </ol>
             </nav>
 
+            <!-- Parts (the survey is answered in {{ parts_total }} parts) -->
+            <div class="survey-parts" aria-label="Survey parts">
+                {% for n in part_range %}
+                <div class="part-step{% if part and n < part %} done{% elif n == part %} current{% endif %}">
+                    <span class="part-word">Part </span>{{ n }}
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if quick_draw.plays %}
+            <div class="alert alert-success d-flex flex-wrap align-items-center justify-content-between gap-2" id="quick-draw-unlocked">
+                <span><i class="fas fa-gift me-1"></i> You've unlocked {{ quick_draw.plays }} Quick draw play{{ quick_draw.plays|pluralize }}! Your survey answers are saved.</span>
+                <a href="{% url 'surveys:lucky_draw' %}" class="btn btn-sm btn-success">Play Quick draw</a>
+            </div>
+            {% elif quick_draw and not quick_draw.suspended %}
+            <p class="small text-muted mb-2" id="quick-draw-progress">
+                <i class="fas fa-gift me-1"></i> {{ quick_draw.remaining }} more question{{ quick_draw.remaining|pluralize }} to your next Quick draw play.
+            </p>
+            {% endif %}
+
             <!-- Progress Bar -->
             <div class="progress">
                 <div class="progress-bar" role="progressbar" 
@@ -142,19 +321,76 @@
                 <div class="card-header">
                     <span class="badge bg-secondary mb-2"><i class="fas fa-folder-open me-1"></i>{{ survey.category.name }}</span>
                     <h1 class="h4 mb-0">{{ survey.name }}</h1>
-                    <p class="mb-0 text-muted">Question {{ question_index|add:1 }} of {{ total_questions }}</p>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <p class="mb-0 text-muted">
+                            {% if part %}Part {{ part }} of {{ parts_total }} &middot; Question {{ part_question_number }} of {{ part_question_total }}{% else %}Screening question{% endif %}
+                            <span class="d-none d-sm-inline">&middot; {{ question_index|add:1 }} / {{ total_questions }} overall</span>
+                        </p>
+                        <span class="badge bg-light text-dark border" title="Time taken">
+                            <i class="fas fa-stopwatch me-1"></i><span class="survey-timer" id="survey-timer" data-start="{{ time_spent_seconds }}">00:00</span>
+                        </span>
+                    </div>
                 </div>
                 
                 <div class="card-body">
                     <form method="post" id="survey-form" action="{% url 'surveys:survey_question' survey.id question_index %}">
                         {% csrf_token %}
                         <input type="hidden" name="current_question_id" value="{{ current_question.id }}">
+                        <input type="hidden" name="elapsed_seconds" id="elapsed-seconds" value="0">
                         
+                        {% if screening_field %}
+                        <div class="screening-gate" id="screening-gate">
+                            <div class="sg-head">
+                                <span class="sg-badge"><i class="fas fa-shield-halved me-1"></i>Screening Gate</span>
+                                <span class="sg-step">Mandatory &middot; before Part 1</span>
+                            </div>
+                            <h2 class="sg-question">{{ current_question.question_text|linebreaksbr }}</h2>
+                            <p class="sg-hint"><i class="far fa-square-check me-1"></i>Select all that apply.</p>
+
+                            <div class="sg-honesty" role="note">
+                                <i class="fas fa-circle-info"></i>
+                                <div>
+                                    <strong>Please answer honestly.</strong>
+                                    This check makes sure the survey is relevant to you. Answers that are not genuine
+                                    end the survey and suspend your account from surveys and draws for 7 days.
+                                </div>
+                            </div>
+
+                            <div class="sg-options" role="group" aria-label="Answer options">
+                                {% for option in screening_field %}
+                                    {% if option.data.value != '__other__' %}
+                                    <label class="sg-option" for="{{ option.id_for_label }}">
+                                        {{ option.tag }}
+                                        <span class="sg-tick" aria-hidden="true"><i class="fas fa-check"></i></span>
+                                        <span class="sg-option-text">{{ option.choice_label }}</span>
+                                    </label>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+
+                            {% if screening_other_field %}
+                            <div class="sg-not-listed" id="screening-not-listed">
+                                <label class="sg-not-listed-label" for="{{ screening_other_field.id_for_label }}">
+                                    <i class="fas fa-pen me-1"></i>{{ screening_other_field.label }}
+                                </label>
+                                {{ screening_other_field }}
+                                <small class="sg-not-listed-help">Optional &mdash; you can tick options above, type yours here, or both.</small>
+                                {% if screening_other_field.errors %}
+                                <div class="invalid-feedback">{{ screening_other_field.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+
+                            {% if screening_field.errors %}
+                            <div class="invalid-feedback mt-2">{{ screening_field.errors|join:", " }}</div>
+                            {% endif %}
+                        </div>
+                        {% else %}
                         <div class="question-card">
                             <div class="question-header">
                                 <h4 class="question-title{% if current_question.is_required %} question-required{% endif %}">
-                                    <span class="question-number">Q{{ question_index|add:1 }}.</span>
-                                    <span class="question-text">{{ current_question.question_text }}</span>
+                                    <span class="question-number">{% if part %}Q{{ question_number }}.{% else %}S1.{% endif %}</span>
+                                    <span class="question-text">{{ current_question.question_text|linebreaksbr }}</span>
                                 </h4>
                                 {% if form.fields|get_item:field_name|get_help_text %}
                                     <div class="question-help-text">
@@ -204,6 +440,7 @@
                                 {% endfor %}
                             </div>
                         </div>
+                        {% endif %}
 
                         <div class="navigation-buttons">
                             <div>
@@ -215,7 +452,11 @@
                                 {% endif %}
                             </div>
                             <div>
-                                {% if not is_last_question %}
+                                {% if screening_field %}
+                                    <button type="submit" class="btn btn-primary">
+                                        Continue to Part 1 &rarr;
+                                    </button>
+                                {% elif not is_last_question %}
                                     <button type="submit" class="btn btn-primary">
                                         Save &amp; Continue &rarr;
                                     </button>
@@ -296,7 +537,49 @@
         input.addEventListener('change', updateOtherAnswerInputs);
     });
     updateOtherAnswerInputs();
+
+    // Screening Gate tiles: highlight ticked options (works in every browser, no :has()).
+    function updateScreeningTiles() {
+        document.querySelectorAll('.sg-option').forEach(function(tile) {
+            var input = tile.querySelector('input');
+            tile.classList.toggle('is-checked', !!(input && input.checked));
+        });
+    }
+    document.querySelectorAll('.sg-option input').forEach(function(input) {
+        input.addEventListener('change', updateScreeningTiles);
+    });
+    updateScreeningTiles();
 });
+
+// Survey timer: counts up from the time already spent, only while the page is visible.
+(function() {
+    var display = document.getElementById('survey-timer');
+    var hidden = document.getElementById('elapsed-seconds');
+    if (!display) return;
+    var base = parseInt(display.dataset.start, 10) || 0;
+    var spentHere = 0;
+    var visibleSince = document.hidden ? null : Date.now();
+
+    function hereSeconds() {
+        return Math.floor((spentHere + (visibleSince ? Date.now() - visibleSince : 0)) / 1000);
+    }
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+    function render() {
+        var total = base + hereSeconds();
+        var h = Math.floor(total / 3600), m = Math.floor(total % 3600 / 60), s = total % 60;
+        display.textContent = (h ? h + ':' + pad(m) : pad(m)) + ':' + pad(s);
+        if (hidden) hidden.value = hereSeconds();
+    }
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden && visibleSince) { spentHere += Date.now() - visibleSince; visibleSince = null; }
+        else if (!document.hidden && !visibleSince) { visibleSince = Date.now(); }
+        render();
+    });
+    var form = document.getElementById('survey-form');
+    if (form) form.addEventListener('submit', render);
+    render();
+    setInterval(render, 1000);
+})();
 
 // Prevent copying/scraping of question content
 (function() {
@@ -378,6 +661,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Auto-unlock continue button after 3 seconds (no ad to click)
     adModalEl.addEventListener('shown.bs.modal', function() {
         setTimeout(unlockContinue, 3000);
+    });
+
+    // The answer is already saved: closing the commercial moves on to the next question.
+    adModalEl.addEventListener('hidden.bs.modal', function() {
+        var surveyForm = document.getElementById('survey-form');
+        if (adUnlocked && surveyForm) {
+            surveyForm.submit();
+        }
     });
 });
 </script>

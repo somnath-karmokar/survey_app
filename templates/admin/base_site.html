@@ -3,13 +3,16 @@
 
 {% block title %}{{ title }} | {{ site_title|default:_('Sudraw Admin') }}{% endblock %}
 
-{% block extrastyle %}
+{% block extrahead %}
 {{ block.super }}
-<link rel="stylesheet" href="{% static 'admin/css/sudraw_admin.css' %}">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 {% endblock %}
 
 {% block stylesheets %}
 {{ block.super }}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="{% static 'admin/css/sudraw_admin.css' %}">
 {% endblock %}
 

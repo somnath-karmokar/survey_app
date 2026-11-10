@@ -66,7 +66,9 @@ class MonthlyDrawSettlementMiddleware:
 
     def __call__(self, request):
         response = self.get_response(request)
-        if not request.path.startswith(('/static/', '/media/')) and self.in_settlement_window():
+        from .lucky_draw import monthly_draw_enabled
+        if (monthly_draw_enabled() and not request.path.startswith(('/static/', '/media/'))
+                and self.in_settlement_window()):
             self.settle_if_due()
         return response
 

@@ -1,0 +1,130 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block bodyclass %}dashboard sd-dashboard{% endblock %}
+{% block content-class %}content-grid{% endblock %}
+
+{% block breadcrumbs %}
+<ul class="grp-horizontal-list">
+    <li>{% trans "Home" %}</li>
+</ul>
+{% endblock %}
+
+{% block content_title %}
+<header class="sd-page-head">
+    <div>
+        <h1>Welcome back{% if user.first_name %}, {{ user.first_name }}{% endif %}</h1>
+        <p class="sd-page-sub">Here's what's happening on Sudraw today, {% now "l j F Y" %}.</p>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="sd-dashboard-body">
+    {% if dashboard_cards %}
+    <section class="sd-kpis" aria-label="Key figures">
+        {% for card in dashboard_cards %}
+        <a class="sd-kpi sd-tone-{{ card.tone }}" href="{{ card.url|default:'#' }}">
+            <span class="sd-kpi-icon">{% include "admin/includes/sd_icon.html" with icon=card.icon %}</span>
+            <span class="sd-kpi-label">{{ card.label }}</span>
+            <span class="sd-kpi-value">{{ card.value }}</span>
+            <span class="sd-kpi-note">{{ card.note }}</span>
+        </a>
+        {% endfor %}
+    </section>
+
+    <div class="sd-dash-grid">
+        <section class="sd-card sd-card-wide">
+            <div class="sd-card-head">
+                <h2>Latest completed surveys</h2>
+                {% if recent_completions_url %}<a href="{{ recent_completions_url }}" class="sd-link">View all {% include "admin/includes/sd_icon.html" with icon='arrow' %}</a>{% endif %}
+            </div>
+            {% if recent_completions %}
+            <div class="sd-table-wrap">
+            <table class="sd-table">
+                <thead><tr><th>Respondent</th><th>Survey category</th><th>Country</th><th>Time taken</th><th>Completed</th></tr></thead>
+                <tbody>
+                {% for row in recent_completions %}
+                    <tr>
+                        <td><a href="{{ row.url }}"><strong>{{ row.name }}</strong></a><span class="sd-sub">{{ row.email }}</span></td>
+                        <td>{{ row.category }}</td>
+                        <td>{{ row.country|default:"-" }}</td>
+                        <td>{{ row.time }}</td>
+                        <td>{{ row.completed_at|date:"j M, H:i" }}<span class="sd-sub">{{ row.completed_at|timesince }} ago</span></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <p class="sd-empty">No surveys completed yet.</p>
+            {% endif %}
+        </section>
+
+        <section class="sd-card">
+            <div class="sd-card-head"><h2>Most completed this week</h2></div>
+            {% if top_categories %}
+            <ul class="sd-rank">
+                {% for row in top_categories %}
+                <li>
+                    <span class="sd-rank-name">{{ row.name }}</span>
+                    <span class="sd-rank-meta">{{ row.count }} completed &middot; avg {{ row.avg }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="sd-empty">Nothing completed in the last 7 days.</p>
+            {% endif %}
+            <div class="sd-donations">
+                <span class="sd-kpi-icon sd-tone-green">{% include "admin/includes/sd_icon.html" with icon='heart' %}</span>
+                <div>
+                    <span class="sd-kpi-label">Given to charity (approved, incl. +20%)</span>
+                    <strong>{{ donations_total|default:"0.00" }}</strong>
+                </div>
+            </div>
+        </section>
+    </div>
+    {% endif %}
+
+    {% if sections %}
+    <h2 class="sd-section-title">Manage</h2>
+    <section class="sd-sections">
+        {% for section in sections %}
+        <div class="sd-card sd-section">
+            <div class="sd-section-head">
+                <span class="sd-kpi-icon">{% include "admin/includes/sd_icon.html" with icon=section.icon %}</span>
+                <div>
+                    <h3>{{ section.title }}</h3>
+                    {% if section.description %}<p>{{ section.description }}</p>{% endif %}
+                </div>
+            </div>
+            <ul class="sd-model-list">
+                {% for model in section.models %}
+                <li>
+                    {% if model.admin_url %}<a href="{{ model.admin_url }}">{{ model.name }}</a>{% else %}<span>{{ model.name }}</span>{% endif %}
+                    {% if model.add_url %}<a href="{{ model.add_url }}" class="sd-add" title="{% trans 'Add' %} {{ model.name }}">{% include "admin/includes/sd_icon.html" with icon='plus' %}</a>{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+    </section>
+    {% else %}
+    <section class="sd-sections">
+        {% for app in app_list %}
+        <div class="sd-card sd-section">
+            <div class="sd-section-head"><div><h3>{{ app.name }}</h3></div></div>
+            <ul class="sd-model-list">
+                {% for model in app.models %}
+                <li>
+                    {% if model.admin_url %}<a href="{{ model.admin_url }}">{{ model.name }}</a>{% else %}<span>{{ model.name }}</span>{% endif %}
+                    {% if model.add_url %}<a href="{{ model.add_url }}" class="sd-add" title="{% trans 'Add' %}">{% include "admin/includes/sd_icon.html" with icon='plus' %}</a>{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

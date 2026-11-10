@@ -1,0 +1,11 @@
+{% if account_suspended_until %}
+<div class="alert alert-danger d-flex flex-wrap align-items-center justify-content-between gap-2" id="suspension-banner" role="alert">
+    <span>
+        <i class="fas fa-user-lock me-1"></i>
+        <strong>{{ account_suspension_message }}</strong>
+        You can't take surveys or play draws until {{ account_suspended_until|date:"j F Y, H:i" }}
+        ({{ account_suspended_until|timeuntil }} left).
+    </span>
+    <a href="{% url 'surveys:user_profile' %}#suspension-details" class="btn btn-sm btn-outline-danger">See why</a>
+</div>
+{% endif %}

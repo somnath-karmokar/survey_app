@@ -1,0 +1,150 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block bodyclass %}grp-change-form sd-report-page{% endblock %}
+
+{% block breadcrumbs %}
+<ul class="grp-horizontal-list">
+    <li><a href="{% url 'admin:index' %}">{% trans "Home" %}</a></li>
+    <li><a href="{% url 'admin:surveys_surveyresponse_changelist' %}">Survey responses</a></li>
+    <li>{{ response.user.email }}</li>
+</ul>
+{% endblock %}
+
+{% block content_title %}
+<header class="sd-page-head">
+    <div>
+        <h1>{{ title }}</h1>
+        <p class="sd-page-sub">{{ response.survey.name }}{% if response.survey.category.country %} &middot; {{ response.survey.category.country }}{% endif %}</p>
+    </div>
+    <div class="sd-head-actions">
+        <a class="sd-btn" href="{{ user_responses_url }}">All responses by this user</a>
+        <a class="sd-btn" href="{{ user_admin_url }}">User account</a>
+        {% if has_delete_permission %}<a class="sd-btn sd-btn-danger" href="{{ delete_url }}">Delete</a>{% endif %}
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="sd-report">
+    <section class="sd-stats">
+        <div class="sd-stat">
+            <span class="sd-stat-label">Status</span>
+            {% if response.completed_at %}
+                <span class="sd-badge sd-badge-success sd-badge-lg">Completed</span>
+            {% else %}
+                <span class="sd-badge sd-badge-warning sd-badge-lg">In progress{% if current_part %} &middot; Part {{ current_part }} of {{ parts_total }}{% endif %}</span>
+            {% endif %}
+        </div>
+        <div class="sd-stat">
+            <span class="sd-stat-label">Questions answered</span>
+            <span class="sd-stat-value">{{ answered }} <small>/ {{ total }}</small></span>
+            <div class="sd-progress sd-progress-lg"><span style="width: {{ percent }}%"></span></div>
+        </div>
+        <div class="sd-stat">
+            <span class="sd-stat-label">Time taken</span>
+            <span class="sd-stat-value">{{ time_taken }}</span>
+            <span class="sd-sub">survey timer{% if not response.completed_at %}, so far{% endif %}</span>
+        </div>
+        <div class="sd-stat">
+            <span class="sd-stat-label">Started</span>
+            <span class="sd-stat-value sd-stat-date">{{ response.started_at|date:"j M Y" }}</span>
+            <span class="sd-sub">{{ response.started_at|date:"H:i" }}</span>
+        </div>
+        <div class="sd-stat">
+            <span class="sd-stat-label">Completed</span>
+            {% if response.completed_at %}
+                <span class="sd-stat-value sd-stat-date">{{ response.completed_at|date:"j M Y" }}</span>
+                <span class="sd-sub">{{ response.completed_at|date:"H:i" }}</span>
+            {% else %}
+                <span class="sd-stat-value sd-muted">&ndash;</span>
+            {% endif %}
+        </div>
+        <div class="sd-stat">
+            <span class="sd-stat-label">Reward paid</span>
+            <span class="sd-stat-value">{{ reward }}</span>
+        </div>
+    </section>
+
+    <section class="sd-card">
+        <div class="sd-card-head">
+            <h2>Respondent</h2>
+        </div>
+        <dl class="sd-facts">
+            <dt>Name</dt><dd>{{ response.user.get_full_name|default:"-" }}</dd>
+            <dt>Email</dt><dd>{{ response.user.email }}</dd>
+            <dt>Country</dt><dd>{{ response.user.profile.country|default:"-" }}</dd>
+            <dt>Joined</dt><dd>{{ response.user.date_joined|date:"j M Y" }}</dd>
+            <dt>Account</dt>
+            <dd>
+                {% if response.user.profile.is_suspended %}
+                    <span class="sd-badge sd-badge-danger">Suspended until {{ response.user.profile.suspended_until|date:"j M Y, H:i" }}</span>
+                {% else %}
+                    <span class="sd-badge sd-badge-success">Active</span>
+                {% endif %}
+            </dd>
+        </dl>
+    </section>
+
+    <section class="sd-card" id="attempts">
+        <div class="sd-card-head">
+            <h2>Attempts</h2>
+            <span class="sd-sub">{{ attempts|length }} attempt{{ attempts|length|pluralize }} &middot; total time {{ attempts_total }} &middot; a new attempt starts after a break of more than 30 minutes</span>
+        </div>
+        {% if attempts %}
+        <table class="sd-table">
+            <thead><tr><th>Attempt</th><th>Questions</th><th>Answered</th><th>Started</th><th>Time spent</th></tr></thead>
+            <tbody>
+            {% for a in attempts %}
+                <tr>
+                    <td class="sd-qnum">{{ a.number }}</td>
+                    <td>{{ a.first }}{% if a.last != a.first %} &ndash; {{ a.last }}{% endif %}</td>
+                    <td>{{ a.count }} question{{ a.count|pluralize }}</td>
+                    <td>{{ a.started_at|date:"j M Y, H:i" }}</td>
+                    <td><strong>{{ a.time }}</strong></td>
+                </tr>
+            {% endfor %}
+                <tr class="sd-total-row">
+                    <td colspan="4"><strong>Total time spent</strong></td>
+                    <td><strong>{{ attempts_total }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+        {% else %}
+        <p class="sd-empty">No timing recorded for this response (answered before attempt tracking was added).</p>
+        {% endif %}
+    </section>
+
+    <section class="sd-card">
+        <div class="sd-card-head">
+            <h2>Answers</h2>
+            <span class="sd-sub">{{ answered }} of {{ total }} questions answered</span>
+        </div>
+        <table class="sd-answers">
+            <thead>
+                <tr><th style="width: 90px">#</th><th style="width: 70px">Part</th><th>Question</th><th style="width: 34%">Answer</th></tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+                <tr class="{% if not row.answered %}sd-unanswered{% endif %}{% if row.untruthful %} sd-untruthful{% endif %}">
+                    <td class="sd-qnum">{{ row.label }}</td>
+                    <td>{% if row.part %}{{ row.part }}{% else %}&ndash;{% endif %}</td>
+                    <td>
+                        <strong>{{ row.title }}</strong>
+                        {% if row.text %}<div class="sd-sub">{{ row.text|linebreaksbr }}</div>{% endif %}
+                    </td>
+                    <td>
+                        {% if row.answered %}
+                            {{ row.answer|default:"(blank)" }}
+                            {% if row.untruthful %}<span class="sd-badge sd-badge-danger">Untruthful</span>{% endif %}
+                        {% else %}
+                            <span class="sd-muted">Not answered yet</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endblock %}

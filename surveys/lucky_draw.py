@@ -20,13 +20,18 @@ from django.utils import timezone
 from django.http import JsonResponse  # Add this line
 import json
 from decimal import Decimal
+from .survey_progress import open_survey_summary
 from .emails import (
     send_lucky_draw_winner_email, send_lucky_draw_winner_admin_notification,
     send_monthly_draw_closed_admin_notification,
 )
 
 
-QUICK_DRAW_NUDGE = 'Please complete one more survey to qualify for the Quick draw.'
+QUICK_DRAW_NUDGE = 'Answer {remaining} more survey question{plural} to unlock your next Quick draw play.'
+
+
+def quick_draw_nudge_text(remaining):
+    return QUICK_DRAW_NUDGE.format(remaining=remaining, plural='' if remaining == 1 else 's')
 
 
 def monthly_draw_tz(country):
@@ -88,6 +93,11 @@ def draw_cycle(draw_day, tz):
     return start, end
 
 
+def monthly_draw_enabled():
+    """LUCKY_DRAW_CONFIG['MONTHLY_DRAW_ENABLED'] (off: the Monthly draw is removed everywhere)."""
+    return bool(settings.LUCKY_DRAW_CONFIG.get('MONTHLY_DRAW_ENABLED', True))
+
+
 def format_money(symbol, amount):
     amount = Decimal(amount)
     return f"{symbol}{int(amount) if amount == amount.to_integral() else f'{amount:.2f}'}"
@@ -97,20 +107,42 @@ class LuckyDrawView(View):
     def quick_draw_nudge(self, user):
         """Text to add to the survey "Thank you" message, or '' for none.
 
-        Returned only when the user cannot play the Quick draw yet and exactly
-        one more survey would qualify them. It is derived from the same eligibility
-        the draw itself uses, so it can never disagree with when the draw
-        actually unlocks. (Users who already qualify are sent straight to the
-        draw, and users further away get no message.)
+        Returned when the user cannot play the Quick draw yet: how many more
+        survey questions unlock the next play. (Users who already qualify are
+        sent straight to the draw.)
         """
-        eligibility = self.get_eligibility_context(user)
-        # Quick draw only: a Poll draw play or Monthly attempts waiting don't
-        # change how many surveys the Quick draw still needs.
-        if eligibility['survey_eligible']:
+        progress = self.quick_draw_progress(user)
+        if progress['plays'] or progress['suspended']:
             return ''
-        if eligibility['surveys_required'] - eligibility['surveys_completed'] == 1:
-            return QUICK_DRAW_NUDGE
-        return ''
+        return quick_draw_nudge_text(progress['remaining'])
+
+    def quick_draw_questions_required(self):
+        return max(1, int(settings.LUCKY_DRAW_CONFIG.get('QUESTIONS_REQUIRED', 30)))
+
+    def quick_draw_progress(self, user, last_survey_entry=False):
+        """Quick draw: one play for every QUESTIONS_REQUIRED (30) survey questions answered.
+
+        A 120-question category gives 4 plays. Questions count as they are
+        answered (finished or not); the Quick draw entry's surveys_at_play holds
+        the number of questions already used, and any surplus carries over.
+        """
+        from .survey_progress import survey_questions_answered
+        if last_survey_entry is False:
+            last_survey_entry = self.get_last_entry(user, LuckyDrawEntry.DRAW_TYPE_SURVEY)
+        required = self.quick_draw_questions_required()
+        answered = survey_questions_answered(user)
+        used = (last_survey_entry.surveys_at_play or 0) if last_survey_entry else 0
+        since = max(0, answered - used)
+        profile = getattr(user, 'profile', None)
+        suspended = bool(profile and profile.is_suspended)
+        return {
+            'answered_total': answered,
+            'answered_since': since,
+            'required': required,
+            'plays': 0 if suspended else since // required,
+            'remaining': required - since % required,
+            'suspended': suspended,
+        }
 
     def get_user_country_config(self, user):
         profile = getattr(user, 'profile', None)
@@ -129,6 +161,8 @@ class LuckyDrawView(View):
 
     def get_monthly_draw_config(self, user):
         """The user's country config if that country takes part in the Monthly draw."""
+        if not monthly_draw_enabled():
+            return None
         config = self.get_user_country_config(user)
         if config and config.monthly_prize_amount is not None:
             return config
@@ -287,12 +321,8 @@ class LuckyDrawView(View):
         return user.lucky_draw_entries.filter(draw_type=draw_type).order_by('-created_at').first()
 
     def get_qualifying_survey(self, user, last_entry):
-        queryset = SurveyResponse.objects.filter(
-            user=user,
-            completed_at__isnull=False,
-        ).select_related('survey').order_by('-completed_at')
-        if last_entry:
-            queryset = queryset.filter(completed_at__gt=last_entry.created_at)
+        # The survey being answered (Quick draw plays unlock part-way through a survey).
+        queryset = SurveyResponse.objects.filter(user=user).select_related('survey').order_by('-started_at')
         response = queryset.first()
         return response.survey if response else None
 
@@ -384,10 +414,12 @@ class LuckyDrawView(View):
         last_survey_entry = self.get_last_entry(user, LuckyDrawEntry.DRAW_TYPE_SURVEY)
         last_poll_entry = self.get_last_entry(user, LuckyDrawEntry.DRAW_TYPE_POLL)
         total_surveys, total_polls = self.get_completion_counts(user)
-        surveys_required = settings.LUCKY_DRAW_CONFIG.get('SURVEYS_REQUIRED', 3)
         polls_required = self.get_poll_requirement(user)
 
-        surveys_completed = max(0, total_surveys - (last_survey_entry.surveys_at_play or 0)) if last_survey_entry else total_surveys
+        # Quick draw counts survey questions answered (surveys_* keys kept for the templates).
+        quick = self.quick_draw_progress(user, last_survey_entry)
+        surveys_required = quick['required']
+        surveys_completed = quick['answered_since']
         polls_completed = max(0, total_polls - (last_poll_entry.polls_at_play or 0)) if last_poll_entry else total_polls
         survey_eligible = surveys_completed >= surveys_required
         poll_eligible = polls_completed >= polls_required
@@ -397,6 +429,13 @@ class LuckyDrawView(View):
         poll_plays_available = polls_completed // polls_required if poll_eligible else 0
 
         monthly = self.get_monthly_eligibility(user, total_surveys)
+
+        # A user suspended for an untruthful survey answer can't play any draw.
+        profile = getattr(user, 'profile', None)
+        suspended = bool(profile and profile.is_suspended)
+        if suspended:
+            survey_eligible = poll_eligible = False
+            monthly['monthly_eligible'] = False
 
         eligible_draw_types = []
         if survey_eligible:
@@ -420,8 +459,11 @@ class LuckyDrawView(View):
             'poll_eligible': poll_eligible,
             'survey_plays_available': survey_plays_available,
             'poll_plays_available': poll_plays_available,
+            'quick_draw': quick,
             'eligible_draw_types': eligible_draw_types,
             'user_eligible': bool(eligible_draw_types),
+            'suspended': suspended,
+            'suspended_until': profile.suspended_until if suspended else None,
             **monthly,
         }
 
@@ -675,6 +717,8 @@ class LuckyDrawView(View):
     def monthly_play_error(self, user):
         """Why the user cannot play the Monthly draw right now, or '' if they can."""
         e = self.get_eligibility_context(user)
+        if not monthly_draw_enabled():
+            return 'The Monthly draw is no longer available.'
         if not e['monthly_available']:
             return 'The Monthly draw is not available in your country.'
         if not e['monthly_window_open']:
@@ -833,6 +877,10 @@ class LuckyDrawView(View):
             # testing_numbered_grid/testing_winning_number are ONLY populated when
             # SHOW_NUMBERS_FOR_TESTING is on — must stay False/unset in production.
             'user_eligible': user_eligible,
+            'suspended': eligibility['suspended'],
+            'suspended_until': eligibility['suspended_until'],
+            'suspension_message': UserProfile.SUSPENSION_MESSAGE,
+            'open_survey': open_survey_summary(request.user),
             'survey_eligible': survey_eligible,
             'poll_eligible': poll_eligible,
             'eligible_draw_types': eligibility['eligible_draw_types'],
@@ -875,10 +923,10 @@ class LuckyDrawView(View):
         draw_type = self.resolve_draw_type(request.user, request.GET.get('draw_type'))
         # Check if user is eligible to play
         if not self.is_eligible(request.user, draw_type):
-            required_surveys = settings.LUCKY_DRAW_CONFIG.get('SURVEYS_REQUIRED', 3)
+            required_questions = self.quick_draw_questions_required()
             required_polls = self.get_poll_requirement(request.user)
             return JsonResponse({
-                'error': f'You need to complete {required_surveys} surveys or {required_polls} polls to play the lucky draw.'
+                'error': f'Answer {required_questions} survey questions or complete {required_polls} poll(s) to play.'
             }, status=400)
         
         # Generate a new lucky number
@@ -892,10 +940,12 @@ class LuckyDrawView(View):
     def post(self, request):
         if not request.user.is_authenticated:
             return JsonResponse({'error': 'Not authenticated'}, status=401)
-            
-        
-        
-       
+
+        profile = getattr(request.user, 'profile', None)
+        if profile is not None and profile.is_suspended:
+            # 400 like the other refusals (403 would be turned into a redirect by ExceptionRedirectMiddleware).
+            return JsonResponse({'error': UserProfile.SUSPENSION_MESSAGE}, status=400)
+
         try:
             data = json.loads(request.body)
         except json.JSONDecodeError:
@@ -912,10 +962,10 @@ class LuckyDrawView(View):
             if monthly_error:
                 return JsonResponse({'error': monthly_error}, status=400)
         elif not self.is_eligible(request.user, draw_type):
-            required_surveys = settings.LUCKY_DRAW_CONFIG.get('SURVEYS_REQUIRED', 3)
+            required_questions = self.quick_draw_questions_required()
             required_polls = self.get_poll_requirement(request.user)
             return JsonResponse({
-                'error': f'You need to complete {required_surveys} surveys or {required_polls} polls to play again.'
+                'error': f'Answer {required_questions} survey questions or complete {required_polls} poll(s) to play.'
             }, status=400)
 
         # Resolve the actual number from the session grid using the client-sent index.

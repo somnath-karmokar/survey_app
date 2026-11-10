@@ -36,6 +36,7 @@
     </div>
 </div>
 {% endif %}
+<div class="container pt-3">{% include 'surveys/includes/suspension_banner.html' %}{% if not account_suspended_until %}{% include 'surveys/includes/continue_survey_banner.html' %}{% endif %}</div>
 <!-- Add this near the top of the template, after any existing messages -->
 {% if user.is_authenticated %}
     {% if is_eligible_for_draw %}
@@ -79,7 +80,7 @@
                                 <i class="fas fa-star me-1"></i> {{ survey.points }} Points
                             </span> -->
                             <span class="badge bg-secondary">
-                                Level {{ survey.level }}
+                                <i class="fas fa-list-ol me-1"></i>{{ survey.questions.count }} questions &middot; {{ survey_parts }} parts
                             </span>
                         </div>
                         
@@ -103,13 +104,30 @@
                         </div>
                         
                         <div class="d-grid gap-2">
-                            {% if survey_data.is_locked %}
+                            {% if account_suspended_until %}
+                                <button class="btn btn-outline-danger" disabled title="{{ account_suspension_message }}">
+                                    <i class="fas fa-user-lock me-1"></i> Suspended
+                                </button>
+                            {% elif open_survey_id == survey.id %}
+                                <a href="{% url 'surveys:survey_detail' survey.id %}" class="btn btn-success">
+                                    <i class="fas fa-play-circle me-1"></i> Continue where you left off
+                                </a>
+                            {% elif survey.id in full_surveys %}
+                                <button class="btn btn-outline-secondary" disabled title="This survey has collected all the responses it needs in your country">
+                                    <i class="fas fa-users-slash me-1"></i> Survey full &ndash; all responses collected
+                                </button>
+                            {% elif open_survey_id %}
+                                <a href="{% url 'surveys:survey_detail' open_survey_id %}" class="btn btn-outline-secondary"
+                                   title="Finish one category before starting another">
+                                    <i class="fas fa-hourglass-half me-1"></i> Finish your {{ open_survey_category }} survey first
+                                </a>
+                            {% elif survey_data.is_locked %}
                                 <button class="btn btn-outline-secondary" disabled>
                                     <i class="fas fa-lock me-1"></i> Survey Locked
                                 </button>
                             {% elif survey_data.is_completed %}
                                 {% if survey_data.can_retake %}
-                                    <a href="{% url 'surveys:take_survey' survey.id %}" 
+                                    <a href="{% url 'surveys:survey_detail' survey.id %}" 
                                        class="btn btn-primary">
                                         <i class="fas fa-redo me-1"></i> Retake Survey
                                     </a>
@@ -120,7 +138,7 @@
                                     </button>
                                 {% endif %}
                             {% else %}
-                                <a href="{% url 'surveys:take_survey' survey.id %}" 
+                                <a href="{% url 'surveys:survey_detail' survey.id %}" 
                                    class="btn btn-primary">
                                     <i class="fas fa-play me-1"></i> Start Survey
                                 </a>

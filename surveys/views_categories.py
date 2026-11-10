@@ -151,6 +151,13 @@ class CategoryDetailView(DetailView):
             ),
         })
 
+        if self.request.user.is_authenticated:
+            from .survey_progress import open_survey_summary
+            context["open_survey"] = open_survey_summary(self.request.user)
+        from .survey_progress import full_survey_ids, survey_part_count
+        context['survey_parts'] = survey_part_count()
+        context['full_surveys'] = (full_survey_ids(self.request.user, surveys.select_related('category'))
+                                   if self.request.user.is_authenticated else set())
         return context
 
 @login_required

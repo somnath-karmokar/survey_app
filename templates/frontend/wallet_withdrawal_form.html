@@ -98,6 +98,27 @@
         font-size: 0.85rem;
         font-weight: 600;
     }
+
+    .charity-promo {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        padding: 16px 18px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #e8f6ed 0%, #f3fbf5 100%);
+        border: 1px solid #b7e1c4;
+        color: #14532d;
+    }
+    .charity-promo > i { color: #198754; margin-top: 2px; }
+    .charity-breakdown {
+        border: 1px solid #b7e1c4;
+        border-radius: 8px;
+        background: #f3fbf5;
+        padding: 10px 14px;
+        font-size: 0.92rem;
+    }
+    .charity-breakdown > div { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }
+    .charity-breakdown > div.total { border-top: 1px solid #b7e1c4; margin-top: 4px; padding-top: 6px; color: #146c43; font-weight: 700; }
 </style>
 {% endblock %}
 
@@ -116,8 +137,21 @@
         <i class="fas fa-info-circle fa-lg mt-1 flex-shrink-0"></i>
         <div>
             <strong>First withdrawal — bank transfer only.</strong>
-            Your first withdrawal request must be made via <strong>Direct Bank Transfer</strong>.
+            Your first withdrawal request must be made via <strong>Direct Bank Transfer</strong>{% if charity_available %}
+            &mdash; donating to charity is available from your next request{% endif %}.
             Once it has been processed, future requests can use any payment method (PayPal, Gift Card, etc.).
+        </div>
+    </div>
+    {% endif %}
+
+    {% if charity_available and not is_first_withdrawal %}
+    <div class="charity-promo mb-4" id="charity-promo">
+        <i class="fas fa-hand-holding-heart fa-2x"></i>
+        <div>
+            <strong>Give to charity and we add {{ charity_bonus_percent }}%.</strong>
+            Choose &ldquo;Donate to charity&rdquo; below: for every {{ profile.wallet_currency_symbol }}10 you donate,
+            Sudraw adds {{ profile.wallet_currency_symbol }}{{ charity_example_bonus }}, so the charity receives
+            {{ profile.wallet_currency_symbol }}{{ charity_example_total }}.
         </div>
     </div>
     {% endif %}
@@ -233,6 +267,24 @@
                         <label class="form-label" for="{{ form.institution_number.id_for_label }}">Institution Number</label>
                         {{ form.institution_number }}
                         {{ form.institution_number.errors }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="method-fields mt-3" data-method-fields="charity">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="{{ form.charity.id_for_label }}">Charity</label>
+                        {{ form.charity }}
+                        {{ form.charity.errors }}
+                    </div>
+                    <div class="col-md-6">
+                        <div class="charity-breakdown" id="charity-breakdown" data-bonus-percent="{{ charity_bonus_percent }}"
+                             data-currency-symbol="{{ profile.wallet_currency_symbol }}">
+                            <div><span>You donate (from your wallet)</span><strong id="charity-donate">{{ profile.wallet_currency_symbol }}0.00</strong></div>
+                            <div><span>Sudraw adds {{ charity_bonus_percent }}%</span><strong id="charity-bonus">{{ profile.wallet_currency_symbol }}0.00</strong></div>
+                            <div class="total"><span>The charity receives</span><strong id="charity-total">{{ profile.wallet_currency_symbol }}0.00</strong></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -471,6 +523,10 @@
                 }
             }
 
+            if (method === 'charity') {
+                requireField(errors, 'charity', 'Please choose the charity to donate to.');
+            }
+
             if (method === 'gift_card') {
                 requireField(errors, 'gift_card_brand', 'Gift card brand is required.');
                 requireField(errors, 'gift_card_email', 'Gift card delivery email is required.');
@@ -537,6 +593,23 @@
             });
         }
         refreshFields();
+
+        // Donation breakdown: amount + 20% from Sudraw = what the charity receives.
+        const breakdown = document.getElementById('charity-breakdown');
+        function refreshCharityBreakdown() {
+            if (!breakdown) return;
+            const amountField = getField('amount');
+            const amount = amountField ? parseFloat(amountField.value) : 0;
+            const safe = isNaN(amount) || amount < 0 ? 0 : amount;
+            const percent = parseFloat(breakdown.dataset.bonusPercent) || 0;
+            const bonus = Math.round(safe * percent) / 100;
+            const symbol = breakdown.dataset.currencySymbol || '';
+            document.getElementById('charity-donate').textContent = symbol + safe.toFixed(2);
+            document.getElementById('charity-bonus').textContent = symbol + bonus.toFixed(2);
+            document.getElementById('charity-total').textContent = symbol + (safe + bonus).toFixed(2);
+        }
+        if (form) form.addEventListener('input', refreshCharityBreakdown);
+        refreshCharityBreakdown();
 
         // On a first withdrawal only bank_transfer is available; pre-select and lock it.
         {% if is_first_withdrawal %}

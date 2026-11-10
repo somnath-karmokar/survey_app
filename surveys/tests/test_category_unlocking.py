@@ -71,7 +71,7 @@ class CategoryUnlockingTests(TestCase):
 
         level2_entry = next(entry for entry in surveys if entry['survey'].id == self.level2.id)
         self.assertTrue(level2_entry['is_locked'])
-        self.assertEqual(level2_entry['lock_message'], "Complete 'Level 1B' (Level 1) to unlock")
+        self.assertEqual(level2_entry['lock_message'], "Complete 'Level 1B' to unlock")
 
         self._complete(self.level1_b)
 
@@ -97,7 +97,7 @@ class CategoryUnlockingTests(TestCase):
         self.assertTrue(level2_entry['is_completed'])
         self.assertTrue(level2_entry['is_locked'])
         self.assertFalse(level2_entry['can_retake'])
-        self.assertEqual(level2_entry['lock_message'], "Retake 'Level 1A' (Level 1) first")
+        self.assertEqual(level2_entry['lock_message'], "Retake 'Level 1A' first")
 
     def test_take_survey_blocks_direct_access_when_previous_level_is_incomplete(self):
         self._complete(self.level1_a)
@@ -112,7 +112,7 @@ class CategoryUnlockingTests(TestCase):
             reverse('surveys:category_detail', kwargs={'category_slug': self.category.slug}),
         )
         messages = [message.message for message in response.context['messages']]
-        self.assertIn("Complete 'Level 1B' (Level 1) to unlock", messages)
+        self.assertIn("Complete 'Level 1B' to unlock", messages)
 
     def test_level_two_retake_requires_level_one_to_be_retaken_first(self):
         self._complete(self.level1_a, days_ago=40)
@@ -129,7 +129,7 @@ class CategoryUnlockingTests(TestCase):
             reverse('surveys:category_detail', kwargs={'category_slug': self.category.slug}),
         )
         messages = [message.message for message in response.context['messages']]
-        self.assertIn("Retake 'Level 1A' (Level 1) first", messages)
+        self.assertIn("Retake 'Level 1A' first", messages)
 
     def test_survey_detail_blocks_direct_access_when_previous_level_is_incomplete(self):
         self._complete(self.level1_a)
@@ -144,4 +144,4 @@ class CategoryUnlockingTests(TestCase):
             reverse('surveys:category_detail', kwargs={'category_slug': self.category.slug}),
         )
         messages = [message.message for message in response.context['messages']]
-        self.assertIn("Complete 'Level 1B' (Level 1) to unlock", messages)
+        self.assertIn("Complete 'Level 1B' to unlock", messages)

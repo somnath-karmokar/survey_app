@@ -26,6 +26,13 @@
             <strong>Gift card brand:</strong> {{ withdrawal.gift_card_brand }}<br>
             <strong>Delivery email:</strong> {{ withdrawal.gift_card_email }}
         </p>
+    {% elif withdrawal.is_donation %}
+        <p>
+            <strong>Charity:</strong> {{ withdrawal.charity }}<br>
+            <strong>From the user's wallet:</strong> {{ withdrawal.amount_display }}<br>
+            <strong>Sudraw adds ({{ withdrawal.charity_bonus_percent|floatformat:"-2" }}%):</strong> {{ withdrawal.charity_bonus_display }}<br>
+            <strong>Pay the charity:</strong> {{ withdrawal.charity_total_display }}
+        </p>
     {% endif %}
 
     {% if withdrawal.notes %}

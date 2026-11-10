@@ -18,7 +18,8 @@ from .models import (
     LuckyDrawEntry, UserProfile, Country, EmailVerification, MilestoneAchievement,
     Poll, PollQuestion, PollChoice, PollResponse, PollAnswer, CountryLuckyDrawConfig,
     WalletTransaction, UserWallet, WalletWithdrawalRequest, JournalPost, JournalCategory, PrivacyPolicy, AboutUs, Advertiser, DirectMarketing,
-    MonthlyDrawEligibleUser, UserSurveyProgress, MonthlyDrawNumbers, MonthlyDrawSettlement,
+    MonthlyDrawEligibleUser, UserSurveyProgress, MonthlyDrawNumbers, MonthlyDrawSettlement, SurveySuspension,
+    Charity,
 )
 from django.utils.safestring import mark_safe
 from django.urls import path
@@ -39,6 +40,16 @@ class SurveyAdminSite(AdminSite):
     site_title = _('Sudraw Admin')
     index_title = _('Welcome to Sudraw Admin')
     
+    def index(self, request, extra_context=None):
+        """Admin home page: key figures, recent completions and the models grouped into sections."""
+        from .admin_dashboard import dashboard_stats, grouped_models
+        context = {
+            **dashboard_stats(self.name),
+            'sections': grouped_models(self.get_app_list(request)),
+            **(extra_context or {}),
+        }
+        return super().index(request, context)
+
     def get_app_list(self, request, app_label=None):
         """
         Return a sorted list of all the installed apps that have been
@@ -100,7 +111,7 @@ class SafeDeleteAdminMixin:
 class ChoiceInline(admin.TabularInline):
     model = Choice
     extra = 1
-    fields = ('choice_text',)  # Removed 'order' since the field doesn't exist
+    fields = ('choice_text', 'is_disqualifying')
     show_change_link = True
 
 
@@ -178,11 +189,11 @@ class PollResponseAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
 
 
 class CountryLuckyDrawConfigAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('country', 'poll_count_required', 'prize_display', 'monthly_prize_display', 'monthly_winner_cap', 'time_zone', 'currency_code', 'is_active', 'updated_at')
+    list_display = ('country', 'category_sample_cap', 'category_completion_reward', 'prize_display', 'poll_count_required', 'time_zone', 'currency_code', 'is_active', 'updated_at')
     list_filter = ('is_active', 'currency_code', 'country')
     search_fields = ('country__name', 'country__code', 'currency_code')
     list_select_related = ('country',)
-    list_editable = ('monthly_winner_cap',)
+    list_editable = ('category_sample_cap', 'category_completion_reward')
 
     def prize_display(self, obj):
         return obj.get_prize_display()
@@ -217,12 +228,23 @@ class WalletTransactionAdmin(admin.ModelAdmin):
         return False
 
 
+class CharityAdmin(admin.ModelAdmin):
+    """Charities users can donate their withdrawals to (+20% from Sudraw)."""
+    list_display = ('name', 'registration_number', 'website', 'is_active', 'order', 'donations_approved')
+    list_editable = ('is_active', 'order')
+    search_fields = ('name', 'registration_number')
+
+    @admin.display(description='Approved donations')
+    def donations_approved(self, obj):
+        return obj.donations.filter(status=WalletWithdrawalRequest.STATUS_APPROVED).count()
+
+
 class WalletWithdrawalRequestAdmin(admin.ModelAdmin):
     list_display = (
-        'profile', 'amount_display', 'payment_method', 'country',
+        'profile', 'amount_display', 'payment_method', 'charity', 'charity_total_display', 'country',
         'status', 'created_at', 'reviewed_by', 'reviewed_at'
     )
-    list_filter = ('status', 'payment_method', 'country', 'currency_code', 'created_at')
+    list_filter = ('status', 'payment_method', 'charity', 'country', 'currency_code', 'created_at')
     search_fields = (
         'profile__user__username', 'profile__user__email', 'full_name',
         'email', 'paypal_email', 'bank_name', 'bank_account_number',
@@ -235,7 +257,8 @@ class WalletWithdrawalRequestAdmin(admin.ModelAdmin):
         'bank_account_name', 'bank_name', 'bank_account_number',
         'routing_number', 'sort_code', 'iban', 'nuban_number',
         'transit_number', 'institution_number', 'gift_card_brand',
-        'gift_card_email', 'notes', 'reviewed_by', 'reviewed_at',
+        'gift_card_email', 'charity', 'charity_bonus_percent', 'charity_bonus_amount',
+        'charity_total_amount', 'notes', 'reviewed_by', 'reviewed_at',
         'wallet_transaction', 'created_at', 'updated_at'
     )
     fieldsets = (
@@ -255,11 +278,31 @@ class WalletWithdrawalRequestAdmin(admin.ModelAdmin):
             )
         }),
         ('Gift Card Details', {'fields': ('gift_card_brand', 'gift_card_email')}),
+        ('Charity Donation', {
+            'description': 'The wallet is debited the amount; Sudraw pays the charity the amount plus the bonus.',
+            'fields': ('charity', 'charity_bonus_percent', 'charity_bonus_amount', 'charity_total_amount'),
+        }),
         ('Review', {'fields': ('reviewed_by', 'reviewed_at', 'wallet_transaction', 'notes')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
     actions = ('approve_requests', 'reject_requests')
     list_select_related = ('profile', 'profile__user', 'country', 'reviewed_by', 'wallet_transaction')
+
+    METHOD_SECTIONS = {
+        WalletWithdrawalRequest.PAYMENT_METHOD_PAYPAL: 'PayPal Details',
+        WalletWithdrawalRequest.PAYMENT_METHOD_BANK: 'Bank Details',
+        WalletWithdrawalRequest.PAYMENT_METHOD_GIFT_CARD: 'Gift Card Details',
+        WalletWithdrawalRequest.PAYMENT_METHOD_CHARITY: 'Charity Donation',
+    }
+
+    def get_fieldsets(self, request, obj=None):
+        """Only the payment details for the method this request uses."""
+        fieldsets = super().get_fieldsets(request, obj)
+        if obj is None:
+            return fieldsets
+        method_sections = set(self.METHOD_SECTIONS.values())
+        keep = self.METHOD_SECTIONS.get(obj.payment_method)
+        return [fs for fs in fieldsets if fs[0] not in method_sections or fs[0] == keep]
     date_hierarchy = 'created_at'
 
     def amount_display(self, obj):
@@ -899,10 +942,11 @@ class CountryAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
 class SurveyAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     change_form_template = 'admin/surveys/survey/change_form.html'
     inlines = [QuestionInline]
-    list_display = ('name', 'category', 'level', 'get_country', 'question_count', 'is_active', 'created_at')
-    list_filter = ('category', 'category__country', 'is_active', 'created_at', 'level')
-    search_fields = ('name', 'description')
-    list_editable = ('is_active', 'level')
+    # Level isn't used any more (one survey per category), so it isn't shown.
+    list_display = ('name', 'category', 'get_country', 'question_count', 'is_active', 'created_at')
+    list_filter = ('category__country', 'is_active', 'created_at')
+    search_fields = ('name', 'description', 'category__name')
+    list_editable = ('is_active',)
     list_select_related = ('category', 'category__country')
     list_per_page = 20
     save_on_top = True
@@ -910,7 +954,7 @@ class SurveyAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     filter_horizontal = ('questions',)
     fieldsets = (
         (None, {
-            'fields': ('name', 'description', 'category', 'level', 'is_active')
+            'fields': ('name', 'description', 'category', 'is_active')
         }),
     )
     
@@ -1041,36 +1085,249 @@ class SurveyAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
             )
         return super().response_change(request, obj)
 
-class AnswerInline(admin.TabularInline):
-    model = Answer
-    extra = 0
-    readonly_fields = ('question', 'get_answer_display')
-    can_delete = True
-    
-    def get_answer_display(self, obj):
-        if obj.question.question_type == 'text':
-            return obj.text_answer
-        elif obj.question.question_type == 'choice':
-            return ", ".join([str(choice) for choice in obj.selected_choices.all()])
-        elif obj.question.question_type == 'rating':
-            return obj.rating_value
-        return ""
-    get_answer_display.short_description = 'Answer'
+def format_duration(seconds):
+    """1h 02m / 32m 10s / 45s."""
+    seconds = int(seconds or 0)
+    hours, rest = divmod(seconds, 3600)
+    minutes, secs = divmod(rest, 60)
+    if hours:
+        return f'{hours}h {minutes:02d}m'
+    if minutes:
+        return f'{minutes}m {secs:02d}s'
+    return f'{secs}s'
+
+
+def answer_text(answer):
+    """What the user answered, as one readable line (choices, typed 'Other' text, rating)."""
+    if answer is None:
+        return ''
+    parts = [c.choice_text for c in answer.selected_choices.all()]
+    if answer.question.question_type in ('single_choice', 'multiple_choice'):
+        if answer.text_answer:
+            parts.append(f'Other: {answer.text_answer}')
+    elif answer.question.question_type == 'rating':
+        parts.append(str(answer.rating_value or ''))
+    elif answer.text_answer:
+        parts.append(answer.text_answer)
+    return ', '.join(p for p in parts if p)
+
+
+class ResponseStatusFilter(admin.SimpleListFilter):
+    title = 'status'
+    parameter_name = 'status'
+
+    def lookups(self, request, model_admin):
+        return (('completed', 'Completed'), ('in_progress', 'In progress'))
+
+    def queryset(self, request, queryset):
+        if self.value() == 'completed':
+            return queryset.filter(completed_at__isnull=False)
+        if self.value() == 'in_progress':
+            return queryset.filter(completed_at__isnull=True)
+        return queryset
+
+
+class ResponseCountryFilter(admin.SimpleListFilter):
+    title = 'country'
+    parameter_name = 'country'
+
+    def lookups(self, request, model_admin):
+        countries = Country.objects.filter(id__in=SurveyCategory.objects.values('country_id')).order_by('name')
+        return [(c.id, c.name) for c in countries]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(survey__category__country_id=self.value())
+        return queryset
+
+
+class ResponseCategoryFilter(admin.SimpleListFilter):
+    """Category by name (the same category exists once per country)."""
+    title = 'survey category'
+    parameter_name = 'category'
+
+    def lookups(self, request, model_admin):
+        names = SurveyCategory.objects.order_by('name').values_list('name', flat=True).distinct()
+        return [(n, n) for n in names]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(survey__category__name=self.value())
+        return queryset
+
 
 class SurveyResponseAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ('id', 'user', 'survey', 'completed_at', 'time_spent')
-    list_filter = ('survey', 'completed_at')
-    inlines = [AnswerInline]
-    readonly_fields = ('user', 'survey', 'completed_at', 'time_spent')
-    list_select_related = ('user', 'survey')
-    search_fields = ('user__username', 'survey__name')
-    date_hierarchy = 'completed_at'
-    
-    def time_spent(self, obj):
-        # Since we don't have started_at, we can't calculate time spent
-        # You might want to add started_at to the model in the future
-        return "Not available"
-    time_spent.short_description = 'Time Spent'
+    """Who took which survey, how far they got, how long it took and what they answered."""
+    list_display = ('respondent', 'country', 'category', 'status_badge', 'progress', 'time_taken',
+                    'started', 'completed', 'reward')
+    list_display_links = ('respondent',)
+    list_filter = (ResponseStatusFilter, ResponseCountryFilter, ResponseCategoryFilter, 'completed_at', 'started_at')
+    search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name',
+                     'survey__name', 'survey__category__name')
+    date_hierarchy = 'started_at'
+    ordering = ('-started_at',)
+    list_per_page = 50
+    actions = ['export_csv']
+
+    def get_queryset(self, request):
+        answered = Answer.objects.filter(response=OuterRef('pk')).values('response').annotate(n=Count('id')).values('n')
+        total = Question.surveys.through.objects.filter(survey=OuterRef('survey')).values('survey') \
+            .annotate(n=Count('id')).values('n')
+        return (super().get_queryset(request)
+                .select_related('user', 'survey__category__country', 'reward_transaction')
+                .annotate(answered_count=Coalesce(Subquery(answered, output_field=models.IntegerField()), Value(0)),
+                          question_count=Coalesce(Subquery(total, output_field=models.IntegerField()), Value(0))))
+
+    def lookup_allowed(self, lookup, value):
+        if lookup in ('user__id__exact', 'survey__id__exact'):        # links from the user and survey pages
+            return True
+        return super().lookup_allowed(lookup, value)
+
+    def has_add_permission(self, request):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = {**(extra_context or {}), 'title': 'Survey responses',
+                         'subtitle': 'Who took which survey, how far they got and how long it took.'}
+        return super().changelist_view(request, extra_context)
+
+    # columns -------------------------------------------------------------
+    @admin.display(description='Respondent', ordering='user__email')
+    def respondent(self, obj):
+        name = obj.user.get_full_name() or obj.user.username
+        return format_html('<strong>{}</strong><span class="sd-sub">{}</span>', name, obj.user.email)
+
+    @admin.display(description='Country', ordering='survey__category__country__name')
+    def country(self, obj):
+        return getattr(obj.survey.category.country, 'name', '-')
+
+    @admin.display(description='Survey category', ordering='survey__category__name')
+    def category(self, obj):
+        return obj.survey.category.name
+
+    @admin.display(description='Status', ordering='completed_at')
+    def status_badge(self, obj):
+        if obj.completed_at:
+            return format_html('<span class="sd-badge sd-badge-success">Completed</span>')
+        return format_html('<span class="sd-badge sd-badge-warning">In progress</span>')
+
+    @admin.display(description='Progress', ordering='answered_count')
+    def progress(self, obj):
+        total = obj.question_count or 0
+        done = min(obj.answered_count or 0, total) if total else obj.answered_count or 0
+        percent = int(done * 100 / total) if total else 0
+        return format_html(
+            '<div class="sd-progress" title="{} of {} questions"><span style="width:{}%"></span></div>'
+            '<span class="sd-sub">{} / {} questions</span>', done, total, percent, done, total)
+
+    @admin.display(description='Time taken', ordering='time_spent_seconds')
+    def time_taken(self, obj):
+        text = format_duration(obj.time_spent_seconds)
+        if not obj.completed_at:
+            return format_html('{}<span class="sd-sub">so far</span>', text)
+        return text
+
+    @staticmethod
+    def _when(value):
+        if not value:
+            return format_html('<span class="sd-muted">-</span>')
+        local = timezone.localtime(value)
+        return format_html('<span class="sd-nowrap">{}</span><span class="sd-sub">{}</span>',
+                           local.strftime('%d %b %Y'), local.strftime('%H:%M'))
+
+    @admin.display(description='Started', ordering='started_at')
+    def started(self, obj):
+        return self._when(obj.started_at)
+
+    @admin.display(description='Completed', ordering='completed_at')
+    def completed(self, obj):
+        return self._when(obj.completed_at)
+
+    @admin.display(description='Reward')
+    def reward(self, obj):
+        transaction = getattr(obj, 'reward_transaction', None)
+        return transaction.amount_display if transaction else '-'
+
+    # export --------------------------------------------------------------
+    @admin.action(description='Export selected responses to CSV')
+    def export_csv(self, request, queryset):
+        import csv
+        from django.http import HttpResponse
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="survey-responses-{timezone.now():%Y%m%d-%H%M}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Name', 'Email', 'Country', 'Survey category', 'Status', 'Questions answered',
+                         'Questions in survey', 'Time taken', 'Time taken (seconds)', 'Started', 'Completed', 'Reward',
+                         'Attempts', 'Attempt breakdown'])
+        from .survey_progress import response_attempts
+        for obj in self.get_queryset(request).filter(pk__in=queryset.values('pk')):
+            writer.writerow([
+                obj.user.get_full_name(), obj.user.email, getattr(obj.survey.category.country, 'name', ''),
+                obj.survey.category.name, 'Completed' if obj.completed_at else 'In progress',
+                obj.answered_count, obj.question_count, format_duration(obj.time_spent_seconds), obj.time_spent_seconds,
+                timezone.localtime(obj.started_at).strftime('%Y-%m-%d %H:%M'),
+                timezone.localtime(obj.completed_at).strftime('%Y-%m-%d %H:%M') if obj.completed_at else '',
+                self.reward(obj) if self.reward(obj) != '-' else '',
+                len(attempts := response_attempts(obj)),
+                '; '.join(f"{a['number']}: {a['first']}-{a['last']} {format_duration(a['seconds'])}" for a in attempts),
+            ])
+        return response
+
+    # detail page ---------------------------------------------------------
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        """A read-only report of one response: summary, then every question and answer."""
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            return self._get_obj_does_not_exist_redirect(request, self.opts, object_id)
+        from .survey_progress import question_parts, screening_question_ids, survey_part_count
+        questions = list(obj.survey.questions.order_by('order', 'id'))
+        parts = question_parts(questions, screening_question_ids(questions))
+        answers = {a.question_id: a for a in obj.answers.select_related('question').prefetch_related('selected_choices')}
+        rows, number = [], 0
+        for question, part in zip(questions, parts):
+            if part:
+                number += 1
+            answer = answers.get(question.id)
+            title, _, rest = question.question_text.partition('\n')
+            rows.append({
+                'label': f'Q{number}' if part else 'Screening',
+                'part': part,
+                'title': title,
+                'text': rest,
+                'answer': answer_text(answer),
+                'answered': answer is not None,
+                'untruthful': answer is not None and answer.selected_choices.filter(is_disqualifying=True).exists(),
+            })
+        from .survey_progress import response_attempts
+        attempts = response_attempts(obj, questions)
+        for attempt in attempts:
+            attempt['time'] = format_duration(attempt['seconds'])
+        suspension = SurveySuspension.objects.filter(user=obj.user).order_by('-suspended_at').first()
+        context = {
+            **self.admin_site.each_context(request),
+            'opts': self.opts,
+            'title': f'{obj.user.get_full_name() or obj.user.email} · {obj.survey.category.name}',
+            'original': obj,
+            'response': obj,
+            'rows': rows,
+            'answered': len(answers),
+            'total': len(questions),
+            'percent': int(len(answers) * 100 / len(questions)) if questions else 0,
+            'time_taken': format_duration(obj.time_spent_seconds),
+            'reward': self.reward(obj),
+            'parts_total': survey_part_count(),
+            'current_part': next((p for q, p in zip(questions, parts) if q.id not in answers), None),
+            'user_admin_url': reverse(f'{self.admin_site.name}:auth_user_change', args=[obj.user_id]),
+            'user_responses_url': reverse(f'{self.admin_site.name}:surveys_surveyresponse_changelist')
+                                  + f'?user__id__exact={obj.user_id}',
+            'delete_url': reverse(f'{self.admin_site.name}:surveys_surveyresponse_delete', args=[obj.pk]),
+            'suspension': suspension,
+            'attempts': attempts,
+            'attempts_total': format_duration(sum(a['seconds'] for a in attempts)),
+            'has_delete_permission': self.has_delete_permission(request, obj),
+        }
+        return TemplateResponse(request, 'admin/surveys/surveyresponse/report.html', context)
+
 
 class LuckyDrawEntryAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     list_display = (
@@ -1169,7 +1426,7 @@ class SurveyCategoryAdminForm(forms.ModelForm):
 
 class SurveyCategoryAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     form = SurveyCategoryAdminForm
-    list_display = ('name', 'slug', 'country', 'parent', 'order', 'image_preview', 'survey_count', 'created_at')
+    list_display = ('name', 'country', 'image_preview', 'responses_collected', 'survey_count', 'order', 'created_at')
     list_filter = ('country', 'parent', 'created_at')
     search_fields = ('name', 'description', 'slug', 'country__name')
     list_editable = ('order',)
@@ -1196,6 +1453,24 @@ class SurveyCategoryAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     def survey_count(self, obj):
         return obj.surveys.count()
     survey_count.short_description = 'Surveys'
+
+    @admin.display(description='Responses collected')
+    def responses_collected(self, obj):
+        """Completed responses against the country's sample cap (Nigeria: unlimited)."""
+        from .survey_progress import category_sample_cap
+        cap = category_sample_cap(obj)
+        done = SurveyResponse.objects.filter(survey__category=obj, completed_at__isnull=False).count()
+        open_ = SurveyResponse.objects.filter(survey__category=obj, completed_at__isnull=True).count()
+        from urllib.parse import urlencode
+        url = reverse(f'{self.admin_site.name}:surveys_surveyresponse_changelist') + '?' + urlencode(
+            {'category': obj.name, 'country': obj.country_id or ''})
+        if cap is None:
+            return format_html('<a href="{}"><strong>{}</strong></a><span class="sd-sub">no limit &middot; {} in progress</span>',
+                               url, done, open_)
+        badge = 'sd-badge-danger' if done + open_ >= cap else 'sd-badge-success'
+        label = 'Full' if done + open_ >= cap else 'Open'
+        return format_html('<a href="{}"><strong>{} / {}</strong></a> <span class="sd-badge {}">{}</span>'
+                           '<span class="sd-sub">{} in progress</span>', url, done, cap, badge, label, open_)
     
     def image_preview(self, obj):
         if obj.image:
@@ -1382,8 +1657,10 @@ class UserProfileInline(admin.StackedInline):
 
 class CustomUserAdmin(SafeDeleteAdminMixin, BaseUserAdmin):
     inlines = (UserProfileInline,)
-    list_display = ('username', 'email', 'first_name', 'last_name', 'country', 'wallet', 'is_active', 'date_joined')
+    list_display = ('member', 'country', 'surveys', 'wallet', 'account_status', 'joined')
+    list_display_links = ('member',)
     list_filter = ('is_active', 'groups', 'date_joined', 'profile__country')
+    list_per_page = 50
     search_fields = ('username', 'first_name', 'last_name', 'email')
     ordering = ('-date_joined',)
     filter_horizontal = ('groups', 'user_permissions',)
@@ -1401,11 +1678,50 @@ class CustomUserAdmin(SafeDeleteAdminMixin, BaseUserAdmin):
         return '-'
     wallet.short_description = 'Wallet'
 
+    @admin.display(description='Suspended until', ordering='profile__suspended_until')
+    def suspended_until(self, obj):
+        profile = getattr(obj, 'profile', None)
+        return profile.suspended_until if profile and profile.is_suspended else '-'
+
+    @admin.display(description='User', ordering='email')
+    def member(self, obj):
+        name = obj.get_full_name() or obj.username
+        return format_html('<strong>{}</strong><span class="sd-sub">{}</span>', name, obj.email)
+
+    @admin.display(description='Joined', ordering='date_joined')
+    def joined(self, obj):
+        local = timezone.localtime(obj.date_joined)
+        return format_html('<span class="sd-nowrap">{}</span><span class="sd-sub">{}</span>',
+                           local.strftime('%d %b %Y'), local.strftime('%H:%M'))
+
+    @admin.display(description='Surveys', ordering='surveys_completed')
+    def surveys(self, obj):
+        url = reverse(f'{self.admin_site.name}:surveys_surveyresponse_changelist') + f'?user__id__exact={obj.pk}'
+        if not obj.surveys_completed and not obj.surveys_in_progress:
+            return format_html('<span class="sd-muted">None yet</span>')
+        return format_html(
+            '<a href="{}"><strong>{}</strong> completed</a><span class="sd-sub">{} in progress</span>',
+            url, obj.surveys_completed, obj.surveys_in_progress)
+
+    @admin.display(description='Status', ordering='profile__suspended_until')
+    def account_status(self, obj):
+        profile = getattr(obj, 'profile', None)
+        if profile and profile.is_suspended:
+            return format_html('<span class="sd-badge sd-badge-danger">Suspended</span>'
+                               '<span class="sd-sub">until {}</span>',
+                               timezone.localtime(profile.suspended_until).strftime('%d %b %Y'))
+        if not obj.is_active:
+            return format_html('<span class="sd-badge sd-badge-muted">Inactive</span>')
+        return format_html('<span class="sd-badge sd-badge-success">Active</span>')
+
     # Only show non-staff users in the admin
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         # Prefetch profile + country to avoid N+1 queries
-        qs = qs.select_related('profile__country')
+        qs = qs.select_related('profile__country').annotate(
+            surveys_completed=Count('survey_responses', filter=Q(survey_responses__completed_at__isnull=False), distinct=True),
+            surveys_in_progress=Count('survey_responses', filter=Q(survey_responses__completed_at__isnull=True), distinct=True),
+        )
         return qs.filter(is_staff=False, is_superuser=False)
 
     # Fields shown when adding users
@@ -1683,12 +1999,67 @@ survey_admin_site.register(PollResponse, PollResponseAdmin)
 survey_admin_site.register(PollAnswer, DefaultModelAdmin)
 survey_admin_site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
 survey_admin_site.register(UserWallet, UserWalletAdmin)
-survey_admin_site.register(MonthlyDrawEligibleUser, MonthlyDrawEligibleUserAdmin)
-survey_admin_site.register(MonthlyDrawNumbers, MonthlyDrawNumbersAdmin)
-survey_admin_site.register(MonthlyDrawSettlement, MonthlyDrawSettlementAdmin)
+if settings.LUCKY_DRAW_CONFIG.get('MONTHLY_DRAW_ENABLED', True):     # Monthly draw switched off: pages hidden
+    survey_admin_site.register(MonthlyDrawEligibleUser, MonthlyDrawEligibleUserAdmin)
+    survey_admin_site.register(MonthlyDrawNumbers, MonthlyDrawNumbersAdmin)
+    survey_admin_site.register(MonthlyDrawSettlement, MonthlyDrawSettlementAdmin)
 survey_admin_site.register(WalletTransaction, WalletTransactionAdmin)
 survey_admin_site.register(WalletWithdrawalRequest, WalletWithdrawalRequestAdmin)
+survey_admin_site.register(Charity, CharityAdmin)
 survey_admin_site.register(SurveyResponse, SurveyResponseAdmin)
+
+
+class SurveySuspensionAdmin(admin.ModelAdmin):
+    """Why each user was suspended (an untruthful screening answer), and until when."""
+    list_display = ('member', 'category_name', 'untruthful_answers', 'suspended_on', 'ends', 'status')
+    list_display_links = ('member',)
+    list_filter = ('suspended_at', 'category_name')
+    search_fields = ('user__username', 'user__email', 'category_name', 'untruthful_options')
+    list_select_related = ('user',)
+    date_hierarchy = 'suspended_at'
+    readonly_fields = ('user', 'survey', 'survey_name', 'category_name', 'question_text', 'selected_options',
+                       'untruthful_options', 'suspended_at', 'suspended_until', 'lifted_at')
+    actions = ['lift_suspensions']
+
+    def has_add_permission(self, request):
+        return False
+
+    @admin.display(description='Untruthful answer(s)')
+    def untruthful_answers(self, obj):
+        return ', '.join(obj.untruthful_list)
+
+    @admin.display(description='User', ordering='user__email')
+    def member(self, obj):
+        return format_html('<strong>{}</strong><span class="sd-sub">{}</span>',
+                           obj.user.get_full_name() or obj.user.username, obj.user.email)
+
+    @admin.display(description='Suspended on', ordering='suspended_at')
+    def suspended_on(self, obj):
+        return SurveyResponseAdmin._when(obj.suspended_at)
+
+    @admin.display(description='Ends', ordering='suspended_until')
+    def ends(self, obj):
+        return SurveyResponseAdmin._when(obj.suspended_until)
+
+    @admin.display(description='Status')
+    def status(self, obj):
+        if obj.lifted_at:
+            return format_html('<span class="sd-badge sd-badge-info">Lifted early</span>')
+        if obj.is_active:
+            return format_html('<span class="sd-badge sd-badge-danger">Active</span>')
+        return format_html('<span class="sd-badge sd-badge-muted">Ended</span>')
+
+    @admin.action(description='Lift selected suspensions now')
+    def lift_suspensions(self, request, queryset):
+        lifted = 0
+        for suspension in queryset:
+            if suspension.is_active:
+                suspension.lift()
+                lifted += 1
+        self.message_user(request, f'Lifted {lifted} suspension(s).')
+
+
+survey_admin_site.register(SurveySuspension, SurveySuspensionAdmin)
 survey_admin_site.register(EmailVerification, EmailVerificationAdmin)
 survey_admin_site.register(Answer, DefaultModelAdmin)
 survey_admin_site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
@@ -1713,9 +2084,11 @@ admin.site.register(PollResponse, PollResponseAdmin)
 admin.site.register(PollAnswer, DefaultModelAdmin)
 admin.site.register(CountryLuckyDrawConfig, CountryLuckyDrawConfigAdmin)
 admin.site.register(UserWallet, UserWalletAdmin)
-admin.site.register(MonthlyDrawEligibleUser, MonthlyDrawEligibleUserAdmin)
+if settings.LUCKY_DRAW_CONFIG.get('MONTHLY_DRAW_ENABLED', True):
+    admin.site.register(MonthlyDrawEligibleUser, MonthlyDrawEligibleUserAdmin)
 admin.site.register(WalletTransaction, WalletTransactionAdmin)
 admin.site.register(WalletWithdrawalRequest, WalletWithdrawalRequestAdmin)
+admin.site.register(Charity, CharityAdmin)
 admin.site.register(LuckyDrawEntry, LuckyDrawEntryAdmin)
 admin.site.register(MilestoneAchievement, MilestoneAchievementAdmin)
 admin.site.register(JournalCategory, JournalCategoryAdmin)

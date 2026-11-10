@@ -1,28 +1,28 @@
 """The survey "Thank you" message, and the Quick draw nudge added to it.
 
-Every 2 surveys qualify a user for a draw play. When a user has just completed
-a survey and exactly one more would qualify them, the "Thank you" message also
-says so.
+The Quick draw gives one play for every QUESTIONS_REQUIRED survey questions
+answered. When a user finishes a survey without a play waiting, the "Thank you"
+message also says how many more questions unlock the next play.
 """
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from surveys.lucky_draw import QUICK_DRAW_NUDGE, LuckyDrawView
+from surveys.lucky_draw import LuckyDrawView, quick_draw_nudge_text
 from surveys.models import (
-    Country, LuckyDrawEntry, Poll, PollResponse, Question, Survey, SurveyCategory, SurveyResponse,
-    UserSurveyProgress,
+    Country, LuckyDrawEntry, Poll, PollResponse, Question, Survey, SurveyCategory,
 )
 from surveys.views_surveys import thank_you_message
 
 THANK_YOU = 'Thank you for completing the survey!'
-COMBINED = f'{THANK_YOU} {QUICK_DRAW_NUDGE}'
 
-LUCKY_DRAW = {**settings.LUCKY_DRAW_CONFIG, 'SURVEYS_REQUIRED': 2, 'POLLS_REQUIRED': 5}
+LUCKY_DRAW = {**settings.LUCKY_DRAW_CONFIG, 'QUESTIONS_REQUIRED': 4, 'POLLS_REQUIRED': 5,
+              'MONTHLY_DRAW_TEST_DATE': None}
+SURVEY_CONFIG = {**settings.SURVEY_CONFIG, 'AD_FREQUENCY': 1000, 'MONTHLY_SURVEY_CAP': None}
 
 
-@override_settings(LUCKY_DRAW_CONFIG=LUCKY_DRAW)
+@override_settings(LUCKY_DRAW_CONFIG=LUCKY_DRAW, SURVEY_CONFIG=SURVEY_CONFIG)
 class SurveyCompletionMessageTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
@@ -33,8 +33,8 @@ class SurveyCompletionMessageTests(TestCase):
         self.user.profile.save(update_fields=['country'])
         self.client.force_login(self.user)
 
-    def make_survey(self, name, category=None, question_count=1):
-        category = category or SurveyCategory.objects.create(name=f'{name} category', country=self.country)
+    def make_survey(self, name, question_count=3):
+        category = SurveyCategory.objects.create(name=f'{name} category', country=self.country)
         survey = Survey.objects.create(name=name, category=category, is_active=True)
         for order in range(question_count):
             question = Question.objects.create(
@@ -54,79 +54,38 @@ class SurveyCompletionMessageTests(TestCase):
             )
         return response
 
-    # -- the message itself ---------------------------------------------------
+    def test_nudge_text(self):
+        self.assertEqual(quick_draw_nudge_text(1), 'Answer 1 more survey question to unlock your next Quick draw play.')
+        self.assertEqual(quick_draw_nudge_text(7), 'Answer 7 more survey questions to unlock your next Quick draw play.')
 
-    def test_first_survey_adds_the_quick_draw_nudge_to_the_thank_you(self):
-        response = self.complete_paged(self.make_survey('First'))
-
-        self.assertContains(response, COMBINED)
-
-    def test_message_is_a_single_combined_alert(self):
-        response = self.complete_paged(self.make_survey('First'))
+    def test_finishing_short_of_a_play_adds_the_nudge_as_one_message(self):
+        response = self.complete_paged(self.make_survey('First', question_count=3))
 
         texts = [str(message) for message in response.context['messages']]
-        self.assertEqual(texts, [COMBINED])
+        self.assertEqual(len(texts), 1)                                   # one combined alert
+        self.assertTrue(texts[0].startswith(f'{THANK_YOU} {quick_draw_nudge_text(1)}'))
+        self.assertIn('has been added to your wallet for completing the', texts[0])   # category reward
 
-    def test_no_nudge_once_the_user_qualifies(self):
-        self.complete_paged(self.make_survey('First'))
-        response = self.complete_paged(self.make_survey('Second'))
+    def test_no_nudge_once_a_play_is_waiting(self):
+        response = self.complete_paged(self.make_survey('First', question_count=4))
 
-        # Two surveys qualify the user, so they are sent to the draw...
         self.assertEqual(response.redirect_chain[-1][0], reverse('surveys:lucky_draw'))
         self.assertContains(response, THANK_YOU)
-        # ...and are not told to do one more.
-        self.assertNotContains(response, QUICK_DRAW_NUDGE)
+        self.assertNotContains(response, 'to unlock your next Quick draw play')
 
-    def test_nudge_returns_after_the_draw_has_been_played(self):
-        self.complete_paged(self.make_survey('First'))
-        self.complete_paged(self.make_survey('Second'))
-        # The user plays the draw, using up the two qualifying surveys.
+    def test_nudge_counts_from_the_last_play(self):
+        self.complete_paged(self.make_survey('First', question_count=4))
         LuckyDrawEntry.objects.create(
             user=self.user, draw_type=LuckyDrawEntry.DRAW_TYPE_SURVEY,
-            guessed_number=3, winning_number=9, is_winner=False,
-            surveys_at_play=2, polls_at_play=0,
+            guessed_number=3, winning_number=9, is_winner=False, surveys_at_play=4, polls_at_play=0,
         )
 
-        response = self.complete_paged(self.make_survey('Third'))
-
-        self.assertContains(response, COMBINED)
-
-    # -- the rule behind it ---------------------------------------------------
-
-    def set_completed(self, count):
-        UserSurveyProgress.objects.update_or_create(
-            user=self.user, category=SurveyCategory.objects.get_or_create(
-                name='Counting', country=self.country)[0],
-            level=1, defaults={'completed_count': count},
-        )
-
-    def test_nudge_only_when_exactly_one_more_survey_is_needed(self):
-        cases = [(0, ''), (1, QUICK_DRAW_NUDGE), (2, ''), (3, '')]
-        for completed, expected in cases:
-            with self.subTest(completed=completed):
-                self.set_completed(completed)
-                self.assertEqual(LuckyDrawView().quick_draw_nudge(self.user), expected)
-
-    def test_thank_you_message_helper(self):
-        self.set_completed(1)
-        self.assertEqual(thank_you_message(self.user), COMBINED)
-        self.set_completed(0)
-        self.assertEqual(thank_you_message(self.user), THANK_YOU)
+        self.assertEqual(thank_you_message(self.user), f'{THANK_YOU} {quick_draw_nudge_text(4)}')
 
     @override_settings(LUCKY_DRAW_CONFIG={**LUCKY_DRAW, 'POLLS_REQUIRED': 1})
     def test_a_waiting_poll_draw_play_does_not_hide_the_nudge(self):
         poll = Poll.objects.create(title='A poll', country=self.country)
-        PollResponse.objects.create(user=self.user, poll=poll)          # 1 poll = a Poll draw play waiting
+        PollResponse.objects.create(user=self.user, poll=poll)
         self.assertTrue(LuckyDrawView().get_eligibility_context(self.user)['poll_eligible'])
 
-        response = self.complete_paged(self.make_survey('First'))
-
-        self.assertContains(response, COMBINED)
-
-    @override_settings(LUCKY_DRAW_CONFIG={**LUCKY_DRAW, 'SURVEYS_REQUIRED': 100})
-    def test_follows_the_configured_requirement_not_a_hardcoded_two(self):
-        # With 100 required, being 1 survey in is nowhere near "one more".
-        self.set_completed(1)
-        self.assertEqual(LuckyDrawView().quick_draw_nudge(self.user), '')
-        self.set_completed(99)
-        self.assertEqual(LuckyDrawView().quick_draw_nudge(self.user), QUICK_DRAW_NUDGE)
+        self.assertEqual(LuckyDrawView().quick_draw_nudge(self.user), quick_draw_nudge_text(4))
