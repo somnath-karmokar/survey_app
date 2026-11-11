@@ -29,53 +29,6 @@
         flex-shrink: 0;
     }
 
-    .charity-strip {
-        padding: 28px 0;
-        background: linear-gradient(135deg, #0f5132 0%, #198754 60%, #2fb171 100%);
-        color: #fff;
-    }
-    .charity-strip-inner {
-        display: flex;
-        align-items: center;
-        gap: 24px;
-        flex-wrap: wrap;
-    }
-    .charity-strip-badge {
-        flex: 0 0 auto;
-        width: 108px;
-        height: 108px;
-        border-radius: 50%;
-        background: #fff;
-        color: #146c43;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
-    }
-    .charity-strip-percent { font-size: 30px; font-weight: 800; line-height: 1; }
-    .charity-strip-extra { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
-    .charity-strip-text { flex: 1 1 320px; min-width: 0; }
-    .charity-strip-text h2 { color: #fff; font-size: 24px; font-weight: 800; margin: 0 0 6px; }
-    .charity-strip-text p { color: rgba(255, 255, 255, 0.92); margin: 0; font-size: 16px; }
-    .charity-strip-btn {
-        display: inline-block;
-        padding: 12px 22px;
-        border-radius: 999px;
-        background: #fff;
-        color: #146c43;
-        font-weight: 700;
-        text-decoration: none;
-        white-space: nowrap;
-    }
-    .charity-strip-btn:hover, .charity-strip-btn:focus-visible { background: #e8f6ed; color: #0f5132; }
-    @media (max-width: 575.98px) {
-        .charity-strip-inner { justify-content: center; text-align: center; }
-        .charity-strip-text h2 { font-size: 20px; }
-        .charity-strip-action { width: 100%; }
-        .charity-strip-btn { width: 100%; text-align: center; }
-    }
-
     .survey_area .serv_img img {
         width: 100%;
         height: 100%;
@@ -251,30 +204,6 @@
     </div>
 </section>
 
-<!-- Donate to charity: Sudraw adds 20% -->
-<section class="charity-strip" id="charity-strip" aria-labelledby="charity-strip-title">
-    <div class="container">
-        <div class="charity-strip-inner">
-            <div class="charity-strip-badge" aria-hidden="true">
-                <span class="charity-strip-percent">+{{ charity_bonus_percent }}%</span>
-                <span class="charity-strip-extra">extra</span>
-            </div>
-            <div class="charity-strip-text">
-                <h2 id="charity-strip-title"><i class="fas fa-hand-holding-heart me-2"></i>Give your winnings to charity &mdash; we add {{ charity_bonus_percent }}%</h2>
-                <p>Donate your withdrawals or winnings to charity and Sudraw adds an additional {{ charity_bonus_percent }}%
-                    on top. Donate 10, and the charity receives {{ charity_example_total }}.</p>
-            </div>
-            <div class="charity-strip-action">
-                {% if user.is_authenticated %}
-                <a href="{% url 'surveys:wallet_withdrawal_request' %}" class="charity-strip-btn">Donate from my wallet</a>
-                {% else %}
-                <a href="{% url 'surveys:signup' %}" class="charity-strip-btn">Join and start earning</a>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</section>
-
 <section class="winner_area">
     <div class="container">
         <div class="row">
@@ -388,7 +317,7 @@
                     <div class="serv_cont">
                         <div class="serv_icon"><i class="fa-solid fa-layer-group"></i></div>
                         <h3>{{ category.name }}</h3>
-                        <p>{{ category.description|striptags|truncatewords:20|default:"Explore this survey category and discover available surveys tailored for you." }}</p>
+                        <p>{{ category.description|default_if_none:""|striptags|truncatewords:20|default:"Explore this survey category and discover available surveys tailored for you." }}</p>
                         <a href="{% url 'surveys:category_detail' category.slug %}" tabindex="0">Start the Survey</a>
                     </div>
                 </div>
