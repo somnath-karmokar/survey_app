@@ -653,10 +653,6 @@ class HomePageView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        from .models import charity_bonus_percent
-        percent = charity_bonus_percent()
-        context['charity_bonus_percent'] = (int(percent) if percent == int(percent) else percent)
-        context['charity_example_total'] = f'{Decimal("10") + Decimal("10") * percent / Decimal("100"):.0f}'
 
         categories = SurveyCategory.objects.filter(
             surveys__is_active=True,

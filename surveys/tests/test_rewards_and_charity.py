@@ -162,9 +162,11 @@ class CharityDonationTests(TestCase):
 
         self.assertNotContains(self.client.get(reverse('surveys:wallet_withdrawal_request')), 'Donate to charity')
 
-    def test_homepage_promotes_the_20_percent(self):
+    def test_homepage_has_no_charity_banner_and_category_boxes_never_say_none(self):
+        category = SurveyCategory.objects.create(name='Cinema', country=self.uk)       # no description
+        Survey.objects.create(name='Cinema', category=category, is_active=True)
         page = self.client.get(reverse('surveys:home'))
 
-        self.assertContains(page, 'id="charity-strip"')
-        self.assertContains(page, '+20%')
-        self.assertContains(page, 'the charity receives 12')
+        self.assertNotContains(page, 'id="charity-strip"')                 # removed on request
+        self.assertNotContains(page, '<p>None</p>', html=False)
+        self.assertContains(page, 'Explore this survey category')           # fallback text instead
