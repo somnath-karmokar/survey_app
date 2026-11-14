@@ -775,6 +775,14 @@ class QuestionAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Survey picker: "Cinema — United Kingdom", grouped by country (type a country
+        # name in the picker's filter box to narrow the list).
+        if 'surveys' in self.fields:
+            self.fields['surveys'].queryset = Survey.objects.select_related('category__country').order_by(
+                'category__country__name', 'name')
+            self.fields['surveys'].help_text = (
+                'Each survey is listed with its country, e.g. "Cinema — United Kingdom". '
+                'Type a country or survey name in the filter box to find it.')
         # If editing an existing question, get the first survey's category and country
         if self.instance and self.instance.pk and self.instance.surveys.exists():
             survey = self.instance.surveys.first()
@@ -792,28 +800,65 @@ class QuestionAdminForm(forms.ModelForm):
 @admin.register(Question)
 class QuestionAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     form = QuestionAdminForm
-    list_display = ('question_text', 'topic', 'section_title', 'question_type', 'is_required', 'order', 'survey_links', 'created_at')
-    list_filter = ('question_type', 'is_required', 'surveys', 'surveys__category')
-    search_fields = ('question_text', 'topic')
+    list_display = ('question_text', 'topic', 'section_title', 'question_type', 'is_required', 'order',
+                    'country_column', 'survey_links', 'created_at')
+    list_filter = ('question_type', 'is_required', 'surveys__category__country', 'surveys__category')
+    search_fields = ('question_text', 'topic', 'surveys__name', 'surveys__category__country__name')
     list_editable = ('order', 'is_required')
     list_per_page = 20
     save_on_top = True
     filter_horizontal = ('surveys',)
     inlines = [ChoiceInline]  # Add this line to include the ChoiceInline
-    
+    readonly_fields = ('belongs_to',)
+
     fieldsets = (
+        ('Survey and country', {
+            'fields': ('belongs_to',),
+        }),
         (None, {
             'fields': ('topic', 'question_text', 'section_title', 'question_type', 'is_required', 'order', 'surveys')
         }),
     )
-    
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related('surveys__category__country')
+
+    def _survey_countries(self, obj):
+        return sorted({s.category.country for s in obj.surveys.all() if s.category and s.category.country},
+                      key=lambda c: c.name)
+
+    @admin.display(description='Country')
+    def country_column(self, obj):
+        countries = self._survey_countries(obj)
+        if not countries:
+            return format_html('<span class="sd-badge sd-badge-muted">No survey</span>')
+        return format_html_join(' ', '<span class="sd-badge sd-badge-info">{}</span>', ((c.name,) for c in countries))
+
+    @admin.display(description='Belongs to')
+    def belongs_to(self, obj):
+        """Which survey(s) and country this question is in, shown at the top of the page."""
+        surveys = list(obj.surveys.all()) if obj and obj.pk else []
+        if not surveys:
+            return format_html('<span class="sd-badge sd-badge-muted">Not in any survey yet</span>'
+                               '<span class="sd-sub">Choose the survey below; each one is listed with its country.</span>')
+        return format_html_join(
+            format_html('<br>'),
+            '<span class="sd-badge sd-badge-info">{}</span> <a href="{}"><strong>{}</strong></a>{}',
+            ((s.category.country.name if s.category and s.category.country else 'No country',
+              reverse(f'{self.admin_site.name}:surveys_survey_change', args=[s.id]),
+              s.name,
+              f' · {s.category.name}' if s.category and s.category.name != s.name else '')
+             for s in surveys),
+        )
+
+    @admin.display(description='Surveys')
     def survey_links(self, obj):
-        return ", ".join([
-            f'<a href="{reverse("admin:surveys_survey_change", args=[s.id])}">{s.name}</a>'
-            for s in obj.surveys.all()
-        ]) or "-"
-    survey_links.short_description = 'Surveys'
-    survey_links.allow_tags = True
+        surveys = list(obj.surveys.all())
+        if not surveys:
+            return '-'
+        return format_html_join(
+            ', ', '<a href="{}">{}</a>',
+            ((reverse(f'{self.admin_site.name}:surveys_survey_change', args=[s.id]), str(s)) for s in surveys))
     
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)

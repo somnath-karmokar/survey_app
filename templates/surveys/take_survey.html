@@ -161,6 +161,7 @@
         font-size: 0.875em;
         margin-top: 0.25rem;
     }
+{% if not allow_copy_paste %}{# copy protection: off while SURVEY_CONFIG['ALLOW_COPY_PASTE'] is True #}
     th label,
     .form-check-label {
         -webkit-user-select: none;
@@ -171,9 +172,11 @@
     table {
         -webkit-touch-callout: none;
     }
+{% endif %}
 </style>
 
 <script>
+{% if not allow_copy_paste %}{# copy protection: off while SURVEY_CONFIG['ALLOW_COPY_PASTE'] is True #}
 (function() {
     var table = document.querySelector('table');
     if (table) {
@@ -192,6 +195,7 @@
         if (e.ctrlKey && e.key.toLowerCase() === 'u') { e.preventDefault(); }
     });
 })();
+{% endif %}
 
     function updateOtherAnswerInputs() {
         document.querySelectorAll('.other-answer-input').forEach(input => {

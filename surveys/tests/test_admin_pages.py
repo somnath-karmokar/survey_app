@@ -113,3 +113,44 @@ class AdminPagesTests(TestCase):
             self.assertEqual(self.client.get(reverse(f'admin:{name}')).status_code, 200, name)
         self.assertEqual(self.client.get(reverse('admin:surveys_survey_change', args=[self.survey.pk])).status_code, 200)
         self.assertEqual(self.client.get(reverse('admin:auth_user_change', args=[self.user.pk])).status_code, 200)
+
+
+class QuestionCountryAdminTests(TestCase):
+    """The Survey question admin shows which country each question's survey belongs to."""
+
+    def setUp(self):
+        self.client.force_login(get_user_model().objects.create_superuser('a@sudraw.com', 'a@sudraw.com', 'pw'))
+        self.uk = Country.objects.create(name='United Kingdom', code='GB')
+        self.ng = Country.objects.create(name='Nigeria', code='NG')
+        self.uk_cinema = Survey.objects.create(name='Cinema', category=SurveyCategory.objects.create(name='Cinema', country=self.uk))
+        self.ng_cinema = Survey.objects.create(name='Cinema', category=SurveyCategory.objects.create(name='Cinema', country=self.ng))
+        self.question = Question.objects.create(topic='Ticket Price Fairness', question_text='How fair were ticket prices?',
+                                                question_type='single_choice', order=1)
+        self.question.surveys.add(self.ng_cinema)
+
+    def test_survey_name_includes_its_country(self):
+        self.assertEqual(str(self.uk_cinema), 'Cinema — United Kingdom')
+        self.assertEqual(str(self.ng_cinema), 'Cinema — Nigeria')
+
+    def test_change_page_shows_the_country_and_labels_every_survey_with_it(self):
+        page = self.client.get(reverse('admin:surveys_question_change', args=[self.question.id]))
+
+        self.assertContains(page, 'Belongs to')
+        self.assertContains(page, '<span class="sd-badge sd-badge-info">Nigeria</span>', html=True)
+        self.assertContains(page, 'Cinema — United Kingdom')        # in the survey picker
+        self.assertContains(page, 'Cinema — Nigeria')
+
+    def test_list_has_a_country_column_and_filter(self):
+        page = self.client.get(reverse('admin:surveys_question_changelist'))
+        self.assertContains(page, 'column-country_column')
+        self.assertContains(page, '<span class="sd-badge sd-badge-info">Nigeria</span>', html=True)
+
+        only_uk = self.client.get(reverse('admin:surveys_question_changelist'),
+                                  {'surveys__category__country__id__exact': self.uk.id})
+        self.assertNotContains(only_uk, 'How fair were ticket prices?')
+        searched = self.client.get(reverse('admin:surveys_question_changelist'), {'q': 'Nigeria'})
+        self.assertContains(searched, 'How fair were ticket prices?')
+
+    def test_add_page_still_works(self):
+        page = self.client.get(reverse('admin:surveys_question_add'))
+        self.assertContains(page, 'Not in any survey yet')

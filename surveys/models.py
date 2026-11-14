@@ -110,7 +110,11 @@ class Survey(models.Model):
     )
 
     def __str__(self):
-        return f"{self.name} ({self.category.name})"
+        """e.g. "Cinema — United Kingdom" (the same survey exists once per country)."""
+        category = self.category
+        label = self.name if not category or category.name == self.name else f"{self.name} ({category.name})"
+        country = getattr(category, 'country', None) if category else None
+        return f"{label} — {country.name}" if country else label
 
     def save(self, *args, **kwargs):
         # Allow multiple active surveys

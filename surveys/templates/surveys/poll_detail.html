@@ -77,6 +77,7 @@
         font-size: 0.875em;
         color: #6c757d;
     }
+{% if not allow_copy_paste %}{# copy protection: off while SURVEY_CONFIG['ALLOW_COPY_PASTE'] is True #}
     .question-text,
     .question-title,
     .form-check-label {
@@ -88,6 +89,7 @@
     .question-card {
         -webkit-touch-callout: none;
     }
+{% endif %}
 </style>
 {% endblock %}
 
@@ -262,6 +264,7 @@
 
 {% block extra_js %}
 <script>
+{% if not allow_copy_paste %}{# copy protection: off while SURVEY_CONFIG['ALLOW_COPY_PASTE'] is True #}
 (function() {
     document.querySelectorAll('.question-card').forEach(function(el) {
         el.addEventListener('contextmenu', function(e) { e.preventDefault(); });
@@ -279,6 +282,7 @@
         if (e.ctrlKey && e.key.toLowerCase() === 'u') { e.preventDefault(); }
     });
 })();
+{% endif %}
 
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('input[type="range"]').forEach(input => {

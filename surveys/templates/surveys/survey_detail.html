@@ -113,6 +113,7 @@
     .other-answer-field {
         margin-top: 0.75rem;
     }
+{% if not allow_copy_paste %}{# copy protection: off while SURVEY_CONFIG['ALLOW_COPY_PASTE'] is True #}
     .question-text,
     .question-title,
     .form-check-label {
@@ -124,6 +125,7 @@
     .question-card {
         -webkit-touch-callout: none;
     }
+{% endif %}
     /* Survey header: survey name, parts strip and the current section */
     .survey-card { border: 1px solid #e3e8ef; border-radius: 0.875rem; overflow: visible; box-shadow: 0 6px 20px rgba(15, 35, 60, 0.05); }
     .survey-card > .survey-head {
@@ -338,8 +340,8 @@
         background: #fff;
         cursor: pointer;
         transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
-        -webkit-user-select: none;
-        user-select: none;
+        {% if not allow_copy_paste %}-webkit-user-select: none;
+        user-select: none;{% endif %}
     }
     .sg-option:hover { border-color: #8db4e2; background: #f8fbff; }
     .sg-option input {
@@ -732,6 +734,7 @@
 })();
 
 // Prevent copying/scraping of question content
+{% if not allow_copy_paste %}{# copy protection: off while SURVEY_CONFIG['ALLOW_COPY_PASTE'] is True #}
 (function() {
     document.querySelectorAll('.question-card').forEach(function(el) {
         el.addEventListener('contextmenu', function(e) { e.preventDefault(); });
@@ -749,6 +752,7 @@
         if (e.ctrlKey && e.key.toLowerCase() === 'u') { e.preventDefault(); }
     });
 })();
+{% endif %}
 
 // Track the number of questions answered
 let questionsAnswered = 0;

@@ -52,3 +52,9 @@ def open_survey_processor(request):
         'open_survey_id': response.survey_id,
         'open_survey_category': response.survey.category.name,
     }
+
+
+def copy_paste_processor(request):
+    """`allow_copy_paste`: when True, survey and poll pages don't block copying,
+    selecting or right-clicking question text (SURVEY_CONFIG['ALLOW_COPY_PASTE'])."""
+    return {'allow_copy_paste': bool(getattr(settings, 'SURVEY_CONFIG', {}).get('ALLOW_COPY_PASTE', False))}

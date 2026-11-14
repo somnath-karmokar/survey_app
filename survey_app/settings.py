@@ -115,6 +115,7 @@ TEMPLATES = [
                 'surveys.context_processors.bitlabs_processor',
                 'surveys.context_processors.suspension_processor',
                 'surveys.context_processors.open_survey_processor',
+                'surveys.context_processors.copy_paste_processor',
             ],
         },
     },
@@ -382,7 +383,12 @@ CORS_ALLOW_CREDENTIALS = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SURVEY_CONFIG = {
-    'DEFAULT_COOLDOWN_DAYS': 90,  # a completed survey can't be taken again for 90 days
+    # A completed survey can't be taken again for this many days.
+    # TESTING: 7 days. Set back to 90 before going live.
+    'DEFAULT_COOLDOWN_DAYS': 7,
+    # TESTING: True lets testers copy, select and right-click question text on survey
+    # and poll pages. Set to False before going live to block copying again.
+    'ALLOW_COPY_PASTE': True,
     'AD_FREQUENCY': 5,  # show a commercial after every 5 survey questions (screening not counted)
     # Max surveys one user can complete per calendar month (UTC). None (or 0) = no per-user
     # limit (current setting: only the per-category sample cap below applies).
