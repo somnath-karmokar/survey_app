@@ -195,11 +195,10 @@ USE_TZ = True
 SITE_NAME = 'Sudraw'
 SITE_URL = 'https://sudraw.com'
 
-# Milestone payouts: currently only "every 100 surveys completed" is active.
-# polls_completed and points_earned milestones stay paused - add an entry
-# back below to switch one on. Existing MilestoneAchievement records stay
-# readable in the admin either way.
-MILESTONE_REWARDS_ENABLED = True
+# Milestone payouts are OFF: users get the per-survey reward only (Country settings ->
+# Category completion reward, £2.00 / $1.00 Nigeria). Set to True to pay the milestones
+# below again. Existing MilestoneAchievement records stay readable in the admin either way.
+MILESTONE_REWARDS_ENABLED = False
 
 MILESTONE_REWARDS = (
     {
@@ -385,17 +384,18 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SURVEY_CONFIG = {
     'DEFAULT_COOLDOWN_DAYS': 90,  # a completed survey can't be taken again for 90 days
     'AD_FREQUENCY': 5,  # show a commercial after every 5 survey questions (screening not counted)
-    # Max surveys a user can complete per calendar month (UTC). Applies to every
-    # user, retakes included. Set to None (or 0) to remove the limit.
-    'MONTHLY_SURVEY_CAP': 10, #for test make it 10, for production set it to 200
+    # Max surveys one user can complete per calendar month (UTC). None (or 0) = no per-user
+    # limit (current setting: only the per-category sample cap below applies).
+    'MONTHLY_SURVEY_CAP': None,
     'SURVEY_PARTS': 8,  # each category's survey is shown as this many equal parts
     # Added to the wallet for every completed category (all 120 questions). Per country in the
     # admin (Lucky draw configs -> Category completion reward); Nigeria is set to 1.00.
     'CATEGORY_COMPLETION_REWARD': '2.00',
     'CATEGORY_COMPLETION_REWARD_BY_COUNTRY': {'NG': '1.00'},  # used when the country has no config value
-    # Each category collects at most this many completed responses ("samples") per country.
-    # Set per country in the admin (Lucky draw configs -> Category sample cap; empty = unlimited).
-    # These two values apply only to countries without a config. Subject to change.
+    # Each category collects at most this many responses ("samples") per country per calendar
+    # month; a full category is locked until the 1st of next month (country's time zone).
+    # Set per country in the admin (Country settings -> Category sample cap; empty = unlimited).
+    # These two values apply only to countries without settings. Subject to change.
     'CATEGORY_SAMPLE_CAP': 10,
     'CATEGORY_SAMPLE_CAP_EXEMPT': ['NG'],  # Nigeria: unlimited
     # Answers more than this many minutes apart count as separate attempts (admin timing report).

@@ -308,6 +308,22 @@
                     <div id="continue-prompt" class="d-none mt-4">
                         <hr class="mb-4">
                         <div class="text-center">
+                            {% if open_survey %}
+                            {# Played in the middle of a survey: go straight back to it. #}
+                            <p class="fw-semibold mb-1" style="font-size:1.05rem;">
+                                Back to your {{ open_survey.survey.category.name }} survey
+                            </p>
+                            <p class="text-muted mb-3" style="font-size:0.9rem;" id="return-countdown"
+                               data-resume-url="{% url 'surveys:survey_detail' open_survey.survey.id %}" data-seconds="5">
+                                Taking you back to where you left off in <strong id="return-seconds">5</strong> seconds&hellip;
+                            </p>
+                            <a href="{% url 'surveys:survey_detail' open_survey.survey.id %}" class="btn btn-primary px-4" id="return-to-survey">
+                                <i class="fas fa-play-circle me-2"></i>Back to my survey now
+                            </a>
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-link btn-sm text-muted" id="stay-on-draw">Stay on this page</button>
+                            </div>
+                            {% else %}
                             <p id="continue-heading" class="fw-semibold mb-1" style="font-size:1.05rem;"></p>
                             <p class="text-muted mb-3" style="font-size:0.9rem;">
                                 Every survey you complete brings you one step closer to your next draw entry.
@@ -316,6 +332,7 @@
                                class="btn btn-primary px-4">
                                 <i class="fas fa-th-large me-2"></i>Go to Survey Categories
                             </a>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -474,12 +491,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Show the next-step prompt with context-aware heading
                 const continuePrompt = document.getElementById('continue-prompt');
                 const continueHeading = document.getElementById('continue-heading');
-                if (continuePrompt && continueHeading) {
-                    continueHeading.textContent = result.is_winner
-                        ? '🎉 Well done! Ready to earn another draw entry?'
-                        : '💪 Don\'t give up — complete more surveys to play again!';
+                if (continuePrompt) {
+                    if (continueHeading) {
+                        continueHeading.textContent = result.is_winner
+                            ? '🎉 Well done! Ready to earn another draw entry?'
+                            : '💪 Don\'t give up — complete more surveys to play again!';
+                    }
                     continuePrompt.classList.remove('d-none');
                 }
+                startReturnCountdown();
                 
             } catch (error) {
                 console.error('Error:', error);
@@ -492,7 +512,42 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Played in the middle of a survey: after the draw, go back to the survey
+    // automatically (the user can stay with "Stay on this page" or "Play Again").
+    let returnTimer = null;
+    function stopReturnCountdown(message) {
+        if (returnTimer) {
+            clearInterval(returnTimer);
+            returnTimer = null;
+        }
+        const countdown = document.getElementById('return-countdown');
+        if (countdown && message) countdown.textContent = message;
+    }
+    function startReturnCountdown() {
+        const countdown = document.getElementById('return-countdown');
+        if (!countdown || returnTimer) return;
+        const resumeUrl = countdown.dataset.resumeUrl;
+        let seconds = parseInt(countdown.dataset.seconds, 10) || 5;
+        const secondsEl = document.getElementById('return-seconds');
+        returnTimer = setInterval(function() {
+            seconds -= 1;
+            if (secondsEl) secondsEl.textContent = Math.max(seconds, 0);
+            if (seconds <= 0) {
+                stopReturnCountdown();
+                window.location.href = resumeUrl;
+            }
+        }, 1000);
+    }
+    const stayBtn = document.getElementById('stay-on-draw');
+    if (stayBtn) {
+        stayBtn.addEventListener('click', function() {
+            stopReturnCountdown('Your survey is saved. Use the button above when you are ready to continue.');
+            stayBtn.classList.add('d-none');
+        });
+    }
+
     playAgainBtn.addEventListener('click', function() {
+        stopReturnCountdown();
         window.location.reload();
     });
 });

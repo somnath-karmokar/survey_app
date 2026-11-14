@@ -52,7 +52,8 @@ class SampleCapTests(TestCase):
     def test_full_category_cannot_be_started(self):
         page = self.client.get(reverse('surveys:survey_detail', args=[self.survey.id]), follow=True)
 
-        self.assertContains(page, 'has already collected all 2 responses needed in United Kingdom')
+        self.assertContains(page, 'has already collected all 2 responses needed in United Kingdom this month')
+        self.assertContains(page, 'It opens again on 1 ')
         self.assertFalse(SurveyResponse.objects.filter(user=self.late).exists())
         self.assertEqual(self.client.get(reverse('surveys:survey_detail', args=[self.other.id])).status_code, 200)
 
@@ -62,14 +63,26 @@ class SampleCapTests(TestCase):
         self.assertContains(page, 'Survey full')
         self.assertEqual(full_survey_ids(self.late, [self.survey, self.other]), {self.survey.id})
 
-    def test_someone_already_answering_can_finish_and_holds_a_place(self):
+    def test_only_completed_surveys_count(self):
         survey = make_survey(self.uk, 'Airlines')
-        starter = make_user('starter@example.com', self.uk)
         SurveyResponse.objects.create(user=make_user('d@example.com', self.uk), survey=survey, completed_at=timezone.now())
-        SurveyResponse.objects.create(user=starter, survey=survey)            # in progress: 2 of 2 places taken
+        SurveyResponse.objects.create(user=make_user('s@example.com', self.uk), survey=survey)   # still answering
 
-        self.assertFalse(category_sample_status(survey, starter)['full'])   # can finish
-        self.assertTrue(category_sample_status(survey, self.late)['full'])  # no place for a newcomer
+        status = category_sample_status(survey, self.late)
+        self.assertEqual((status['completed'], status['in_progress'], status['full']), (1, 1, False))
+
+    def test_someone_already_answering_can_finish_when_it_fills_up(self):
+        starter = make_user('starter@example.com', self.uk)
+        SurveyResponse.objects.create(user=starter, survey=self.survey)        # started; 2 of 2 completed already
+
+        self.assertFalse(category_sample_status(self.survey, starter)['full'])   # can finish
+        self.assertTrue(category_sample_status(self.survey, self.late)['full'])  # newcomer is locked out
+        self.assertEqual(full_survey_ids(starter, [self.survey]), set())
+
+    @override_settings(SURVEY_CONFIG=settings.SURVEY_CONFIG)
+    def test_no_per_user_monthly_limit(self):
+        self.assertIsNone(settings.SURVEY_CONFIG['MONTHLY_SURVEY_CAP'])
+        self.assertIsNone(SurveyResponse.monthly_limit_status(self.late))
 
     def test_nigeria_is_unlimited(self):
         survey = make_survey(self.ng)
@@ -84,6 +97,80 @@ class SampleCapTests(TestCase):
         ca = Country.objects.create(name='Canada', code='CA')
         survey = make_survey(ca)
         self.assertEqual(category_sample_status(survey)['cap'], 10)
+
+
+@override_settings(SURVEY_CONFIG=SURVEY_CONFIG)
+class MonthlySampleCapTests(TestCase):
+    """The cap counts one calendar month (country's time zone); a full category opens again on the 1st."""
+
+    def setUp(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        self.london = ZoneInfo('Europe/London')
+        self.uk = Country.objects.create(name='United Kingdom', code='GB')
+        CountryLuckyDrawConfig.objects.create(country=self.uk, category_sample_cap=2, time_zone='Europe/London')
+        self.survey = make_survey(self.uk)
+        self.mid_nov = datetime(2026, 11, 15, 12, tzinfo=self.london)
+        self.late = make_user('late@example.com', self.uk)
+
+    def complete(self, n, when, prefix='u'):
+        for i in range(n):
+            r = SurveyResponse.objects.create(user=make_user(f'{prefix}{i}@example.com', self.uk), survey=self.survey)
+            SurveyResponse.objects.filter(pk=r.pk).update(started_at=when, completed_at=when)
+
+    def test_full_this_month(self):
+        self.complete(2, self.mid_nov)
+        status = category_sample_status(self.survey, self.late, at=self.mid_nov)
+        self.assertTrue(status['full'])
+        self.assertEqual(status['reopens_on'].date().isoformat(), '2026-12-01')
+        self.assertEqual(full_survey_ids(self.late, [self.survey], at=self.mid_nov), {self.survey.id})
+
+    def test_opens_again_next_month(self):
+        self.complete(2, self.mid_nov)
+        from datetime import datetime
+        december = datetime(2026, 12, 1, 0, 5, tzinfo=self.london)
+        status = category_sample_status(self.survey, self.late, at=december)
+        self.assertEqual((status['completed'], status['full']), (0, False))
+        self.assertEqual(full_survey_ids(self.late, [self.survey], at=december), set())
+
+    def test_last_months_responses_do_not_count(self):
+        from datetime import datetime
+        self.complete(2, datetime(2026, 10, 31, 23, 30, tzinfo=self.london), prefix='oct')
+        self.complete(1, self.mid_nov, prefix='nov')
+        status = category_sample_status(self.survey, self.late, at=self.mid_nov)
+        self.assertEqual((status['completed'], status['full']), (1, False))
+
+    def test_month_follows_the_countrys_time_zone(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        CountryLuckyDrawConfig.objects.filter(country=self.uk).update(time_zone='America/New_York')
+        # 20:00 New York on 30 November is already 1 December in UTC - still November there.
+        evening = datetime(2026, 11, 30, 20, tzinfo=ZoneInfo('America/New_York'))
+        self.complete(2, datetime(2026, 11, 10, 12, tzinfo=ZoneInfo('America/New_York')))
+        self.assertTrue(category_sample_status(self.survey, self.late, at=evening)['full'])
+
+    def test_unfinished_from_last_month_can_still_finish(self):
+        from datetime import datetime
+        starter = make_user('starter@example.com', self.uk)
+        r = SurveyResponse.objects.create(user=starter, survey=self.survey)
+        SurveyResponse.objects.filter(pk=r.pk).update(started_at=datetime(2026, 10, 20, tzinfo=self.london))
+        self.complete(2, self.mid_nov)
+        self.assertFalse(category_sample_status(self.survey, starter, at=self.mid_nov)['full'])   # can finish
+        self.assertTrue(category_sample_status(self.survey, self.late, at=self.mid_nov)['full'])
+
+    def test_people_still_answering_do_not_lock_it(self):
+        self.complete(1, self.mid_nov)
+        for i in range(3):
+            r = SurveyResponse.objects.create(user=make_user(f's{i}@example.com', self.uk), survey=self.survey)
+            SurveyResponse.objects.filter(pk=r.pk).update(started_at=self.mid_nov)
+        self.assertFalse(category_sample_status(self.survey, self.late, at=self.mid_nov)['full'])
+
+    def test_cap_change_in_admin_applies_immediately(self):
+        self.complete(2, self.mid_nov)
+        CountryLuckyDrawConfig.objects.filter(country=self.uk).update(category_sample_cap=3)
+        self.assertFalse(category_sample_status(self.survey, self.late, at=self.mid_nov)['full'])
+        CountryLuckyDrawConfig.objects.filter(country=self.uk).update(category_sample_cap=None)
+        self.assertIsNone(category_sample_status(self.survey, self.late, at=self.mid_nov)['cap'])
 
 
 @override_settings(SURVEY_CONFIG=SURVEY_CONFIG)

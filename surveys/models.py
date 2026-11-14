@@ -238,13 +238,15 @@ class Survey(models.Model):
         if unfinished is not None:
             return True, None          # continuing it: no cooldown check
 
-        # Each category collects a limited number of responses per country (Nigeria unlimited).
+        # Each category collects a limited number of responses per country each month (Nigeria unlimited).
         from .survey_progress import category_sample_status
         samples = category_sample_status(self, user)
         if samples['full']:
+            reopens = samples['reopens_on']
             return False, (
                 f"The {self.category.name} survey has already collected all {samples['cap']} responses "
-                f"needed in {getattr(self.category.country, 'name', 'your country')}. Please choose another category."
+                f"needed in {getattr(self.category.country, 'name', 'your country')} this month. "
+                f"It opens again on {reopens.day} {reopens.strftime('%B')}. Please choose another category."
             )
 
         is_sequence_locked, sequence_lock_message = self.get_sequence_lock_info(user)
@@ -583,8 +585,10 @@ class CountryLuckyDrawConfig(models.Model):
     )
     category_sample_cap = models.PositiveIntegerField(
         null=True, blank=True, default=10,
-        help_text='Most completed responses ("samples") each survey category may collect in this '
-                  'country (10). Empty = unlimited (Nigeria).',
+        verbose_name='Category sample cap (per month)',
+        help_text='How many users may complete each survey category in this country per calendar '
+                  'month (10). When reached, the category is locked for new users until the 1st of next '
+                  'month (on this country\'s time zone). Empty = unlimited (Nigeria).',
     )
     category_completion_reward = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True,

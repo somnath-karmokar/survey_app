@@ -101,20 +101,32 @@ def survey_questions_answered(user):
             .count())
 
 
-# ── Sample cap: each category collects at most N completed responses per country ──
+# ── Sample cap: each category collects at most N responses per country per month ──
+#
+# The cap is set per country in the admin (Country settings -> Category sample cap;
+# empty = unlimited, as for Nigeria). It counts completed surveys per calendar month
+# on the country's clock (Country settings -> Time zone): when that many users have
+# completed a category this month, it is locked for new users until the 1st.
 
-def category_sample_cap(category):
-    """Most completed responses this category may collect, or None for unlimited.
+def _country_config(country):
+    from .models import CountryLuckyDrawConfig
+    if country is None:
+        return None
+    return CountryLuckyDrawConfig.objects.filter(country=country).first()
 
-    From the country's draw config (category_sample_cap; empty = unlimited, as for
-    Nigeria). Countries without a config use SURVEY_CONFIG['CATEGORY_SAMPLE_CAP'] (10),
+
+def category_sample_cap(category, config=False):
+    """Most responses this category may collect per month, or None for unlimited.
+
+    From the country's settings (category_sample_cap; empty = unlimited, as for
+    Nigeria). Countries without settings use SURVEY_CONFIG['CATEGORY_SAMPLE_CAP'] (10),
     except those in CATEGORY_SAMPLE_CAP_EXEMPT (Nigeria).
     """
-    from .models import CountryLuckyDrawConfig
     country = category.country
     if country is None:
         return None
-    config = CountryLuckyDrawConfig.objects.filter(country=country).first()
+    if config is False:
+        config = _country_config(country)
     if config is not None:
         return config.category_sample_cap
     survey_config = getattr(settings, 'SURVEY_CONFIG', {})
@@ -123,23 +135,41 @@ def category_sample_cap(category):
     return survey_config.get('CATEGORY_SAMPLE_CAP', 10)
 
 
-def category_sample_status(survey, user=None):
-    """{'cap', 'completed', 'in_progress', 'full'} for a survey's category.
+def sample_period(country, at=None, config=False):
+    """(start of this month, start of next month) on the country's clock."""
+    from django.utils import timezone
+    if config is False:
+        config = _country_config(country)
+    tz = config.tzinfo if config is not None else timezone.get_current_timezone()
+    now = timezone.localtime(at or timezone.now(), tz)
+    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    end = start.replace(year=start.year + 1, month=1) if start.month == 12 else start.replace(month=start.month + 1)
+    return start, end
 
-    A place is taken by every completed response and every unfinished one (so
-    people who have started can always finish). `full` is True when no place is
-    left for `user`; someone already answering this survey is never blocked.
+
+def _completed_in(category_filter, start, end):
+    """Responses completed in [start, end): the samples a category has collected that month."""
+    return SurveyResponse.objects.filter(category_filter, completed_at__gte=start, completed_at__lt=end)
+
+
+def category_sample_status(survey, user=None, at=None):
+    """{'cap', 'completed', 'in_progress', 'full', 'reopens_on'} for a survey's category this month.
+
+    Only completed surveys count: the category is full once `cap` users have
+    completed it this month. Someone already answering it can always finish;
+    `in_progress` (unfinished responses) is for information only.
+    `reopens_on` is the 1st of next month.
     """
-    cap = category_sample_cap(survey.category)
-    responses = SurveyResponse.objects.filter(survey__category=survey.category)
-    completed = responses.filter(completed_at__isnull=False).count()
-    unfinished = responses.filter(completed_at__isnull=True)
-    if user is not None:
-        unfinished = unfinished.exclude(user=user)
-    in_progress = unfinished.count()
-    own_open = user is not None and responses.filter(user=user, completed_at__isnull=True).exists()
-    full = cap is not None and not own_open and completed + in_progress >= cap
-    return {'cap': cap, 'completed': completed, 'in_progress': in_progress, 'full': full}
+    from django.db.models import Q
+    config = _country_config(survey.category.country)
+    cap = category_sample_cap(survey.category, config)
+    start, end = sample_period(survey.category.country, at, config)
+    completed = _completed_in(Q(survey__category=survey.category), start, end).count()
+    in_progress = SurveyResponse.objects.filter(survey__category=survey.category, completed_at__isnull=True).count()
+    own_open = user is not None and SurveyResponse.objects.filter(
+        survey__category=survey.category, user=user, completed_at__isnull=True).exists()
+    full = cap is not None and not own_open and completed >= cap
+    return {'cap': cap, 'completed': completed, 'in_progress': in_progress, 'full': full, 'reopens_on': end}
 
 
 # ── Attempts: how a response was answered, sitting by sitting (Appendix 3) ────────
@@ -179,8 +209,8 @@ def response_attempts(response, questions=None):
     return attempts
 
 
-def full_survey_ids(user, surveys):
-    """Ids of the given surveys this user can't start because their category is full.
+def full_survey_ids(user, surveys, at=None):
+    """Ids of the given surveys this user can't start because their category is full this month.
 
     Same rule as category_sample_status, counted for many surveys at once.
     """
@@ -188,24 +218,27 @@ def full_survey_ids(user, surveys):
     surveys = list(surveys)
     if not surveys:
         return set()
-    caps = {}
+    caps, periods = {}, {}
     for survey in surveys:
         key = survey.category.country_id
         if key not in caps:
-            caps[key] = category_sample_cap(survey.category)
-    category_ids = [s.category_id for s in surveys if caps.get(s.category.country_id) is not None]
-    if not category_ids:
-        return set()
-    taken = dict(
-        SurveyResponse.objects.filter(survey__category_id__in=category_ids)
-        .exclude(user=user, completed_at__isnull=True)
-        .values('survey__category_id').annotate(n=Count('id')).values_list('survey__category_id', 'n')
-    )
+            config = _country_config(survey.category.country)
+            caps[key] = category_sample_cap(survey.category, config)
+            periods[key] = sample_period(survey.category.country, at, config)
+    taken = {}
+    for country_id, cap in caps.items():
+        category_ids = [s.category_id for s in surveys if s.category.country_id == country_id]
+        if cap is None or not category_ids:
+            continue
+        start, end = periods[country_id]
+        responses = _completed_in(Q(survey__category_id__in=category_ids), start, end)
+        taken.update(responses.values('survey__category_id').annotate(n=Count('id'))
+                     .values_list('survey__category_id', 'n'))
     own_open = set(SurveyResponse.objects.filter(user=user, completed_at__isnull=True)
-                   .values_list('survey_id', flat=True)) if user.is_authenticated else set()
+                   .values_list('survey__category_id', flat=True)) if user.is_authenticated else set()
     full = set()
     for survey in surveys:
         cap = caps.get(survey.category.country_id)
-        if cap is not None and survey.id not in own_open and taken.get(survey.category_id, 0) >= cap:
+        if cap is not None and survey.category_id not in own_open and taken.get(survey.category_id, 0) >= cap:
             full.add(survey.id)
     return full

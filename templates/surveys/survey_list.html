@@ -196,8 +196,8 @@
                                                 <i class="fas fa-play-circle me-1"></i> Continue where you left off
                                             </a>
                                         {% elif survey.id in full_surveys %}
-                                            <button class="btn btn-sm btn-outline-secondary w-100" disabled title="This survey has collected all the responses it needs in your country">
-                                                <i class="fas fa-users-slash me-1"></i> Survey full
+                                            <button class="btn btn-sm btn-outline-secondary w-100" disabled title="This survey has collected all the responses it needs in your country this month. It opens again on the 1st.">
+                                                <i class="fas fa-users-slash me-1"></i> Survey full this month
                                             </button>
                                         {% elif open_survey_id %}
                                             <a href="{% url 'surveys:survey_detail' open_survey_id %}" class="btn btn-sm btn-outline-secondary w-100"

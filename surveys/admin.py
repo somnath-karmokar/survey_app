@@ -1457,23 +1457,27 @@ class SurveyCategoryAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
         return obj.surveys.count()
     survey_count.short_description = 'Surveys'
 
-    @admin.display(description='Responses collected')
+    @admin.display(description='Responses this month')
     def responses_collected(self, obj):
-        """Completed responses against the country's sample cap (Nigeria: unlimited)."""
-        from .survey_progress import category_sample_cap
-        cap = category_sample_cap(obj)
-        done = SurveyResponse.objects.filter(survey__category=obj, completed_at__isnull=False).count()
-        open_ = SurveyResponse.objects.filter(survey__category=obj, completed_at__isnull=True).count()
+        """This month's responses against the country's monthly sample cap (Nigeria: unlimited)."""
+        from .survey_progress import category_sample_status
+        survey = obj.surveys.first()
         from urllib.parse import urlencode
         url = reverse(f'{self.admin_site.name}:surveys_surveyresponse_changelist') + '?' + urlencode(
             {'category': obj.name, 'country': obj.country_id or ''})
+        if survey is None:
+            return format_html('<span class="sd-sub">no survey</span>')
+        status = category_sample_status(survey)
+        done, open_, cap = status['completed'], status['in_progress'], status['cap']
         if cap is None:
             return format_html('<a href="{}"><strong>{}</strong></a><span class="sd-sub">no limit &middot; {} in progress</span>',
                                url, done, open_)
-        badge = 'sd-badge-danger' if done + open_ >= cap else 'sd-badge-success'
-        label = 'Full' if done + open_ >= cap else 'Open'
+        full = done >= cap
+        reopens = status['reopens_on']
         return format_html('<a href="{}"><strong>{} / {}</strong></a> <span class="sd-badge {}">{}</span>'
-                           '<span class="sd-sub">{} in progress</span>', url, done, cap, badge, label, open_)
+                           '<span class="sd-sub">{} in progress{}</span>', url, done, cap,
+                           'sd-badge-danger' if full else 'sd-badge-success', 'Full' if full else 'Open', open_,
+                           f' · opens {reopens.day} {reopens.strftime("%b")}' if full else '')
     
     def image_preview(self, obj):
         if obj.image:
