@@ -167,6 +167,8 @@ class CharityDonationTests(TestCase):
         Survey.objects.create(name='Cinema', category=category, is_active=True)
         page = self.client.get(reverse('surveys:home'))
 
-        self.assertNotContains(page, 'id="charity-strip"')                 # removed on request
+        self.assertNotContains(page, 'id="charity-strip"')                 # the big banner was removed on request
+        self.assertContains(page, 'id="charity-note"')                      # replaced by a slim notice
+        self.assertContains(page, '20% additional</strong> for users donating their withdrawals/winnings to charity')
         self.assertNotContains(page, '<p>None</p>', html=False)
         self.assertContains(page, 'Explore this survey category')           # fallback text instead

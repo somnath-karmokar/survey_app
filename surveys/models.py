@@ -228,11 +228,11 @@ class Survey(models.Model):
             )
 
         # One category at a time: an unfinished survey elsewhere must be finished first.
-        from .survey_progress import open_response, survey_part_count
+        from .survey_progress import open_response
         unfinished = open_response(user)
         if unfinished is not None and unfinished.survey_id != self.id:
             return False, (
-                f"Please finish all {survey_part_count()} parts of your '{unfinished.survey.category.name}' "
+                f"Please finish all the parts of your '{unfinished.survey.category.name}' "
                 f"survey before starting another category."
             )
         if unfinished is not None:
@@ -302,12 +302,23 @@ class Question(models.Model):
         ('rating', 'Rating (1-5)'),
     )
     surveys = models.ManyToManyField(Survey, related_name='questions', blank=True)
+    topic = models.CharField(
+        max_length=255, null=True, blank=True, verbose_name='Topic',
+        help_text='Short heading shown above the question, e.g. "Embarkation Terminal Security and '
+                  'Boarding Throughput Velocity" (the "Q01." line in the survey document).',
+    )
     question_text = models.TextField()
     question_type = models.CharField(max_length=20, choices=QUESTION_TYPES)
     is_required = models.BooleanField(default=True)
     order = models.PositiveIntegerField(default=0)
+    section_title = models.CharField(
+        max_length=120, null=True, blank=True, verbose_name='Section (part)',
+        help_text='The section of the survey this question is in, e.g. "Brand Reputation Ranking". '
+                  'Each section is one part of the survey.',
+    )
     not_listed_label = models.CharField(
         max_length=120, blank=True,
+        verbose_name='Type-your-own box asks for',
         help_text='Screening question only: what users can type in if theirs is not listed, e.g. '
                   '"fast food chain" (from the green line in the survey document). Leave blank for no box.',
     )
@@ -317,17 +328,37 @@ class Question(models.Model):
     def __str__(self):
         return f"{self.question_text[:50]}..."
 
+    class Meta:
+        verbose_name = 'Survey question'
+        verbose_name_plural = 'Survey questions'
+
+
+class ScreeningQuestion(Question):
+    """The Screening Gate question of a survey (the first question, with untruthful options)."""
+
+    class Meta:
+        proxy = True
+        verbose_name = 'Screening Gate question'
+        verbose_name_plural = 'Screening Gate questions'
+
+
 class Choice(models.Model):
     question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='choices')
     choice_text = models.CharField(max_length=500)
     is_disqualifying = models.BooleanField(
         default=False,
+        verbose_name='Untruthful (red)',
         help_text='An untruthful answer (e.g. a made-up brand, or "None of the above" in a screening '
                   'question). Picking it ends the survey and suspends the user for 7 days.',
     )
 
     def __str__(self):
         return self.choice_text
+
+    class Meta:
+        verbose_name = 'Answer option'
+        verbose_name_plural = 'Answer options'
+
 
 class SurveyResponse(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='survey_responses')
@@ -408,9 +439,9 @@ class SurveyResponse(models.Model):
             return f"{seconds}s"
 
     class Meta:
+        verbose_name = 'Survey response'
+        verbose_name_plural = 'Survey responses'
         ordering = ['-started_at']
-        verbose_name = 'Survey Response'
-        verbose_name_plural = 'Survey Responses'
 
 class Answer(models.Model):
     response = models.ForeignKey(SurveyResponse, on_delete=models.CASCADE, related_name='answers')
@@ -428,6 +459,10 @@ class Answer(models.Model):
     
     def __str__(self):
         return f"Answer to '{self.question.question_text[:30]}...' by {self.response.user.username}"
+
+    class Meta:
+        verbose_name = 'User answer'
+        verbose_name_plural = 'User answers'
 
 
 class Poll(models.Model):
@@ -485,6 +520,8 @@ class PollChoice(models.Model):
     order = models.PositiveIntegerField(default=0)
 
     class Meta:
+        verbose_name = 'Poll answer option'
+        verbose_name_plural = 'Poll answer options'
         ordering = ['order', 'id']
 
     def __str__(self):
@@ -517,6 +554,10 @@ class PollAnswer(models.Model):
 
     def __str__(self):
         return f"Answer to '{self.question.question_text[:30]}...' by {self.response.user.username}"
+
+    class Meta:
+        verbose_name = 'Poll user answer'
+        verbose_name_plural = 'Poll user answers'
 
 
 class CountryLuckyDrawConfig(models.Model):
@@ -555,9 +596,9 @@ class CountryLuckyDrawConfig(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Country Lucky Draw Config'
-        verbose_name_plural = 'Country Lucky Draw Configs'
 
+        verbose_name = 'Country settings'
+        verbose_name_plural = 'Country settings (prizes, rewards, limits)'
     def clean(self):
         super().clean()
         try:
@@ -603,8 +644,9 @@ class LuckyDrawEntry(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
+        verbose_name = 'Draw play'
+        verbose_name_plural = 'Draw plays & results'
         unique_together = ('user', 'month', 'year')
-        verbose_name_plural = 'Lucky Draw Entries'
     
     def __str__(self):
         return f"{self.user.username}'s entry for {self.month}/{self.year} - Number: {self.selected_number}"
@@ -745,9 +787,9 @@ class SurveySuspension(models.Model):
     lifted_at = models.DateTimeField(null=True, blank=True, help_text='Set when an admin lifts the suspension early.')
 
     class Meta:
+        verbose_name = 'Suspension (untruthful answer)'
+        verbose_name_plural = 'Suspensions (untruthful answers)'
         ordering = ['-suspended_at']
-        verbose_name = 'Survey suspension'
-        verbose_name_plural = 'Survey suspensions'
 
     def __str__(self):
         return f'{self.user} suspended {self.suspended_at:%Y-%m-%d} ({self.category_name})'
@@ -773,9 +815,9 @@ class SurveySuspension(models.Model):
 
 class UserWallet(UserProfile):
     class Meta:
+        verbose_name = 'User wallet'
+        verbose_name_plural = 'User wallets'
         proxy = True
-        verbose_name = 'User Wallet Detail'
-        verbose_name_plural = 'User Wallet Details'
         ordering = ['user__username']
 
 
@@ -804,8 +846,9 @@ class UserSurveyProgress(models.Model):
     completed_count = models.PositiveIntegerField(default=0)
     last_completed = models.DateTimeField(auto_now=True)
     class Meta:
+        verbose_name = 'Survey completion count'
+        verbose_name_plural = 'Survey completion counts'
         unique_together = ('user', 'category', 'level')
-        verbose_name_plural = 'User Survey Progress'
     def __str__(self):
         return f"{self.user.username} - {self.category.name} (Level {self.level}): {self.completed_count}"
 # In models.py, update the LuckyDrawEntry model:
@@ -853,8 +896,9 @@ class LuckyDrawEntry(models.Model):
     polls_at_play = models.PositiveIntegerField(default=0, help_text="Total polls completed when this entry was created")
 
     class Meta:
+        verbose_name = 'Draw play'
+        verbose_name_plural = 'Draw plays & results'
         ordering = ['-created_at']
-        verbose_name_plural = 'Lucky Draw Entries'
 
     def __str__(self):
         return f"{self.user} - {self.get_draw_type_display()} lucky draw on {self.created_at:%Y-%m-%d}"
@@ -1079,9 +1123,9 @@ class WalletWithdrawalRequest(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = 'Withdrawal request'
+        verbose_name_plural = 'Withdrawal requests'
         ordering = ['-created_at']
-        verbose_name = 'Wallet Withdrawal Request'
-        verbose_name_plural = 'Wallet Withdrawal Requests'
 
     def __str__(self):
         return f"{self.profile.user.username} withdrawal {self.amount_display} ({self.get_status_display()})"

@@ -7,7 +7,7 @@ from django.db.models.deletion import ProtectedError
 from django.utils.translation import gettext_lazy as _
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django import forms
 from django.db import models
 from django.forms import CheckboxSelectMultiple
@@ -792,9 +792,9 @@ class QuestionAdminForm(forms.ModelForm):
 @admin.register(Question)
 class QuestionAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     form = QuestionAdminForm
-    list_display = ('question_text', 'question_type', 'is_required', 'order', 'survey_links', 'created_at')
+    list_display = ('question_text', 'topic', 'section_title', 'question_type', 'is_required', 'order', 'survey_links', 'created_at')
     list_filter = ('question_type', 'is_required', 'surveys', 'surveys__category')
-    search_fields = ('question_text',)
+    search_fields = ('question_text', 'topic')
     list_editable = ('order', 'is_required')
     list_per_page = 20
     save_on_top = True
@@ -803,7 +803,7 @@ class QuestionAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
     
     fieldsets = (
         (None, {
-            'fields': ('question_text', 'question_type', 'is_required', 'order', 'surveys')
+            'fields': ('topic', 'question_text', 'section_title', 'question_type', 'is_required', 'order', 'surveys')
         }),
     )
     
@@ -1288,7 +1288,10 @@ class SurveyResponseAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
             if part:
                 number += 1
             answer = answers.get(question.id)
-            title, _, rest = question.question_text.partition('\n')
+            if question.topic:
+                title, rest = question.topic, question.question_text
+            else:
+                title, _, rest = question.question_text.partition('\n')
             rows.append({
                 'label': f'Q{number}' if part else 'Screening',
                 'part': part,
@@ -1315,7 +1318,7 @@ class SurveyResponseAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
             'percent': int(len(answers) * 100 / len(questions)) if questions else 0,
             'time_taken': format_duration(obj.time_spent_seconds),
             'reward': self.reward(obj),
-            'parts_total': survey_part_count(),
+            'parts_total': max(parts) or survey_part_count(),
             'current_part': next((p for q, p in zip(questions, parts) if q.id not in answers), None),
             'user_admin_url': reverse(f'{self.admin_site.name}:auth_user_change', args=[obj.user_id]),
             'user_responses_url': reverse(f'{self.admin_site.name}:surveys_surveyresponse_changelist')
@@ -2097,3 +2100,139 @@ admin.site.register(PrivacyPolicy, PrivacyPolicyAdmin)
 admin.site.register(AboutUs, AboutUsAdmin)
 admin.site.register(Advertiser, AdvertiserAdmin)
 admin.site.register(DirectMarketing, DirectMarketingAdmin)
+
+
+# ── Screening Gate questions ─────────────────────────────────────────────────────
+from .models import ScreeningQuestion  # noqa: E402
+
+
+class ScreeningOptionFormSet(forms.models.BaseInlineFormSet):
+    """A Screening Gate needs at least two options, at least one of them untruthful."""
+
+    def clean(self):
+        super().clean()
+        kept = [f for f in self.forms
+                if f.cleaned_data and not f.cleaned_data.get('DELETE') and f.cleaned_data.get('choice_text')]
+        if len(kept) < 2:
+            raise forms.ValidationError('Add at least two answer options.')
+        if not any(f.cleaned_data.get('is_disqualifying') for f in kept):
+            raise forms.ValidationError(
+                'Tick "Untruthful (red)" on at least one option (e.g. a made-up brand or "None of the above"). '
+                'Without one, the question is not a Screening Gate.')
+
+
+class ScreeningOptionInline(admin.TabularInline):
+    model = Choice
+    formset = ScreeningOptionFormSet
+    extra = 3
+    fields = ('choice_text', 'is_disqualifying')
+    verbose_name = 'Answer option'
+    verbose_name_plural = ('Answer options — tick "Untruthful (red)" for made-up brands and "None of the above": '
+                           'picking one ends the survey and suspends the user for 7 days')
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        field = super().formfield_for_dbfield(db_field, request, **kwargs)
+        if db_field.name == 'choice_text' and field is not None:
+            field.label = 'Option shown to users'
+        return field
+
+
+class ScreeningQuestionForm(forms.ModelForm):
+    survey = forms.ModelChoiceField(
+        queryset=Survey.objects.select_related('category__country').order_by('category__country__name', 'name'),
+        help_text='The survey this Screening Gate belongs to. Each survey has one; it is shown before Part 1.',
+    )
+
+    class Meta:
+        model = ScreeningQuestion
+        fields = ('survey', 'question_text', 'not_listed_label')
+        labels = {'question_text': 'Question'}
+        help_texts = {
+            'question_text': 'E.g. "Which of the following fast food chains have you visited in the past 3 months?" '
+                             'Users can tick several options.',
+            'not_listed_label': 'Wording of the box for users whose answer is not listed, e.g. "fast food chain" '
+                                '(shown as "Not listed? Type the name of the fast food chain you use"). '
+                                'Leave empty for "brand".',
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['survey'].label_from_instance = lambda s: (
+            f"{getattr(s.category.country, 'name', '-')} · {s.category.name}")
+        if self.instance.pk:
+            self.fields['survey'].initial = self.instance.surveys.first()
+
+    def clean_survey(self):
+        survey = self.cleaned_data['survey']
+        other = Question.objects.filter(surveys=survey, order=0).exclude(pk=self.instance.pk).first()
+        if other is not None:
+            raise forms.ValidationError(
+                f'This survey already has a Screening Gate question ("{other.question_text[:60]}"). '
+                f'Edit that one instead.')
+        return survey
+
+
+class ScreeningQuestionAdmin(SafeDeleteAdminMixin, admin.ModelAdmin):
+    """Each survey's Screening Gate: the question, its answer options and which ones are untruthful."""
+    form = ScreeningQuestionForm
+    inlines = [ScreeningOptionInline]
+    list_display = ('gate', 'country', 'category', 'options', 'untruthful_options', 'not_listed')
+    list_display_links = ('gate',)
+    list_filter = (('surveys__category__country', admin.RelatedOnlyFieldListFilter),)
+    search_fields = ('question_text', 'surveys__category__name', 'choices__choice_text')
+    list_per_page = 50
+    fieldsets = (
+        (None, {
+            'description': 'The Screening Gate is the first question of a survey. Users tick the brands they '
+                           'genuinely use; ticking an untruthful (red) option ends the survey and suspends their '
+                           'account for 7 days. Users can also type a brand that is not listed.',
+            'fields': ('survey', 'question_text', 'not_listed_label'),
+        }),
+    )
+
+    def get_queryset(self, request):
+        return (super().get_queryset(request).filter(order=0, surveys__isnull=False).distinct()
+                .prefetch_related('surveys__category__country', 'choices'))
+
+    def save_model(self, request, obj, form, change):
+        obj.order = 0
+        obj.question_type = 'multiple_choice'
+        obj.is_required = True
+        super().save_model(request, obj, form, change)
+        obj.surveys.set([form.cleaned_data['survey']])
+
+    def _survey(self, obj):
+        return next(iter(obj.surveys.all()), None)
+
+    @admin.display(description='Screening Gate question')
+    def gate(self, obj):
+        return obj.question_text[:90] + ('…' if len(obj.question_text) > 90 else '')
+
+    @admin.display(description='Country')
+    def country(self, obj):
+        survey = self._survey(obj)
+        return getattr(survey.category.country, 'name', '-') if survey else '-'
+
+    @admin.display(description='Survey category')
+    def category(self, obj):
+        survey = self._survey(obj)
+        return survey.category.name if survey else '-'
+
+    @admin.display(description='Options')
+    def options(self, obj):
+        return len(obj.choices.all())
+
+    @admin.display(description='Untruthful (red) options')
+    def untruthful_options(self, obj):
+        reds = [c.choice_text for c in obj.choices.all() if c.is_disqualifying]
+        if not reds:
+            return format_html('<span class="sd-badge sd-badge-warning">None - add one</span>')
+        return format_html_join(' ', '<span class="sd-badge sd-badge-danger">{}</span>', ((r,) for r in reds))
+
+    @admin.display(description='Type-your-own box')
+    def not_listed(self, obj):
+        return obj.not_listed_label or format_html('<span class="sd-muted">brand (default)</span>')
+
+
+survey_admin_site.register(ScreeningQuestion, ScreeningQuestionAdmin)
+admin.site.register(ScreeningQuestion, ScreeningQuestionAdmin)

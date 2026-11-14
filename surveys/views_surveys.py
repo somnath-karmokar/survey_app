@@ -307,12 +307,13 @@ def survey_detail(request, survey_id, question_index=None):
 
 def survey_page_context(request, survey, response, questions, parts, question_index, form, show_ad):
     from .lucky_draw import LuckyDrawView
-    from .survey_progress import survey_part_count
+    from .survey_progress import part_titles, survey_part_count
     total_questions = len(questions)
     part = parts[question_index]
     in_part = [i for i, p in enumerate(parts) if p == part]
     answered_count = response.answers.count() if response is not None else 0
-    parts_total = survey_part_count()
+    parts_total = max(parts) or survey_part_count()
+    titles = part_titles(questions, parts)
     return {
         'survey': survey,
         'form': form,
@@ -326,9 +327,12 @@ def survey_page_context(request, survey, response, questions, parts, question_in
         'part': part,                                   # 0 = screening question
         'parts_total': parts_total,
         'part_range': range(1, parts_total + 1),
+        'part_title': titles.get(part, ''),                        # e.g. "Brand Reputation Ranking"
+        'part_steps': [{'number': n, 'title': titles.get(n, '')} for n in range(1, parts_total + 1)],
         'part_question_number': (in_part.index(question_index) + 1) if part else 0,
         'part_question_total': len(in_part),
         'question_number': sum(1 for p in parts[:question_index + 1] if p),
+        'main_question_total': sum(1 for p in parts if p),      # questions without the screening one
         'time_spent_seconds': response.time_spent_seconds if response is not None else 0,
         'quick_draw': LuckyDrawView().quick_draw_progress(request.user),
         # The screening step has its own layout and needs the bound fields directly.

@@ -125,11 +125,13 @@ class Command(BaseCommand):
             entries = [doc['screening']] + doc['questions']
             questions = Question.objects.bulk_create([
                 Question(
-                    question_text=(f"{q['title']}\n{q['text']}" if q.get('title') else q['text']),
+                    topic=(q.get('title') or None) and q['title'][:255],
+                    question_text=q['text'],
                     question_type=q['type'],
                     is_required=True,
                     order=position,
                     not_listed_label=(q.get('not_listed_label') or '')[:120],
+                    section_title=(q.get('section') or None) if position else None,
                 )
                 for position, q in enumerate(entries)
             ])

@@ -2,7 +2,7 @@
 {% include 'surveys/includes/advertisement_modal.html' %}
 {% load form_utils form_filters %}
 
-{% block title %}{{ survey.name }} - Question {{ question_index|add:1 }} of {{ total_questions }}{% endblock %}
+{% block title %}{{ survey.name }} - {% if part %}Part {{ part }}, question {{ part_question_number }} of {{ part_question_total }}{% else %}Screening Gate{% endif %}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -54,6 +54,21 @@
     }
     .question-card .question-number {
         color: #0d6efd !important;
+    }
+    .question-card .question-topic {
+        display: inline-block;
+        margin-bottom: 0.6rem;
+        padding: 0.3rem 0.75rem;
+        border-radius: 999px;
+        background: #eef2ff;
+        color: #3730a3;
+        font-size: 0.85rem;
+        font-weight: 600;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+    }
+    .question-card .question-topic .question-number {
+        margin-right: 0.25rem;
     }
     .question-card .question-text {
         color: #1f2937 !important;
@@ -109,30 +124,141 @@
     .question-card {
         -webkit-touch-callout: none;
     }
+    /* Survey header: survey name, parts strip and the current section */
+    .survey-card { border: 1px solid #e3e8ef; border-radius: 0.875rem; overflow: visible; box-shadow: 0 6px 20px rgba(15, 35, 60, 0.05); }
+    .survey-card > .survey-head {
+        background: #fff;
+        border-bottom: 1px solid #edf0f5;
+        border-radius: 0.875rem 0.875rem 0 0;
+        padding: 1.25rem 1.5rem 1.25rem;
+    }
+    .survey-head-top {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    .survey-head-name { min-width: 0; }
+    .survey-eyebrow {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #6b7280;
+        margin-bottom: 0.15rem;
+    }
+    .survey-name { font-size: 1.25rem; font-weight: 700; color: #111827; margin: 0; overflow-wrap: anywhere; }
+    .survey-head-stats { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .survey-stat {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.3rem 0.65rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+        background: #f9fafb;
+        color: #374151;
+        font-size: 0.8rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .survey-stat i { color: #6b7280; }
+    .survey-timer { font-variant-numeric: tabular-nums; }
+
     .survey-parts {
         display: flex;
-        gap: 4px;
-        margin-bottom: 0.75rem;
+        gap: 6px;
+        list-style: none;
+        margin: 0 0 1rem;
+        padding: 0;
     }
     .survey-parts .part-step {
         flex: 1 1 0%;
         min-width: 0;
-        text-align: center;
-        font-size: 0.75rem;
-        padding: 0.3rem 0;
-        border-radius: 0.25rem;
-        background: #e9ecef;
-        color: #6c757d;
-        white-space: nowrap;
-    }
-    .survey-parts .part-step.done { background: #198754; color: #fff; }
-    .survey-parts .part-step.current { background: #0d6efd; color: #fff; font-weight: 600; }
-    .survey-timer {
-        font-variant-numeric: tabular-nums;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        background: #f1f3f6;
+        color: #9ca3af;
+        font-size: 0.78rem;
         font-weight: 600;
     }
+    .survey-parts .part-step.done { background: #d1fae5; color: #047857; }
+    .survey-parts .part-step.current { background: #0d6efd; color: #fff; box-shadow: 0 2px 8px rgba(13, 110, 253, 0.35); }
+
+    .section-banner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem 1.5rem;
+        padding: 0.9rem 1.1rem;
+        border-radius: 0.75rem;
+        background: linear-gradient(135deg, #eef4ff 0%, #f5f3ff 100%);
+        border: 1px solid #dbe5fb;
+    }
+    .section-banner.is-screening { background: #f8fafc; border-color: #e5e7eb; }
+    .section-banner-main { min-width: 0; flex: 1 1 260px; }
+    .section-kicker {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #0d6efd;
+    }
+    .section-banner.is-screening .section-kicker { color: #6b7280; }
+    .section-title { font-size: 1.15rem; font-weight: 700; color: #1e1b4b; margin: 0.1rem 0 0; line-height: 1.3; overflow-wrap: anywhere; }
+    .section-banner-count { flex: 0 1 220px; min-width: 180px; }
+    .section-count { display: block; font-size: 0.85rem; font-weight: 600; color: #374151; margin-bottom: 0.35rem; }
+    .section-progress { height: 6px; border-radius: 999px; background: rgba(13, 110, 253, 0.15); overflow: hidden; }
+    .section-progress > span { display: block; height: 100%; border-radius: 999px; background: #0d6efd; }
+    .section-total { display: block; font-size: 0.75rem; color: #6b7280; margin-top: 0.3rem; }
+
+    /* Answer options as tidy tappable rows */
+    .question-card .question-header { margin-bottom: 1rem; }
+    .question-card .question-body { padding-top: 0; }
+    .question-card .form-check.option-item { padding: 0; margin: 0; background: none; }
+    .question-card .form-check.option-item:hover { background: none; }
+    .question-card .option-item > div > div { margin-bottom: 0.5rem; }
+    .question-card .option-item > div > div:last-child { margin-bottom: 0; }
+    .question-card .option-item label {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        width: 100%;
+        padding: 0.7rem 0.9rem;
+        border: 1px solid #e3e8ef;
+        border-radius: 0.6rem;
+        background: #fff;
+        color: #1f2937;
+        cursor: pointer;
+        transition: border-color 0.15s, background-color 0.15s;
+    }
+    .question-card .option-item label:hover { border-color: #93c5fd; background: #f8fbff; }
+    .question-card .option-item label:has(input:checked) {
+        border-color: #0d6efd;
+        background: #eef5ff;
+        box-shadow: inset 0 0 0 1px #0d6efd;
+    }
+    .question-card .option-item input[type="radio"],
+    .question-card .option-item input[type="checkbox"] {
+        flex: none;
+        width: 1.1rem;
+        height: 1.1rem;
+        margin: 0;
+        accent-color: #0d6efd;
+    }
+
     @media (max-width: 575.98px) {
-        .survey-parts .part-step .part-word { display: none; }
+        .survey-card > .survey-head { padding: 1rem; }
+        .survey-parts { gap: 4px; }
+        .survey-parts .part-step { height: 24px; font-size: 0.72rem; }
+        .section-banner-count { flex-basis: 100%; min-width: 0; }
     }
     /* Screening Gate */
     .screening-gate {
@@ -286,15 +412,6 @@
                 </ol>
             </nav>
 
-            <!-- Parts (the survey is answered in {{ parts_total }} parts) -->
-            <div class="survey-parts" aria-label="Survey parts">
-                {% for n in part_range %}
-                <div class="part-step{% if part and n < part %} done{% elif n == part %} current{% endif %}">
-                    <span class="part-word">Part </span>{{ n }}
-                </div>
-                {% endfor %}
-            </div>
-
             {% if quick_draw.plays %}
             <div class="alert alert-success d-flex flex-wrap align-items-center justify-content-between gap-2" id="quick-draw-unlocked">
                 <span><i class="fas fa-gift me-1"></i> You've unlocked {{ quick_draw.plays }} Quick draw play{{ quick_draw.plays|pluralize }}! Your survey answers are saved.</span>
@@ -306,30 +423,53 @@
             </p>
             {% endif %}
 
-            <!-- Progress Bar -->
-            <div class="progress">
-                <div class="progress-bar" role="progressbar" 
-                     style="width: {{ progress }}%" 
-                     aria-valuenow="{{ progress }}" 
-                     aria-valuemin="0" 
-                     aria-valuemax="100">
-                    {{ progress }}%
-                </div>
-            </div>
-
-            <div class="card mb-4">
-                <div class="card-header">
-                    <span class="badge bg-secondary mb-2"><i class="fas fa-folder-open me-1"></i>{{ survey.category.name }}</span>
-                    <h1 class="h4 mb-0">{{ survey.name }}</h1>
-                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                        <p class="mb-0 text-muted">
-                            {% if part %}Part {{ part }} of {{ parts_total }} &middot; Question {{ part_question_number }} of {{ part_question_total }}{% else %}Screening question{% endif %}
-                            <span class="d-none d-sm-inline">&middot; {{ question_index|add:1 }} / {{ total_questions }} overall</span>
-                        </p>
-                        <span class="badge bg-light text-dark border" title="Time taken">
-                            <i class="fas fa-stopwatch me-1"></i><span class="survey-timer" id="survey-timer" data-start="{{ time_spent_seconds }}">00:00</span>
-                        </span>
+            <div class="card mb-4 survey-card">
+                <div class="card-header survey-head">
+                    <div class="survey-head-top">
+                        <div class="survey-head-name">
+                            <span class="survey-eyebrow"><i class="fas fa-folder-open me-1"></i>{{ survey.category.name }}</span>
+                            <h1 class="survey-name">{{ survey.name }} survey</h1>
+                        </div>
+                        <div class="survey-head-stats">
+                            <span class="survey-stat" title="Survey progress"><i class="fas fa-chart-pie me-1"></i>{{ progress }}% done</span>
+                            <span class="survey-stat" title="Time taken">
+                                <i class="fas fa-stopwatch me-1"></i><span class="survey-timer" id="survey-timer" data-start="{{ time_spent_seconds }}">00:00</span>
+                            </span>
+                        </div>
                     </div>
+
+                    <!-- Parts (the survey is answered in {{ parts_total }} parts, one per section) -->
+                    <ol class="survey-parts" aria-label="Survey parts">
+                        {% for step in part_steps %}
+                        <li class="part-step{% if part and step.number < part %} done{% elif step.number == part %} current{% endif %}"{% if step.title %} title="Part {{ step.number }}: {{ step.title }}"{% endif %}{% if step.number == part %} aria-current="step"{% endif %}>
+                            {% if part and step.number < part %}<i class="fas fa-check" aria-hidden="true"></i>{% else %}{{ step.number }}{% endif %}
+                        </li>
+                        {% endfor %}
+                    </ol>
+
+                    {% if part %}
+                    <div class="section-banner">
+                        <div class="section-banner-main">
+                            <span class="section-kicker">Part {{ part }} of {{ parts_total }}</span>
+                            <h2 class="section-title">{{ part_title|default:"Survey questions" }}</h2>
+                        </div>
+                        <div class="section-banner-count">
+                            <span class="section-count">Question {{ part_question_number }} of {{ part_question_total }}</span>
+                            <div class="section-progress" role="progressbar" aria-label="Progress in this part"
+                                 aria-valuenow="{{ part_question_number }}" aria-valuemin="0" aria-valuemax="{{ part_question_total }}">
+                                <span style="width: {% widthratio part_question_number part_question_total 100 %}%"></span>
+                            </div>
+                            <span class="section-total">{{ question_number }} / {{ main_question_total }} overall</span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="section-banner is-screening">
+                        <div class="section-banner-main">
+                            <span class="section-kicker">Before Part 1</span>
+                            <h2 class="section-title">Screening question</h2>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
                 
                 <div class="card-body">
@@ -388,10 +528,20 @@
                         {% else %}
                         <div class="question-card">
                             <div class="question-header">
+                                {% if current_question.topic %}
+                                <div class="question-topic">
+                                    <span class="question-number">{% if part %}Q{{ question_number }}.{% else %}S1.{% endif %}</span>
+                                    {{ current_question.topic }}
+                                </div>
+                                <h4 class="question-title{% if current_question.is_required %} question-required{% endif %}">
+                                    <span class="question-text">{{ current_question.question_text|linebreaksbr }}</span>
+                                </h4>
+                                {% else %}
                                 <h4 class="question-title{% if current_question.is_required %} question-required{% endif %}">
                                     <span class="question-number">{% if part %}Q{{ question_number }}.{% else %}S1.{% endif %}</span>
                                     <span class="question-text">{{ current_question.question_text|linebreaksbr }}</span>
                                 </h4>
+                                {% endif %}
                                 {% if form.fields|get_item:field_name|get_help_text %}
                                     <div class="question-help-text">
                                         <i class="bi bi-info-circle"></i> 

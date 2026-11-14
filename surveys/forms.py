@@ -628,14 +628,15 @@ class SurveyResponseForm(forms.Form):
             self.fields[field_name] = forms.MultipleChoiceField(
                 label=question.question_text,
                 # With a type-your-own box, ticking nothing is fine if something is typed (see clean).
-                required=question.is_required and not (screening and question.not_listed_label),
+                required=question.is_required and not screening,
                 choices=choices,
                 widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
                 help_text=help_text
             )
             if allow_other:
                 self.add_other_text_field(question, field_name)
-            elif question.not_listed_label:
+            else:
+                # Screening question: always offer the type-your-own box (green line in the documents).
                 self.add_not_listed_field(question, field_name)
         elif question.question_type == 'rating':
             self.fields[field_name] = forms.IntegerField(
@@ -655,7 +656,7 @@ class SurveyResponseForm(forms.Form):
 
     def add_not_listed_field(self, question, choice_field_name):
         """Screening question: an always-visible box to type an answer that isn't listed."""
-        label = question.not_listed_label
+        label = question.not_listed_label or 'brand'      # wording per category; generic if not set
         field = forms.CharField(
             label=f'Not listed? Type the name of the {label} you use',
             required=False,

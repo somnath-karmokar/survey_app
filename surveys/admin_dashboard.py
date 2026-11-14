@@ -8,10 +8,10 @@ from django.utils import timezone
 
 # Admin home page sections: (title, icon, description, model object names in order).
 SECTIONS = [
-    ('Surveys', 'clipboard', 'Survey catalogue and what users answered', [
-        'SurveyResponse', 'SurveyCategory', 'Survey', 'Question', 'Choice', 'Answer']),
+    ('Surveys', 'clipboard', 'Categories, surveys, questions and what users answered', [
+        'SurveyResponse', 'SurveyCategory', 'Survey', 'ScreeningQuestion', 'Question', 'Choice', 'Answer']),
     ('Users & safety', 'users', 'Accounts, suspensions and verification', [
-        'User', 'SurveySuspension', 'EmailVerification', 'Group']),
+        'User', 'SurveySuspension', 'UserProfile', 'EmailVerification', 'Group']),
     ('Wallet & payouts', 'wallet', 'Balances, transactions, withdrawals and donations', [
         'WalletWithdrawalRequest', 'WalletTransaction', 'UserWallet', 'Charity']),
     ('Draws & rewards', 'gift', 'Quick and Poll draws, prizes and milestones', [
