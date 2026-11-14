@@ -24,16 +24,33 @@ def screening_question_ids(questions):
 
 
 def question_parts(questions, screening_ids):
-    """Part number (1..PARTS) for each question in order; 0 for screening questions.
+    """Part number (1, 2, ...) for each question in order; 0 for screening questions.
 
-    The non-screening questions are split into equal consecutive parts
-    (120 questions -> 8 parts of 15).
+    Each section of the survey document (e.g. "Customer Satisfaction Index (CSI)",
+    "Brand Reputation Ranking") is one part. Surveys without section titles are
+    split into SURVEY_PARTS (8) equal parts.
     """
-    parts_total = survey_part_count()
     main = [q for q in questions if q.id not in screening_ids]
-    count = len(main) or 1
-    part_of = {q.id: (i * parts_total // count) + 1 for i, q in enumerate(main)}
+    if main and all(getattr(q, 'section_title', None) for q in main):
+        part_of, number, previous = {}, 0, object()
+        for q in main:
+            if q.section_title != previous:
+                number, previous = number + 1, q.section_title
+            part_of[q.id] = number
+    else:
+        parts_total = survey_part_count()
+        count = len(main) or 1
+        part_of = {q.id: (i * parts_total // count) + 1 for i, q in enumerate(main)}
     return [part_of.get(q.id, 0) for q in questions]
+
+
+def part_titles(questions, parts):
+    """{part number: section title} for the parts that have one."""
+    titles = {}
+    for q, part in zip(questions, parts):
+        if part and getattr(q, 'section_title', None):
+            titles.setdefault(part, q.section_title)
+    return titles
 
 
 def open_response(user, survey=None):
@@ -67,7 +84,7 @@ def open_survey_summary(user):
         'answered': len(answered),
         'total': len(questions),
         'part': max(1, parts[next_index]),
-        'parts': survey_part_count(),
+        'parts': max(parts) or survey_part_count(),
     }
 
 

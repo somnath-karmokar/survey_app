@@ -81,7 +81,7 @@ class ParserTests(TestCase):
         self.assertEqual([q['type'] for q in doc['questions']], ['single_choice', 'single_choice', 'text'])
         scale = [o['text'] for o in doc['questions'][1]['options']]
         self.assertEqual((len(scale), scale[0], scale[-1]), (11, '0 (Not at all likely)', '10 (Extremely likely)'))
-        self.assertEqual(doc['questions'][0]['options'][-1]['text'], '⏱️ Over 10 minutes.')     # notes not swallowed
+        self.assertEqual(doc['questions'][0]['options'][-1]['text'], 'Over 10 minutes.')     # notes not swallowed, emoji removed
 
 
 class ReplaceSurveysCommandTests(TestCase):
@@ -131,7 +131,8 @@ class ReplaceSurveysCommandTests(TestCase):
         self.assertEqual(sorted(questions[0].choices.filter(is_disqualifying=True).values_list('choice_text', flat=True)),
                          ['Burgerama', 'Foodie', 'None of the above'])
         self.assertEqual(questions[0].not_listed_label, 'fast food chain')
-        self.assertEqual(questions[1].question_text, 'Order Speed\nHow fast was your order ready?')
+        self.assertEqual((questions[1].topic, questions[1].question_text), ('Order Speed', 'How fast was your order ready?'))
+        self.assertIsNone(questions[0].topic)                                   # screening has no topic
         self.assertEqual(questions[2].choices.count(), 11)
         self.assertEqual(questions[3].question_type, 'text')
 
@@ -293,3 +294,44 @@ class NotListedLabelTests(TestCase):
         self.assertEqual(not_listed_label('Airlines', '[Insert Your Target Local Independent Gym / CrossFit Box]'), 'airline')
         self.assertEqual(not_listed_label('Pharmacies & Health Retail', '[Insert Your Target Local Cinema Chain]'), 'pharmacy')
         self.assertEqual(not_listed_label('Something New', '[Insert Your Target Local Pizza Place]'), 'pizza place')
+
+
+class ScreeningGateLayoutTests(TestCase):
+    """The type-your-own box is always there, and the screening step shows no index number."""
+
+    def setUp(self):
+        uk = Country.objects.create(name='United Kingdom', code='GB')
+        category = SurveyCategory.objects.create(name='Fast Food Chains', country=uk)
+        self.survey = Survey.objects.create(name='Fast Food Chains', category=category)
+        self.screening = Question.objects.create(question_text='Which have you visited?',
+                                                 question_type='multiple_choice', order=0)   # no wording set
+        self.screening.surveys.add(self.survey)
+        Choice.objects.create(question=self.screening, choice_text='KFC')
+        Choice.objects.create(question=self.screening, choice_text='Foodie', is_disqualifying=True)
+        q1 = Question.objects.create(question_text='How fast?', question_type='single_choice', order=1)
+        q1.surveys.add(self.survey)
+        Choice.objects.create(question=q1, choice_text='Fast')
+        user = get_user_model().objects.create_user(username='g@example.com', email='g@example.com', password='pw')
+        user.profile.country = uk
+        user.profile.save()
+        self.client.force_login(user)
+
+    def test_box_shown_even_without_category_wording(self):
+        page = self.client.get(reverse('surveys:survey_question', args=[self.survey.id, 0]))
+
+        self.assertContains(page, 'Not listed? Type the name of the brand you use')
+        self.assertContains(page, 'not-listed-input')
+
+    def test_no_index_number_on_the_screening_step(self):
+        page = self.client.get(reverse('surveys:survey_question', args=[self.survey.id, 0]))
+
+        self.assertNotContains(page, 'overall')
+        self.assertNotContains(page, '1 / 2')
+        self.assertContains(page, '<title>Fast Food Chains - Screening Gate</title>', html=False)
+
+    def test_main_questions_still_show_their_position(self):
+        self.client.post(reverse('surveys:survey_question', args=[self.survey.id, 0]),
+                         {f'question_{self.screening.id}': [str(self.screening.choices.get(choice_text='KFC').id)]})
+        page = self.client.get(reverse('surveys:survey_question', args=[self.survey.id, 1]))
+
+        self.assertContains(page, '1 / 1 overall')

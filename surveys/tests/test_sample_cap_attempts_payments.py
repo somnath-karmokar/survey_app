@@ -153,6 +153,8 @@ class PaymentRuleTests(TestCase):
         self.assertIn('value="bank_transfer"', form)
         self.assertNotIn('value="charity"', form)
         self.assertNotIn('value="paypal"', form)
+        self.assertIn('20% additional for users donating their withdrawals/winnings to charity', form)
+        self.assertIn('From your next withdrawal you can choose', form)
 
         self.client.post(reverse('surveys:wallet_withdrawal_request'), {
             'full_name': 'Pay User', 'email': 'pay@example.com', 'amount': '10.00', 'country': self.uk.id,

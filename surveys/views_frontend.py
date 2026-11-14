@@ -130,7 +130,8 @@ class SearchView(TemplateView):
                 'url': reverse('surveys:survey_detail', kwargs={'survey_id': survey.id}),
             })
 
-        question_filter = Q(question_text__icontains=query) | Q(surveys__name__icontains=query)
+        question_filter = (Q(question_text__icontains=query) | Q(topic__icontains=query)
+                           | Q(surveys__name__icontains=query))
         questions = Question.objects.filter(question_filter, surveys__is_active=True).prefetch_related('surveys')
         if user_country:
             questions = questions.filter(surveys__category__country=user_country)
@@ -141,7 +142,7 @@ class SearchView(TemplateView):
                 continue
             results.append({
                 'type': 'Survey Question',
-                'title': question.question_text,
+                'title': question.topic or question.question_text,
                 'description': survey.name,
                 'url': reverse('surveys:survey_detail', kwargs={'survey_id': survey.id}),
             })
@@ -653,6 +654,9 @@ class HomePageView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        from .models import charity_bonus_percent
+        percent = charity_bonus_percent()
+        context['charity_bonus_percent'] = int(percent) if percent == int(percent) else percent
 
         categories = SurveyCategory.objects.filter(
             surveys__is_active=True,

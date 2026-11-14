@@ -29,6 +29,29 @@
         flex-shrink: 0;
     }
 
+    .charity-note {
+        padding: 14px 0;
+        border-top: 1px solid #c8e9d3;
+        border-bottom: 1px solid #c8e9d3;
+        background: #effaf3;
+    }
+    .charity-note p {
+        margin: 0;
+        color: #14532d;
+        font-size: 16px;
+        text-align: center;
+    }
+    .charity-note i {
+        margin-right: 6px;
+        color: #198754;
+    }
+    .charity-note a {
+        margin-left: 8px;
+        color: #146c43;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
     .survey_area .serv_img img {
         width: 100%;
         height: 100%;
@@ -203,6 +226,17 @@
         </div>
     </div>
 </section>
+
+<!-- 20% additional for charity donations -->
+<div class="charity-note" id="charity-note">
+    <div class="container">
+        <p>
+            <i class="fas fa-hand-holding-heart" aria-hidden="true"></i>
+            <strong>{{ charity_bonus_percent }}% additional</strong> for users donating their withdrawals/winnings to charity.
+            {% if user.is_authenticated %}<a href="{% url 'surveys:wallet_withdrawal_request' %}">Donate from your wallet</a>{% endif %}
+        </p>
+    </div>
+</div>
 
 <section class="winner_area">
     <div class="container">

@@ -68,7 +68,7 @@
         {% for question in questions_for_reorder %}
           <li class="question-order-item" data-id="{{ question.id }}">
             <span class="handle">☰</span>
-            <span class="question-text">{{ question.question_text }}</span>
+            <span class="question-text">{% if question.topic %}<strong>{{ question.topic }}</strong> &mdash; {% endif %}{{ question.question_text }}</span>
           </li>
         {% endfor %}
       </ul>

@@ -144,17 +144,23 @@
     </div>
     {% endif %}
 
-    {% if charity_available and not is_first_withdrawal %}
     <div class="charity-promo mb-4" id="charity-promo">
         <i class="fas fa-hand-holding-heart fa-2x"></i>
         <div>
-            <strong>Give to charity and we add {{ charity_bonus_percent }}%.</strong>
-            Choose &ldquo;Donate to charity&rdquo; below: for every {{ profile.wallet_currency_symbol }}10 you donate,
-            Sudraw adds {{ profile.wallet_currency_symbol }}{{ charity_example_bonus }}, so the charity receives
-            {{ profile.wallet_currency_symbol }}{{ charity_example_total }}.
+            <strong>{{ charity_bonus_percent }}% additional for users donating their withdrawals/winnings to charity.</strong>
+            {% if is_first_withdrawal %}
+                Your first withdrawal goes to your bank account. From your next withdrawal you can choose
+                &ldquo;Donate to charity&rdquo; and Sudraw adds {{ charity_bonus_percent }}%: donate
+                {{ profile.wallet_currency_symbol }}10 and the charity receives {{ profile.wallet_currency_symbol }}{{ charity_example_total }}.
+            {% elif charity_available %}
+                Choose &ldquo;Donate to charity&rdquo; below: donate {{ profile.wallet_currency_symbol }}10 and Sudraw adds
+                {{ profile.wallet_currency_symbol }}{{ charity_example_bonus }}, so the charity receives
+                {{ profile.wallet_currency_symbol }}{{ charity_example_total }}.
+            {% else %}
+                Charity donations will be available here soon.
+            {% endif %}
         </div>
     </div>
-    {% endif %}
 
     <form method="post" class="card withdraw-card" id="withdrawal-form" novalidate>
         {% csrf_token %}

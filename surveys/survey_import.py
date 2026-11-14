@@ -131,6 +131,80 @@ def category_name_from_filename(filename):
     return re.sub(r'\s{2,}', ' ', name)
 
 
+# ── Sections ("parts") and emoji clean-up ──────────────────────────────────────
+
+# The 8 sections every survey document is built from, in order, with the words
+# that identify each heading however it is written ("1. 📈 Customer Satisfaction
+# Index (CSI)", "📈 INDEX 1 — ...", "Index 1 — ...", "🛡️ 2. BRAND REPUTATION RANKING").
+SECTIONS = [
+    ('Customer Satisfaction Index (CSI)', ('customer satisfaction',)),
+    ('Brand Reputation Ranking', ('brand reputation',)),
+    ('Net Promoter Score (NPS) Benchmark', ('net promoter', 'nps benchmark', '(nps)')),
+    ('Customer Loyalty Benchmark', ('loyalty benchmark', 'customer loyalty')),
+    ('Consumer Sentiment Tracker', ('sentiment',)),
+    ('Market Share Perception Tracker', ('market share',)),
+    ('Brand Awareness Report', ('brand awareness', 'awareness report')),
+    ('Switching Behaviour Report', ('switching',)),
+]
+
+EMOJI_RE = re.compile(
+    '['
+    '\U0001F000-\U0001FAFF'   # pictographs, emoticons, transport, symbols & pictographs ext.
+    '\U00002600-\U000027BF'   # misc symbols, dingbats (✅ ⚠ ☠ ⛵ ✈ …)
+    '\U00002B00-\U00002BFF'   # arrows & stars (⭐ ⬆ …)
+    '\U00002300-\U000023FF'   # misc technical (⏱ ⌛ ⏰ …)
+    '\U00002190-\U000021FF'   # arrows (↔ ↩ …)
+    '\U0000FE00-\U0000FE0F'   # variation selectors
+    '\U0001F1E6-\U0001F1FF'   # flags
+    '‍⃣™ℹⓂ〰〽㊗㊙'
+    ']+'
+)
+HEADER_PREFIX_RE = re.compile(r'^\s*(?:part\s+\d+\s*[:.\-–—]\s*|index\s+\d+\s*[:.\-–—]*\s*|\d+\s*[.)]\s*)', re.IGNORECASE)
+
+
+def strip_emojis(text):
+    """Remove emojis and tidy the spacing they leave behind."""
+    cleaned = EMOJI_RE.sub(' ', text or '')
+    return re.sub(r'\s{2,}', ' ', cleaned).strip()
+
+
+def section_index(text):
+    """0-7 when the line is one of the 8 section headings, else None."""
+    cleaned = HEADER_PREFIX_RE.sub('', strip_emojis(text)).strip(' -–—:')
+    if not cleaned or len(cleaned) > 100 or any(c in cleaned for c in ';?'):
+        return None
+    lowered = cleaned.lower()
+    for number, (_, keys) in enumerate(SECTIONS):
+        if any(lowered.startswith(key) or (key.startswith('(') and key in lowered) for key in keys):
+            return number
+    return None
+
+
+def fill_sections(questions, warnings):
+    """Give every question its section; fill in sections a document forgot to head.
+
+    Some documents have no heading for one section (e.g. section 3), so its 15
+    questions run on under the previous heading: when the next heading jumps a
+    section, the run is split evenly between the sections it spans.
+    """
+    runs = []                                    # [section index, [questions]]
+    for q in questions:
+        if not runs or q['section_index'] != runs[-1][0]:
+            runs.append([q['section_index'], []])
+        runs[-1][1].append(q)
+    for i, (index, members) in enumerate(runs):
+        if index is None:
+            continue
+        nxt = runs[i + 1][0] if i + 1 < len(runs) else len(SECTIONS)
+        span = (nxt - index) if nxt is not None and nxt > index else 1
+        if span > 1 and i + 1 < len(runs):
+            size = -(-len(members) // span)      # ceil
+            for k, q in enumerate(members):
+                q['section_index'] = index + min(k // size, span - 1)
+    for q in questions:
+        q['section'] = SECTIONS[q['section_index']][0] if q['section_index'] is not None else ''
+
+
 def parse_document(path):
     """{'name', 'screening': {...} | None, 'questions': [...], 'warnings': [...]}.
 
@@ -140,6 +214,7 @@ def parse_document(path):
     result = {'name': category_name_from_filename(path), 'screening': None, 'questions': [], 'warnings': []}
     current = None            # the question being filled
     expecting_text = False    # a Qnn title was just read; the next line is the question text
+    section = None            # index into SECTIONS of the heading the questions are under
 
     paragraphs = [p for p in document.paragraphs if p.text.strip()]
     # Two layouts exist: "Q01. Title" questions under "1. <Section>" headers, or (e.g.
@@ -154,6 +229,8 @@ def parse_document(path):
         if SKIP_LINES.match(text):
             continue
         if INDEX_HEADER_RE.search(text) or SURVEY_TITLE_RE.search(text):
+            if section_index(text) is not None:
+                section = section_index(text)
             current, expecting_text = None, False
             continue
 
@@ -164,13 +241,20 @@ def parse_document(path):
             # A heading after the last question (e.g. "Important scoring
             # recommendations"): designer notes, not part of the survey.
             break
+        if not expecting_text and not question and not screening and section_index(text) is not None:
+            # A section heading, however it is written ("1. 📈 ...", "🛡️ 2. ...", "Index 2 — ...").
+            # Never an answer option, even when it follows a question's options.
+            section = section_index(text)
+            current = None
+            continue
         if screening and result['screening'] is None and not result['questions']:
-            current = {'title': '', 'text': screening.group(1).strip(), 'options': []}
+            current = {'title': '', 'text': strip_emojis(screening.group(1)), 'options': []}
             result['screening'] = current
             expecting_text = False
             continue
         if question:
-            current = {'title': question.group(2).strip(), 'text': '', 'options': [], 'number': int(question.group(1))}
+            current = {'title': strip_emojis(question.group(2)), 'text': '', 'options': [],
+                       'number': int(question.group(1)), 'section_index': section}
             result['questions'].append(current)
             expecting_text = True
             continue
@@ -184,7 +268,7 @@ def parse_document(path):
         if current is None:
             continue
         if expecting_text:
-            current['text'] = text
+            current['text'] = strip_emojis(text)
             expecting_text = False
             continue
         if is_placeholder(text):
@@ -192,7 +276,7 @@ def parse_document(path):
                 current['placeholder'] = text
             continue
         red = is_red(paragraph)
-        option = TERMINATE_NOTE.sub(' ', text).strip()
+        option = strip_emojis(TERMINATE_NOTE.sub(' ', text))
         if option:
             current['options'].append({'text': option, 'red': red})
 
@@ -203,6 +287,7 @@ def parse_document(path):
             q['type'], q['options'] = instruction_to_question(q['options'][0]['text'], q, result['warnings'])
     if result['screening'] is not None:
         result['screening']['type'] = 'multiple_choice'
+    fill_sections(result['questions'], result['warnings'])
 
     if not result['questions']:
         result['warnings'].append('no questions found')
