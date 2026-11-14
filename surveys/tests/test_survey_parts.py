@@ -134,6 +134,21 @@ class SurveyPartsTests(SurveyPartsBase):
         self.assertEqual(LuckyDrawView().quick_draw_progress(self.user)['plays'], 1)
         self.assertContains(self.client.get(self.url(31)), 'id="quick-draw-unlocked"')
 
+    def test_draw_played_mid_survey_returns_to_the_survey(self):
+        self.answer_up_to(30)                    # screening + 30 questions: one Quick draw play
+        draw = self.client.get(reverse('surveys:lucky_draw'))
+
+        resume = reverse('surveys:survey_detail', args=[self.survey.id])
+        self.assertContains(draw, f'data-resume-url="{resume}"')
+        self.assertContains(draw, 'id="return-to-survey"')
+        self.assertNotContains(draw, 'Go to Survey Categories')
+        self.assertRedirects(self.client.get(resume), self.url(31))             # lands on the next question
+
+    def test_draw_without_an_open_survey_keeps_the_categories_prompt(self):
+        draw = self.client.get(reverse('surveys:lucky_draw'))
+        self.assertContains(draw, 'Go to Survey Categories')
+        self.assertNotContains(draw, 'data-resume-url')
+
     def test_answering_again_does_not_count_twice(self):
         self.answer_up_to(5)
         self.answer(3)

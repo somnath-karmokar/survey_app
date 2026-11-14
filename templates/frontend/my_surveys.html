@@ -24,7 +24,7 @@
                                     <tr>
                                         <th>Survey Title</th>
                                         <th>Completed On</th>
-                                        <th>Points Earned</th>
+                                        {# Points Earned hidden until points are defined (after go-live). #}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -38,9 +38,6 @@
                                                 <small class="text-muted d-block">{{ survey_response.survey.description|truncatewords:10 }}</small>
                                             </td>
                                             <td>{{ survey_response.completed_at|date:"M d, Y" }}</td>
-                                            <td>
-                                                <span class="badge bg-success">10 points</span>
-                                            </td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>

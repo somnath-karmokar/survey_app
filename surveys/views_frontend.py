@@ -49,16 +49,32 @@ logger = logging.getLogger(__name__)
 
 
 class SearchView(TemplateView):
+    """Site search (the search box in the header).
+
+    Finds site pages (Lucky draw, Withdraw, FAQ...), survey categories, surveys,
+    polls and - for logged-in users - survey and poll questions. Logged-in users
+    see their own country's content; visitors see each category once.
+    A query matches when the whole phrase appears, or when every significant
+    word appears ("draw winners", "cinema survey"). Question matches are grouped
+    into one result per survey or poll ("12 questions mention ...").
+    """
     template_name = 'surveys/search_results.html'
     min_query_length = 2
     result_limit = 12
+    # Words too common to narrow a search on their own.
+    STOP_WORDS = {
+        'a', 'an', 'and', 'are', 'at', 'can', 'do', 'for', 'how', 'i', 'in', 'is', 'it', 'me', 'my',
+        'of', 'on', 'or', 'the', 'to', 'what', 'where', 'with', 'you', 'your',
+        'survey', 'surveys', 'poll', 'polls', 'page', 'sudraw',
+    }
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        query = self.request.GET.get('q', '').strip()
+        query = ' '.join(self.request.GET.get('q', '').split())[:100]
         results = []
 
-        if len(query) >= self.min_query_length:
+        # Searches made only of very common words ("the", "how to") would match everything.
+        if len(query) >= self.min_query_length and self.query_words(query):
             if self.request.user.is_authenticated:
                 results = self.get_search_results(query)
             else:
@@ -73,109 +89,140 @@ class SearchView(TemplateView):
         })
         return context
 
-    def get_public_search_results(self, query):
-        results = []
+    # ── matching ──────────────────────────────────────────────────────────────
 
-        category_filter = Q(name__icontains=query) | Q(description__icontains=query)
-        categories = SurveyCategory.objects.filter(category_filter).select_related('country')
-        for category in categories.order_by('order', 'name')[:self.result_limit]:
+    def query_words(self, query):
+        words = [w for w in query.lower().replace(',', ' ').split() if len(w) > 1]
+        return [w for w in words if w not in self.STOP_WORDS]
+
+    def text_filter(self, query, fields):
+        """Q: the phrase in any field, or every significant word in some field."""
+        phrase = Q()
+        for field in fields:
+            phrase |= Q(**{f'{field}__icontains': query})
+        words = self.query_words(query)
+        if words == [query.lower()]:
+            return phrase
+        all_words = Q()
+        for word in words:
+            any_field = Q()
+            for field in fields:
+                any_field |= Q(**{f'{field}__icontains': word})
+            all_words &= any_field
+        return phrase | all_words
+
+    def text_matches(self, query, text):
+        words = self.query_words(query)
+        if not words:
+            return False
+        text = (text or '').lower()
+        return query.lower() in text or all(word in text for word in words)
+
+    # ── results ───────────────────────────────────────────────────────────────
+
+    def category_results(self, query, country=None):
+        """One result per category name (visitors would otherwise see one per country)."""
+        categories = SurveyCategory.objects.filter(self.text_filter(query, ('name', 'description')))
+        if country is not None:
+            categories = categories.filter(country=country)
+        results, seen = [], set()
+        for category in categories.order_by('order', 'name', 'id'):
+            key = category.name.strip().lower()
+            if key in seen or not category.slug:
+                continue
+            seen.add(key)
             results.append({
                 'type': 'Category',
                 'title': category.name,
                 'description': category.description or '',
                 'url': reverse('surveys:category_detail', kwargs={'category_slug': category.slug}),
             })
+            if len(results) >= self.result_limit:
+                break
+        return results
 
-        poll_filter = Q(title__icontains=query) | Q(description__icontains=query) | Q(country__name__icontains=query)
-        polls = Poll.objects.filter(poll_filter, is_active=True).select_related('country')
-        for poll in polls.order_by('order', '-created_at').distinct()[:self.result_limit]:
+    def poll_results(self, query, country=None):
+        polls = Poll.objects.filter(self.text_filter(query, ('title', 'description')), is_active=True)
+        if country is not None:
+            polls = polls.filter(country=country)
+        results, seen = [], set()
+        for poll in polls.select_related('country').order_by('order', '-created_at'):
+            key = poll.title.strip().lower()
+            if key in seen:
+                continue
+            seen.add(key)
             results.append({
                 'type': 'Poll',
                 'title': poll.title,
-                'description': poll.description or str(poll.country),
+                'description': poll.description or str(poll.country or ''),
                 'url': reverse('surveys:poll_detail', kwargs={'poll_id': poll.id}),
             })
+            if len(results) >= self.result_limit:
+                break
+        return results
 
-        results.extend(self.get_static_page_results(query))
+    def get_public_search_results(self, query):
+        results = self.get_static_page_results(query)
+        results += self.category_results(query)
+        results += self.poll_results(query)
         return results[:50]
 
     def get_search_results(self, query):
-        results = []
-        user_country = self.get_user_country()
+        country = self.get_user_country()
+        results = self.get_static_page_results(query)
+        categories = self.category_results(query, country)
+        results += categories
+        listed = {r['title'].strip().lower(): r for r in categories}
 
-        category_filter = Q(name__icontains=query) | Q(description__icontains=query)
-        if user_country:
-            categories = SurveyCategory.objects.filter(category_filter, country=user_country)
-        else:
-            categories = SurveyCategory.objects.filter(category_filter)
-
-        for category in categories.select_related('country').order_by('order', 'name')[:self.result_limit]:
-            results.append({
-                'type': 'Category',
-                'title': category.name,
-                'description': category.description or '',
-                'url': reverse('surveys:category_detail', kwargs={'category_slug': category.slug}),
-            })
-
-        survey_filter = Q(name__icontains=query) | Q(description__icontains=query) | Q(category__name__icontains=query)
-        surveys = Survey.objects.filter(survey_filter, is_active=True).select_related('category', 'category__country')
-        if user_country:
-            surveys = surveys.filter(category__country=user_country)
-
-        for survey in surveys.order_by('category__name', 'level', 'name').distinct()[:self.result_limit]:
-            results.append({
-                'type': 'Survey',
-                'title': survey.name,
-                'description': survey.description or survey.category.name,
-                'url': reverse('surveys:survey_detail', kwargs={'survey_id': survey.id}),
-            })
-
-        question_filter = (Q(question_text__icontains=query) | Q(topic__icontains=query)
-                           | Q(surveys__name__icontains=query))
-        questions = Question.objects.filter(question_filter, surveys__is_active=True).prefetch_related('surveys')
-        if user_country:
-            questions = questions.filter(surveys__category__country=user_country)
-
-        for question in questions.order_by('order', 'id').distinct()[:self.result_limit]:
-            survey = next((item for item in question.surveys.all() if item.is_active), None)
-            if not survey:
+        # Surveys matched by name, or by questions that mention the search words.
+        surveys = Survey.objects.filter(is_active=True).select_related('category')
+        if country is not None:
+            surveys = surveys.filter(category__country=country)
+        by_name = surveys.filter(self.text_filter(query, ('name', 'description', 'category__name')))
+        question_hits = dict(
+            Question.objects.filter(self.text_filter(query, ('question_text', 'topic')),
+                                    surveys__in=surveys)
+            .values('surveys').annotate(n=Count('id', distinct=True)).values_list('surveys', 'n')
+        )
+        matched = {s.id: s for s in by_name}
+        matched.update({s.id: s for s in surveys.filter(id__in=question_hits)})
+        for survey in sorted(matched.values(), key=lambda s: (-question_hits.get(s.id, 0), s.category.name)):
+            hits = question_hits.get(survey.id, 0)
+            hits_text = f'{hits} question{"s mention" if hits != 1 else " mentions"} "{query}"'
+            category_result = listed.get(survey.category.name.strip().lower())
+            if category_result is not None:
+                # Already shown as its category (same page): add the question count there.
+                if hits:
+                    category_result['description'] = hits_text
                 continue
             results.append({
-                'type': 'Survey Question',
-                'title': question.topic or question.question_text,
-                'description': survey.name,
-                'url': reverse('surveys:survey_detail', kwargs={'survey_id': survey.id}),
+                'type': 'Survey',
+                'title': f'{survey.category.name} survey',
+                'description': hits_text if hits else (survey.description or survey.category.name),
+                'url': reverse('surveys:category_detail', kwargs={'category_slug': survey.category.slug})
+                if survey.category.slug else reverse('surveys:survey_detail', kwargs={'survey_id': survey.id}),
             })
+            if len(results) >= 40:
+                break
 
-        poll_filter = Q(title__icontains=query) | Q(description__icontains=query) | Q(country__name__icontains=query)
-        polls = Poll.objects.filter(poll_filter, is_active=True).select_related('country')
-        if user_country:
-            polls = polls.filter(country=user_country)
-
-        for poll in polls.order_by('order', '-created_at').distinct()[:self.result_limit]:
+        polls = self.poll_results(query, country)
+        listed_polls = {r['url'] for r in polls}
+        results += polls
+        poll_hits = (
+            PollQuestion.objects.filter(self.text_filter(query, ('question_text',)), poll__is_active=True)
+            .filter(**({'poll__country': country} if country is not None else {}))
+            .values('poll_id', 'poll__title').annotate(n=Count('id')).order_by('-n')[:self.result_limit]
+        )
+        for hit in poll_hits:
+            url = reverse('surveys:poll_detail', kwargs={'poll_id': hit['poll_id']})
+            if url in listed_polls:
+                continue
             results.append({
                 'type': 'Poll',
-                'title': poll.title,
-                'description': poll.description or str(poll.country),
-                'url': reverse('surveys:poll_detail', kwargs={'poll_id': poll.id}),
+                'title': hit['poll__title'],
+                'description': f'{hit["n"]} question{"s mention" if hit["n"] != 1 else " mentions"} "{query}"',
+                'url': url,
             })
-
-        poll_questions = PollQuestion.objects.filter(
-            Q(question_text__icontains=query) | Q(poll__title__icontains=query),
-            poll__is_active=True,
-        ).select_related('poll', 'poll__country')
-        if user_country:
-            poll_questions = poll_questions.filter(poll__country=user_country)
-
-        for question in poll_questions.order_by('order', 'id').distinct()[:self.result_limit]:
-            results.append({
-                'type': 'Poll Question',
-                'title': question.question_text,
-                'description': question.poll.title,
-                'url': reverse('surveys:poll_detail', kwargs={'poll_id': question.poll_id}),
-            })
-
-        results.extend(self.get_static_page_results(query))
         return results[:50]
 
     def get_user_country(self):
@@ -186,45 +233,40 @@ class SearchView(TemplateView):
         return getattr(profile, 'country', None)
 
     def get_static_page_results(self, query):
-        page_results = []
-        normalized_query = query.lower()
+        """Site pages, found by their title, description or keywords."""
         pages = (
-            {
-                'title': 'Home',
-                'description': 'Sudraw surveys, polls, categories, and rewards.',
-                'url': reverse('surveys:home'),
-                'keywords': 'home sudraw survey surveys polls rewards lucky draw',
-            },
-            {
-                'title': 'FAQ',
-                'description': 'Answers about surveys, polls, rewards, privacy, and account questions.',
-                'url': reverse('surveys:faq'),
-                'keywords': 'faq help questions surveys polls rewards privacy account',
-            },
-            {
-                'title': 'Features',
-                'description': 'Sudraw features and platform information.',
-                'url': reverse('surveys:features'),
-                'keywords': 'features platform survey polls rewards',
-            },
-            {
-                'title': 'Contact Us',
-                'description': 'Contact Sudraw support.',
-                'url': reverse('surveys:contact'),
-                'keywords': 'contact support email help',
-            },
+            ('Survey Categories', 'Browse the survey categories available in your country.', 'surveys:category_list',
+             'categories category browse take start begin questionnaire'),
+            ('Lucky Draw', 'Play the Quick draw: one play for every 30 survey questions you answer.', 'surveys:lucky_draw',
+             'lucky draw quick draw prize prizes win winner winners play number game'),
+            ('Polls', 'Answer quick polls and earn Poll draw plays.', 'surveys:poll_list',
+             'polls poll vote voting opinion'),
+            ('Withdraw', 'Withdraw your wallet balance to your bank, PayPal or a verifiable charity '
+             '(we add 20% to charity donations).', 'surveys:wallet_withdrawal_request',
+             'withdraw withdrawal cash out payout payment pay bank paypal charity donate donation money gift card'),
+            ('Wallet', 'Your wallet balance and transaction history.', 'surveys:wallet_history',
+             'wallet balance transactions history earnings money credit rewards reward'),
+            ('Dashboard', 'Your surveys, rewards and draws at a glance.', 'surveys:dashboard',
+             'dashboard account overview my progress'),
+            ('Profile', 'Your account details and settings.', 'surveys:user_profile',
+             'profile account details settings password email suspension suspended'),
+            ('FAQ', 'Answers about surveys, draws, rewards, withdrawals, charity donations and your account.',
+             'surveys:faq', 'faq help question questions answers how rules terms conditions eligibility '
+             'withdraw withdrawal charity donate prize prizes winners draw rewards privacy account'),
+            ('Features', 'What Sudraw offers.', 'surveys:features', 'features platform about how it works'),
+            ('About Us', 'Who we are.', 'surveys:about_us', 'about us company who team sudraw'),
+            ('Privacy Policy', 'How we collect and use your data.', 'surveys:privacy_policy',
+             'privacy policy data gdpr personal information cookies'),
+            ('Contact Us', 'Get in touch with the Sudraw team.', 'surveys:contact',
+             'contact support email help complaint problem error'),
+            ('Home', 'Sudraw surveys, polls, rewards and prize draws.', 'surveys:home',
+             'home homepage sudraw main start'),
         )
-
-        for page in pages:
-            haystack = f"{page['title']} {page['description']} {page['keywords']}".lower()
-            if normalized_query in haystack:
-                page_results.append({
-                    'type': 'Page',
-                    'title': page['title'],
-                    'description': page['description'],
-                    'url': page['url'],
-                })
-        return page_results
+        results = []
+        for title, description, url_name, keywords in pages:
+            if self.text_matches(query, f'{title} {description} {keywords}'):
+                results.append({'type': 'Page', 'title': title, 'description': description, 'url': reverse(url_name)})
+        return results[:5]
 
 
 class CustomLoginView(BaseLoginView):
@@ -536,6 +578,14 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
         from .survey_progress import open_survey_summary
         context['open_survey'] = open_survey_summary(user)
+
+        # Wallet credit for every completed survey (Country settings -> Category completion reward).
+        from .milestones import get_wallet_reward_display
+        from .rewards import category_completion_reward
+        reward = category_completion_reward(profile)
+        if reward > 0:
+            amount, _, symbol = get_wallet_reward_display(user, reward)
+            context['survey_reward'] = {'amount': amount, 'currency_symbol': symbol}
         context['suspended_until'] = profile.suspended_until if profile.is_suspended else None
         context['suspension_message'] = UserProfile.SUSPENSION_MESSAGE
         return context

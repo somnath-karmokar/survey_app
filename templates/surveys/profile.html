@@ -272,7 +272,7 @@
 
     .sp-metrics {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));   /* points card hidden for now */
         gap: 14px;
     }
 
@@ -847,16 +847,7 @@
             <div class="sp-progress" aria-hidden="true"><span style="width: {{ survey_progress|default:'0' }}%"></span></div>
         </article>
 
-        <article class="sp-card sp-metric">
-            <div class="sp-metric-top">
-                <div>
-                    <p class="sp-label">Reward Points</p>
-                    <p class="sp-value">{{ points_earned|default:"0" }}</p>
-                </div>
-                <span class="sp-icon"><i class="fas fa-coins"></i></span>
-            </div>
-            <div class="sp-progress" aria-hidden="true"><span style="width: {{ points_progress|default:'0' }}%"></span></div>
-        </article>
+        {# Reward Points hidden until points are defined (after go-live). #}
 
         <article class="sp-card sp-metric">
             <div class="sp-metric-top">
