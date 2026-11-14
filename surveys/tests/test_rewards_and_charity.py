@@ -65,7 +65,7 @@ class SurveyFlowTests(TestCase):
         return response
 
     def test_settings(self):
-        self.assertEqual(settings.SURVEY_CONFIG['DEFAULT_COOLDOWN_DAYS'], 90)
+        self.assertEqual(settings.SURVEY_CONFIG['DEFAULT_COOLDOWN_DAYS'], 7)        # testing value (90 when live)
         self.assertEqual(settings.SURVEY_CONFIG['AD_FREQUENCY'], 5)
 
     def test_commercial_after_every_5_questions(self):
@@ -89,12 +89,28 @@ class SurveyFlowTests(TestCase):
         self.assertIsNone(credit_category_completion(response))               # never paid twice
         self.assertEqual(UserProfile.objects.get(user=self.user).wallet_balance, Decimal('2.00'))
 
-    def test_completed_survey_is_closed_for_90_days(self):
+    def test_completed_survey_is_closed_for_the_cooldown(self):
         self.complete()
 
         page = self.client.get(reverse('surveys:survey_detail', args=[self.survey.id]), follow=True)
-        self.assertContains(page, 'Please wait 90 more days')
-        self.assertContains(self.client.get(reverse('surveys:survey_list')), 'Available in 90 days')
+        self.assertContains(page, 'Please wait 7 more days')
+        self.assertContains(self.client.get(reverse('surveys:survey_list')), 'Available in 7 days')
+
+    def test_cooldown_follows_the_setting(self):
+        self.complete()
+        with self.settings(SURVEY_CONFIG={**SURVEY_CONFIG, 'DEFAULT_COOLDOWN_DAYS': 90}):
+            page = self.client.get(reverse('surveys:survey_detail', args=[self.survey.id]), follow=True)
+            self.assertContains(page, 'Please wait 90 more days')
+
+    def test_copy_paste_allowed_for_testing_and_blocked_when_switched_off(self):
+        self.answer(0)
+        page = self.client.get(reverse('surveys:survey_question', args=[self.survey.id, 1]))
+        self.assertNotContains(page, "addEventListener('copy'")
+        self.assertNotContains(page, 'user-select: none')
+        with self.settings(SURVEY_CONFIG={**SURVEY_CONFIG, 'ALLOW_COPY_PASTE': False}):
+            page = self.client.get(reverse('surveys:survey_question', args=[self.survey.id, 1]))
+            self.assertContains(page, "addEventListener('copy'")
+            self.assertContains(page, 'user-select: none')
 
 
 @override_settings(SURVEY_CONFIG=SURVEY_CONFIG)

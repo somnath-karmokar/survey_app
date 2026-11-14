@@ -1896,3 +1896,21 @@ body.grp-login .errornote {
   background: var(--sd-surface-2);
   color: var(--sd-text);
 }
+
+/* Two-box pickers (e.g. a question's Surveys): our taller inputs overflowed Grappelli's
+   fixed 27px filter strip and covered the first item in each list. */
+.selector .selector-filter {
+  height: auto !important;
+  padding: 6px 8px 6px 30px !important;
+  line-height: normal !important;
+  text-indent: 0 !important;
+  background-position: 9px 50% !important;
+}
+.selector .selector-filter input[type=text] {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 32px !important;
+  margin: 0 !important;
+  box-sizing: border-box;
+}
+.selector select[multiple] { margin-top: 0 !important; }
