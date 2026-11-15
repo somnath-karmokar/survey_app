@@ -112,39 +112,45 @@ class Command(BaseCommand):
     def import_plan(self, plan, countries):
         totals = {'categories': 0, 'questions': 0, 'choices': 0, 'red': 0}
         order_in_country = defaultdict(int)
-        through = Question.surveys.through
         for code, doc in plan:
             country = countries[code]
             order_in_country[code] += 1
             category = SurveyCategory.objects.create(name=doc['name'], country=country, order=order_in_country[code])
-            survey = Survey.objects.create(
-                name=doc['name'], category=category, level=1, is_active=True,
-                description=f"{doc['name']} customer survey.",
-            )
-
-            entries = [doc['screening']] + doc['questions']
-            questions = Question.objects.bulk_create([
-                Question(
-                    topic=(q.get('title') or None) and q['title'][:255],
-                    question_text=q['text'],
-                    question_type=q['type'],
-                    is_required=True,
-                    order=position,
-                    not_listed_label=(q.get('not_listed_label') or '')[:120],
-                    section_title=(q.get('section') or None) if position else None,
-                )
-                for position, q in enumerate(entries)
-            ])
-            through.objects.bulk_create([through(question_id=q.id, survey_id=survey.id) for q in questions])
-            choices = [
-                Choice(question=question, choice_text=option['text'][:500], is_disqualifying=option['red'])
-                for question, entry in zip(questions, entries)
-                for option in entry['options']
-            ]
-            Choice.objects.bulk_create(choices, batch_size=1000)
-
+            counts = import_survey(category, doc)
             totals['categories'] += 1
-            totals['questions'] += len(questions)
-            totals['choices'] += len(choices)
-            totals['red'] += sum(c.is_disqualifying for c in choices)
+            for key in ('questions', 'choices', 'red'):
+                totals[key] += counts[key]
         return totals
+
+
+def import_survey(category, doc):
+    """Create the category's survey from a parsed document: the Screening Gate, then
+    every question in order (topic, text, section, answer options; red = untruthful).
+    Returns {'survey', 'questions', 'choices', 'red'}."""
+    through = Question.surveys.through
+    survey = Survey.objects.create(
+        name=doc['name'], category=category, level=1, is_active=True,
+        description=f"{doc['name']} customer survey.",
+    )
+    entries = [doc['screening']] + doc['questions']
+    questions = Question.objects.bulk_create([
+        Question(
+            topic=(q.get('title') or None) and q['title'][:255],
+            question_text=q['text'],
+            question_type=q['type'],
+            is_required=True,
+            order=position,
+            not_listed_label=(q.get('not_listed_label') or '')[:120],
+            section_title=(q.get('section') or None) if position else None,
+        )
+        for position, q in enumerate(entries)
+    ])
+    through.objects.bulk_create([through(question_id=q.id, survey_id=survey.id) for q in questions])
+    choices = [
+        Choice(question=question, choice_text=option['text'][:500], is_disqualifying=option['red'])
+        for question, entry in zip(questions, entries)
+        for option in entry['options']
+    ]
+    Choice.objects.bulk_create(choices, batch_size=1000)
+    return {'survey': survey, 'questions': len(questions), 'choices': len(choices),
+            'red': sum(c.is_disqualifying for c in choices)}
